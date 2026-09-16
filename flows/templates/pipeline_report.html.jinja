@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2026 Thales France
+
+  Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+  You may obtain a copy of the License at https://solderpad.org/licenses/
+
+  Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+  CVA6 pipeline report, rendered by the `report-html` recipe from
+  artifacts/reports/pipeline_report.yml (see `merge-reports`).
+  Self-contained page: vendored assets and pipeline data are inlined.
+-->
+<html lang="en">
+<head>
+  <title>CVA6 — {{ title }}</title>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1" name="viewport">
+  <style>{{ bootstrap_css }}</style>
+  {% raw %}
+  <style>
+    body { background: #f5f6f8; }
+
+    /* Pipeline header: responsive flex */
+    .pipe-header { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; }
+    .pipe-header .meta-right { margin-left: auto; text-align: right; }
+    @media (max-width: 575px) { .pipe-header .meta-right { margin-left: 0; text-align: left; } }
+
+    /* Matrix: sticky two-row header + inner scroll. Fixed row height so
+       the second header row can stick right below the first one. */
+    .matrix-wrap { max-height: 70vh; overflow: auto; }
+    .matrix-wrap thead th {
+      position: sticky; top: 0; z-index: 2; height: 1.9rem;
+      background: #212529; color: #fff; white-space: nowrap;
+    }
+    .matrix-wrap thead tr:nth-child(2) th { top: 1.9rem; }
+    .matrix-wrap td { white-space: nowrap; vertical-align: middle; }
+
+    /* Testlist cell: the only cell holding several badges, so it is the one
+       cell allowed to wrap (selector kept more specific than the nowrap rule
+       above). Without this the row would grow as wide as the list of
+       testlists and push the whole table into horizontal scroll. */
+    .matrix-wrap td.cell-testlist {
+      white-space: normal; min-width: 9em; max-width: 22em;
+    }
+    .cell-testlist .tl-badge { font-weight: normal; margin: 1px 0; }
+    @media (max-width: 768px) {
+      .matrix-wrap td.cell-testlist { max-width: 12em; }
+    }
+
+    /* Truncated target names, full name on hover */
+    .target-name {
+      display: inline-block; max-width: 24ch; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+      font-family: var(--bs-font-monospace); font-size: .85em;
+    }
+    @media (max-width: 420px) { .target-name { max-width: 13ch; } }
+
+    .cell-status { min-width: 4.2em; }
+    /* PASS with a non-blocking tandem mismatch (Spike-incompatible ISA) */
+    .bg-tandem { background-color: #fd7e14 !important; }
+    .mono { font-family: var(--bs-font-monospace); font-size: .9em; }
+    .kpi-over { color: var(--bs-danger); font-weight: 600; }
+    .kpi-ok { color: var(--bs-success); }
+
+    /* Recipe options: source paths and flag lists are long, so the value
+       column wraps instead of widening the card. */
+    .ctx-val { word-break: break-all; max-width: 70ch; }
+
+    .analyze-log { font-family: var(--bs-font-monospace); font-size: .8em; white-space: pre-wrap; margin-bottom: 0; }
+    .donut-box { max-width: 340px; }
+    .clickable { cursor: pointer; }
+
+    /* "terminal" area: recipe console log (Details metric) */
+    .term {
+      background: #1e1e1e; color: #d4d4d4; border-radius: 6px;
+      font-family: var(--bs-font-monospace); font-size: .78em;
+      padding: .6rem .8rem; max-height: 320px; overflow: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .term .t-step { color: #4ec9b0; font-weight: 600; }
+    .term .t-ok { color: #6bcb77; }
+    .term .t-warn { color: #e5c07b; }
+    .term .t-err { color: #f47067; font-weight: 600; }
+  </style>
+  {% endraw %}
+</head>
+<body>
+<div class="container-fluid py-3 px-2 px-md-4" style="max-width: 1500px">
+
+  <!-- ======================= PIPELINE HEADER ======================== -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body pipe-header" id="pipe-header"></div>
+  </div>
+
+  <!-- ======================= TARGET MATRIX ========================== -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header fw-bold">Targets &times; stages</div>
+    <div class="table-responsive matrix-wrap">
+      <table class="table table-sm table-hover table-bordered small text-center mb-0" id="matrix"></table>
+    </div>
+    <div class="card-body py-2 small border-top d-none" id="lint-line"></div>
+    <div class="card-footer small text-muted">
+      <span class="badge bg-success">PASS</span>
+      <span class="badge bg-danger">FAIL</span>
+      <span class="badge bg-warning text-dark">ENV</span>
+      <span class="badge bg-tandem">PASS</span> tandem mismatch (non-blocking)
+      &nbsp;
+      <span class="badge bg-light text-muted border">&mdash;</span> stage not run
+      &nbsp;&middot;&nbsp; click a row for the target details
+    </div>
+  </div>
+
+  <!-- ======================= TARGET DETAILS ========================= -->
+  <div id="target-details"></div>
+
+  <!-- ============================ FOOTER ============================ -->
+  <footer class="text-center small text-muted mt-4 mb-2">
+    &copy; 2026 Thales France &mdash;
+    <a href="mailto:yannick.casamatta@thalesgroup.com">Yannick Casamatta</a>
+  </footer>
+
+</div>
+
+<script>{{ bootstrap_js }}</script>
+<script>{{ chart_js }}</script>
+<script>
+"use strict";
+const PIPELINE = {{ pipeline_json }};
+{% raw %}
+/* The orchestrator is dropped, not displayed: it drives the recipes whose
+ * reports make up this page, so its status only restates their worst one and
+ * its runtime is the pipeline runtime already shown in the header. Keeping it
+ * would add a cross-target row and a card that carry no result of their own. */
+const JOBS = (PIPELINE.jobs || []).filter((j) => j.recipe !== "full-regression");
+JOBS.forEach((j, i) => { j._idx = i; });
+
+const CROSS_TARGET = "cross-target";
+
+/* =====================================================================
+ * FORMATS — mirror of flows/utils/formats.py
+ * ===================================================================== */
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const STATUS_BADGE = {
+  pass: '<span class="badge bg-success">PASS</span>',
+  fail: '<span class="badge bg-danger">FAIL</span>',
+  env:  '<span class="badge bg-warning text-dark">ENV</span>',
+  "pass-tandem": '<span class="badge bg-tandem" title="Tandem mismatch (non-blocking)">PASS</span>',
+  none: '<span class="badge bg-light text-muted border">&mdash;</span>',
+};
+function badge(status, label) {
+  if (!status) return STATUS_BADGE.none;
+  if (!label) return STATUS_BADGE[status] || STATUS_BADGE.none;
+  const cls = { pass: "bg-success", fail: "bg-danger", env: "bg-warning text-dark",
+                "pass-tandem": "bg-tandem" }[status]
+              || "bg-secondary";
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+function fmtNum(v) {
+  return Number.isInteger(v) ? v.toLocaleString("en")
+    : v.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function inferFmt(key, v) {
+  const k = String(key).toLowerCase();
+  const isStatus = typeof v === "string" && ["pass", "fail", "env"].includes(v.toLowerCase());
+  if (k === "status" || isStatus) return "status";
+  if (typeof v === "number") return "num";
+  if (typeof v === "string" && v.toLowerCase().startsWith("0x")) return "hex";
+  if (/(log|report|path|file)$/.test(k)) return "path";
+  return "text";
+}
+function renderVal(v, fmt) {
+  if (v === null || v === undefined) return "";
+  if (fmt === "status") return badge(String(v).toLowerCase());
+  if (typeof v === "number") {
+    if (fmt === "pct") return esc(v.toFixed(1)) + " %";
+    if (fmt === "delta") return esc((v >= 0 ? "+" : "") + fmtNum(v));
+    return esc(fmtNum(v)) + (fmt === "cycles" ? " cycles" : "");
+  }
+  if (fmt === "hex") return `<span class="mono">${esc(v)}</span>`;
+  if (fmt === "path") {
+    const base = String(v).split("/").pop();
+    return `<span class="mono" title="${esc(v)}">${esc(base)}</span>`;
+  }
+  return esc(v);
+}
+function timeAgo(epoch) {
+  const s = Math.floor(Date.now() / 1000) - epoch;
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+}
+function duration(s) {
+  if (!s && s !== 0) return "";
+  return s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`
+                   : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
+
+/* =====================================================================
+ * CLASSIFICATION — by recipe + context only, independent of any CI
+ * stage/job structure: the report consumes whatever cook_report.yml
+ * files exist in the workdir, whether they were produced by CI jobs or
+ * by running the recipes sequentially in a single workdir.
+ * ===================================================================== */
+function jobClass(j) {
+  const r = j.recipe || "";
+  const ctx = j.context || {};
+  const test = String(ctx.test_name || "").toLowerCase();
+  const gate = String(ctx.comp_mode || "").startsWith("gate");
+  if (/^spyglass/.test(r)) return "spyglass";
+  if (r === "sw-compile-testlist") return "testlist_comp";
+  if (/run-testlist$/.test(r)) return "testlist_run";
+  if (/-(uvm|generator)-comp$/.test(r)) return gate ? "postsim_elab" : "rtl_elab";
+  if (/-(uvm|generator)-run$/.test(r) || r === "spike-run") {
+    if (gate) return "postsim_run";
+    if (test.includes("coremark")) return "coremark_run";
+    if (test.includes("dhrystone")) return "dhrystone_run";
+    return r === "spike-run" ? "spike" : "hello_run";
+  }
+  if (r === "sw-compile") {
+    if (test.includes("coremark")) return "coremark_comp";
+    if (test.includes("dhrystone")) return "dhrystone_comp";
+    return "hello_comp";
+  }
+  if (r === "dc-shell-synth") return "synthesis";
+  if (/formating$|^pylint-run$|^self-check$|^git-dependencies$/.test(r)) return "lint";
+  /* Setup work that prepares a target without testing anything
+   * (riscv-isa-modify patches the ISA to work around a missing extension):
+   * no verdict worth a matrix column, kept in the per-target detail. */
+  if (r === "riscv-isa-modify") return "setup";
+  return "other";
+}
+JOBS.forEach((j) => { j._class = jobClass(j); });
+
+/* =====================================================================
+ * GROUPING — jobs by target (jobs without a target: cross-target group).
+ * Lint jobs (Black/Pylint/Verible) are cross-target even when their
+ * recipe took a target option (e.g. Verible only uses it for the Flist:
+ * the result applies to the whole RTL).
+ * ===================================================================== */
+const TARGETS = [];               /* display order: order of appearance   */
+const TARGET_JOBS = new Map();    /* target -> jobs[]                     */
+for (const j of JOBS) {
+  /* Only a string names a target: an orchestrator reporting the whole set
+   * it drives would otherwise become a Map key of its own, and show up as
+   * a row whose name is every target concatenated. */
+  const ctxTarget = j.context && j.context.target;
+  const t = (j._class !== "lint" && typeof ctxTarget === "string" && ctxTarget)
+            || CROSS_TARGET;
+  if (!TARGET_JOBS.has(t)) { TARGETS.push(t); TARGET_JOBS.set(t, []); }
+  TARGET_JOBS.get(t).push(j);
+}
+if (TARGETS.includes(CROSS_TARGET)) {  /* cross-target jobs shown first */
+  TARGETS.splice(TARGETS.indexOf(CROSS_TARGET), 1);
+  TARGETS.unshift(CROSS_TARGET);
+}
+
+/* Matrix columns: fixed two-level model (group -> subcolumns). A
+ * subcolumn is either a job-status cell (classes) or a KPI cell (kpi
+ * name); it is rendered only when at least one target populates it.
+ * Lint jobs (Black/Pylint) are not target-specific: they are shown on
+ * a separate line below the matrix, not as a column. A class no column
+ * claims (lint, setup, other) stays out of the matrix and is listed in
+ * the job detail, so the global view only shows actual verdicts. */
+const MATRIX_MODEL = [
+  ["Lint",       [["", { classes: ["spyglass"] }]]],
+  ["Elab",       [["", { classes: ["rtl_elab"] }]]],
+  ["Synth",      [["", { classes: ["synthesis"] }]]],
+  ["HelloWorld", [["SW Comp", { classes: ["hello_comp"] }],
+                  ["Run Sim", { classes: ["hello_run"] }]]],
+  ["Testlist",   [["", { classes: ["testlist_comp", "testlist_run"],
+                         testlists: true }]]],
+  /* Bench cells show the score KPI; when the benchmark jobs ran but
+   * produced no score (compile/run failure), they fall back to the
+   * worst job status instead of an empty dash. Dhrystone is shown as
+   * DMIPS/MHz, the comparable figure; its raw iteration rate stays in the
+   * job detail. */
+  ["Bench",      [["CM/MHz",   { kpi: "coremark_per_mhz",
+                                 classes: ["coremark_comp", "coremark_run"] }],
+                  ["DMIPS/MHz", { kpi: "dhrystone_dmips_per_mhz",
+                                 classes: ["dhrystone_comp", "dhrystone_run"] }]]],
+  ["Gate",       [["", { classes: ["postsim_elab", "postsim_run"] }]]],
+];
+function colPopulated(col) {
+  /* A score column needs the KPI itself: falling back to the job status
+   * would turn a report predating the KPI into a full column of FAIL. */
+  if (col.kpi)
+    return TARGETS.some((t) => targetKpis(t).some(([n]) => n === col.kpi));
+  if (col.classes) return JOBS.some((j) => col.classes.includes(j._class));
+  return false;
+}
+const MATRIX_GROUPS = MATRIX_MODEL
+  .map(([label, cols]) => ({
+    label,
+    cols: cols.filter(([, col]) => colPopulated(col))
+              .map(([sub, col]) => ({ sub, ...col })),
+  }))
+  .filter((g) => g.cols.length);
+
+/* Per-target details: static topology of collapsed cards, rendered by
+ * targetSections() below (Spyglass, RTL elaboration, Helloworld,
+ * Testlists, Coremark, Dhrystone, Synthesis, Post simulation). */
+/* PASS with a non-blocking tandem mismatch: the job (or one of its
+ * testlist children) ran on a Spike-incompatible ISA and the tandem
+ * comparison reported mismatches downgraded to warnings. */
+function hasTandemMismatch(j) {
+  if (j.context && j.context.tandem_mismatch) return true;
+  return Object.values(j.children || {}).some(
+    (c) => c.context && c.context.tandem_mismatch);
+}
+function jobStatus(j) {
+  return j.status === "pass" && hasTandemMismatch(j) ? "pass-tandem" : j.status;
+}
+function jobLabel(j) {
+  if (jobStatus(j) !== "pass-tandem") return j.label;
+  return j.label ? `${j.label} — tandem mismatch` : "PASS — tandem mismatch";
+}
+function worstOf(statuses) {
+  if (statuses.includes("fail")) return "fail";
+  if (statuses.includes("env")) return "env";
+  if (statuses.includes("pass-tandem")) return "pass-tandem";
+  return statuses.length ? "pass" : null;
+}
+function worstStatus(jobs) { return worstOf(jobs.map(jobStatus)); }
+function targetKpis(t) {
+  const kpis = [];  /* [name, {value, unit, expected, better}] */
+  for (const j of TARGET_JOBS.get(t)) {
+    for (const [name, k] of Object.entries(j.kpi || {})) kpis.push([name, k]);
+  }
+  return kpis;
+}
+function kpiOver(k) {
+  if (k.expected === undefined || k.expected === null) return false;
+  if (k.better === "higher") return k.value < k.expected;
+  return k.value > k.expected;  /* default: lower is better */
+}
+
+/* =====================================================================
+ * RENDER — HEADER
+ * ===================================================================== */
+(function renderHeader() {
+  const branch = PIPELINE.ref_name || "";
+  const sha = PIPELINE.sha || "";
+  const uid = PIPELINE.workflow_uid || "";
+  document.getElementById("pipe-header").innerHTML = `
+    <div>${badge(PIPELINE.status, PIPELINE.label || PIPELINE.status)}</div>
+    <div class="flex-grow-1" style="min-width: 240px">
+      <div class="fw-bold">
+        ${esc(PIPELINE.title || "")}
+        <span class="badge bg-warning text-dark rounded-pill" title="${esc(branch)}">
+          ${esc(branch.length > 32 ? branch.slice(0, 32) + "…" : branch)}</span>
+        <span class="badge bg-primary rounded-pill mono">${esc(sha.slice(0, 8))}</span>
+      </div>
+      <small class="text-muted">Authored by ${esc(PIPELINE.author || "")} |
+        Pipeline ${PIPELINE.pipeline_url
+          ? `<a href="${esc(PIPELINE.pipeline_url)}">#${esc(uid)}</a>` : `#${esc(uid)}`}</small>
+    </div>
+    <div class="meta-right small text-muted">
+      <div>&#9201; ${duration(PIPELINE.runtime)}</div>
+      <div>${PIPELINE.timestamp ? timeAgo(PIPELINE.timestamp) : ""}</div>
+    </div>`;
+})();
+
+/* =====================================================================
+ * RENDER — MATRIX
+ * ===================================================================== */
+function matrixStageCell(jobs) {
+  if (!jobs.length) return `<td class="cell-status">${STATUS_BADGE.none}</td>`;
+  const status = worstStatus(jobs);
+  const tip = jobs.map((j) => `${j.title || j.recipe}: ${(jobLabel(j) || j.status || "?").toUpperCase()}`)
+                  .join("&#10;");
+  let label = null;
+  if (jobs.length === 1) {
+    label = jobs[0].label;
+  } else {
+    const nPass = jobs.filter((j) => j.status === "pass").length;
+    label = `${nPass}/${jobs.length}`;
+  }
+  return `<td class="cell-status" title="${tip}">${badge(status, label)}</td>`;
+}
+/* Testlist cell: one badge per testlist the target ran, green when both its
+ * compile and run passed, red otherwise. A column per testlist would be
+ * unreadable (a dozen of them, mostly empty), and a single count would not
+ * say which list regressed. */
+function matrixTestlistCell(jobs) {
+  if (!jobs.length) return `<td class="cell-status">${STATUS_BADGE.none}</td>`;
+  const byList = new Map();
+  for (const j of jobs) {
+    const name = String((j.context && j.context.testlist) || "")
+      .split("/").pop().replace(/\.ya?ml$/, "").replace(/^base_/, "");
+    if (!byList.has(name)) byList.set(name, []);
+    byList.get(name).push(j);
+  }
+  const badges = [...byList.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, js]) => {
+      const st = worstStatus(js);
+      const cls = { pass: "bg-success", fail: "bg-danger",
+                    env: "bg-warning text-dark" }[st] || "bg-secondary";
+      const tip = js.map((j) => `${j.title || j.recipe}: ` +
+                                `${(jobLabel(j) || j.status || "?").toUpperCase()}`)
+                    .join("&#10;");
+      return `<span class="badge ${cls} tl-badge" title="${name}&#10;${tip}">` +
+             `${esc(name)}</span>`;
+    }).join(" ");
+  return `<td class="cell-testlist">${badges}</td>`;
+}
+function matrixKpiCell(t, name, jobs) {  const found = targetKpis(t).find(([n]) => n === name);
+  if (!found) {
+    /* No score: a benchmark is a compile + a run, and a per-job count
+     * ("1/2") says nothing about the score, so show the worst status
+     * bare (FAIL/ENV). A dash when the jobs were not executed at all.
+     * The job detail below keeps its per-job breakdown. */
+    if (jobs.length) {
+      const status = worstStatus(jobs);
+      const tip = jobs.map((j) => `${j.title || j.recipe}: ${(jobLabel(j) || j.status || "?").toUpperCase()}`)
+                      .join("&#10;");
+      return `<td class="cell-status" title="${tip}">${
+        STATUS_BADGE[status] || STATUS_BADGE.none}</td>`;
+    }
+    return '<td class="text-muted">&mdash;</td>';
+  }
+  const k = found[1];
+  const over = kpiOver(k);
+  const tip = k.expected !== undefined && k.expected !== null
+    ? `expected ${fmtNum(k.expected)} ${k.unit || ""}` : (k.unit || "");
+  return `<td class="${over ? "kpi-over" : ""}" title="${esc(tip)}">
+            ${esc(fmtNum(k.value))}${over ? " &#9650;" : ""}</td>`;
+}
+(function renderMatrix() {
+  /* Two-level header: single-column groups span both rows (rowspan),
+   * multi-column groups span their subcolumns (colspan) with the
+   * subcolumn labels on the second row. */
+  const hasSubRow = MATRIX_GROUPS.some((g) => g.cols.length > 1);
+  let top = `<th class="text-start" ${hasSubRow ? 'rowspan="2"' : ""}>Target</th>`;
+  let sub = "";
+  for (const g of MATRIX_GROUPS) {
+    if (g.cols.length === 1) {
+      top += `<th ${hasSubRow ? 'rowspan="2"' : ""}>${esc(g.label)}</th>`;
+    } else {
+      top += `<th colspan="${g.cols.length}">${esc(g.label)}</th>`;
+      sub += g.cols.map((c) => `<th class="fw-normal">${esc(c.sub)}</th>`).join("");
+    }
+  }
+  let html = `<thead><tr>${top}</tr>${hasSubRow ? `<tr>${sub}</tr>` : ""}</thead><tbody>`;
+  for (const t of TARGETS) {
+    const jobs = TARGET_JOBS.get(t);
+    let cells = "";
+    let populated = false;
+    for (const g of MATRIX_GROUPS) {
+      for (const c of g.cols) {
+        const picked = c.classes
+          ? jobs.filter((j) => c.classes.includes(j._class)) : [];
+        if (c.kpi) {
+          const found = targetKpis(t).some(([n]) => n === c.kpi);
+          populated = populated || found || picked.length > 0;
+          cells += matrixKpiCell(t, c.kpi, picked);
+        } else if (c.testlists) {
+          populated = populated || picked.length > 0;
+          cells += matrixTestlistCell(picked);
+        } else {
+          populated = populated || picked.length > 0;
+          cells += matrixStageCell(picked);
+        }
+      }
+    }
+    if (!populated) continue;  /* e.g. lint-only cross-target group */
+    html += `<tr class="clickable" data-target="${esc(t)}">
+      <td class="text-start"><span class="target-name" title="${esc(t)}">${esc(t)}</span></td>
+      ${cells}</tr>`;
+  }
+  document.getElementById("matrix").innerHTML = html + "</tbody>";
+
+  /* Lint jobs (Black/Pylint/...): not target-specific, shown below */
+  const lintJobs = JOBS.filter((j) => j._class === "lint");
+  if (lintJobs.length) {
+    const line = document.getElementById("lint-line");
+    line.classList.remove("d-none");
+    line.innerHTML = lintJobs.map((j) =>
+      `<span class="me-3">${badge(jobStatus(j), null)}
+       <span class="mono">${esc(j.title || j.recipe)}</span></span>`).join("");
+  }
+})();
+
+/* =====================================================================
+ * RENDER — METRICS (generic, by kind)
+ * ===================================================================== */
+let UID = 0;                      /* unique ids for generated collapses  */
+const CHILD_REG = {};             /* collapse id -> child report doc     */
+
+function metricFmt(metric, key, value) {
+  return (metric.fmt && metric.fmt[key]) || inferFmt(key, value);
+}
+function renderTableMetric(m) {
+  const rows = Object.entries(m.data || {}).map(([k, v]) =>
+    `<tr><td class="mono">${esc(k)}</td>
+     <td class="text-end">${renderVal(v, metricFmt(m, k, v))}</td></tr>`).join("");
+  if (!rows) return "";
+  return `<table class="table table-sm small w-auto mb-2">
+    <thead><tr><th colspan="2">${esc(m.name)}</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+/* Child report (testlist sub-test) attached to a row `report` path */
+function childKeyFor(job, value) {
+  if (!job || !job.children || typeof value !== "string") return null;
+  for (const k of Object.keys(job.children)) {
+    if (value === k || value.endsWith("/" + k)) return k;
+  }
+  return null;
+}
+function renderRowsMetric(m, job) {
+  const rows = m.data || [];
+  if (!rows.length) return "";
+  const cols = [];
+  for (const r of rows) {
+    for (const k of Object.keys(r)) if (!cols.includes(k)) cols.push(k);
+  }
+  let html = "";
+  for (const r of rows) {
+    let childKey = null;
+    for (const c of cols) {
+      if (!childKey) childKey = childKeyFor(job, r[c]);
+    }
+    const child = childKey ? job.children[childKey] : null;
+    const childTandem = child && child.context && child.context.tandem_mismatch;
+    const cells = cols.map((c) => {
+      const v = r[c];
+      if (childKey && v === r.report && childKeyFor(job, v)) {
+        return `<td class="text-muted small">details &#9662;</td>`;
+      }
+      if (childTandem && c === "status" && String(v).toLowerCase() === "pass") {
+        return `<td>${badge("pass-tandem", "PASS — tandem mismatch")}</td>`;
+      }
+      return `<td>${renderVal(v, metricFmt(m, c, v))}</td>`;
+    }).join("");
+    if (childKey) {
+      const id = `child-${UID++}`;
+      CHILD_REG[id] = job.children[childKey];
+      const failRow = String(r.status || "").toLowerCase() === "fail";
+      html += `<tr class="clickable ${failRow ? "table-danger" : ""}"
+                   data-bs-toggle="collapse" data-bs-target="#${id}">${cells}</tr>
+        <tr class="collapse" id="${id}" data-child-id="${id}">
+          <td colspan="${cols.length}" class="text-start bg-light">
+            <div class="lazy-slot p-1"><em class="small text-muted">loading…</em></div>
+          </td></tr>`;
+    } else {
+      html += `<tr>${cells}</tr>`;
+    }
+  }
+  return `<div class="table-responsive mb-2">
+    <table class="table table-sm table-hover small mb-0">
+      <caption class="caption-top small fw-bold pt-0">${esc(m.name)}</caption>
+      <thead><tr>${cols.map((c) => `<th class="text-start">${esc(c)}</th>`).join("")}</tr></thead>
+      <tbody class="text-start">${html}</tbody></table></div>`;
+}
+/* Console log line coloring for the terminal area */
+function termLine(line) {
+  const e = esc(line);
+  if (/^\[[^\]]*\]/.test(line))                    return `<span class="t-step">${e}</span>`;
+  if (/error|fatal|fail/i.test(line))              return `<span class="t-err">${e}</span>`;
+  if (/warn/i.test(line))                          return `<span class="t-warn">${e}</span>`;
+  if (/success|pass|ok\b/i.test(line))             return `<span class="t-ok">${e}</span>`;
+  return e;
+}
+function renderLogMetric(m) {
+  const lines = m.data || [];
+  if (!lines.length) return "";
+  if (m.name === "Details") {   /* recipe console log: terminal area */
+    return `<details class="mb-2">
+      <summary class="small fw-bold">Console (${lines.length} lines)</summary>
+      <div class="term mt-1">${lines.map(termLine).join("\n")}</div></details>`;
+  }
+  const failed = m.status === "fail";
+  const body = `<pre class="analyze-log ${failed ? "text-danger" : ""}">`
+    + lines.map(esc).join("\n") + "</pre>";
+  if (failed) {
+    return `<div class="alert alert-danger py-2 px-3 mb-2">
+      <strong>${esc(m.name)}</strong>${body}</div>`;
+  }
+  return `<details class="mb-2">
+    <summary class="small fw-bold">${esc(m.name)} (${lines.length} lines)</summary>
+    <div class="border rounded p-2 mt-1">${body}</div></details>`;
+}
+function renderKpiMetric(m) {
+  const k = m.data || {};
+  const over = kpiOver(k);
+  return `<table class="table table-sm small w-auto mb-2">
+    <thead><tr><th colspan="2">KPI ${esc(m.name)}</th></tr></thead><tbody>
+    <tr><td>value</td><td class="text-end ${over ? "kpi-over" : "kpi-ok"}">
+      ${esc(fmtNum(k.value))} ${esc(k.unit || "")}</td></tr>
+    ${k.expected !== undefined && k.expected !== null
+      ? `<tr><td>expected</td><td class="text-end text-muted">${esc(fmtNum(k.expected))}</td></tr>`
+      : ""}
+    </tbody></table>`;
+}
+/* Recipe options: the `context` of the report, i.e. what the recipe was
+ * called with (compiler flags, ISA, source files, resolved tool paths...).
+ * Collapsed, after the metrics: this is what a run needs to be reproduced,
+ * not a result. Lists are shown one item per line, long paths kept as is. */
+function renderContext(doc) {
+  const ctx = doc.context || {};
+  const keys = Object.keys(ctx).sort();
+  if (!keys.length) return "";
+  let rows = "";
+  for (const k of keys) {
+    const v = ctx[k];
+    let cell;
+    if (Array.isArray(v)) {
+      cell = v.length
+        ? v.map((x) => esc(String(x))).join("<br>")
+        : '<span class="text-muted">&mdash;</span>';
+    } else if (v === null || v === undefined || v === "") {
+      cell = '<span class="text-muted">&mdash;</span>';
+    } else {
+      cell = esc(String(v));
+    }
+    rows += `<tr><td class="mono text-nowrap align-top">${esc(k)}</td>`
+          + `<td class="mono ctx-val">${cell}</td></tr>`;
+  }
+  return `<details class="mb-2">
+    <summary class="small fw-bold">Recipe options (${keys.length})</summary>
+    <div class="table-responsive mt-1">
+      <table class="table table-sm small w-auto mb-0">
+        <tbody class="text-start">${rows}</tbody></table></div></details>`;
+}
+function renderMetrics(doc) {
+  let html = "";
+  for (const m of doc.metrics || []) {
+    if (m.kind === "table") html += renderTableMetric(m);
+    else if (m.kind === "rows") html += renderRowsMetric(m, doc);
+    else if (m.kind === "log") html += renderLogMetric(m);
+    else if (m.kind === "kpi") html += renderKpiMetric(m);
+    /* kind "data": machine-readable payload, not displayed */
+  }
+  if (!html) html = '<p class="text-muted small mb-0">No metrics.</p>';
+  return html + renderContext(doc);
+}
+
+/* =====================================================================
+ * RENDER — TARGET DETAILS (independent accordions, no data-bs-parent)
+ * ===================================================================== */
+const DONUT_COLORS = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+                      "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac", "#86bcb6"];
+
+function kpiBlock(t) {
+  const kpis = targetKpis(t);
+  if (!kpis.length) return "";
+  let rows = "";
+  for (const [name, k] of kpis) {
+    const over = kpiOver(k);
+    const hasExp = k.expected !== undefined && k.expected !== null;
+    rows += `<tr>
+      <td class="mono">${esc(name)}</td>
+      <td class="text-end ${over ? "kpi-over" : "kpi-ok"}">${esc(fmtNum(k.value))}</td>
+      <td>${esc(k.unit || "")}</td>
+      <td class="text-end text-muted">${hasExp ? esc(fmtNum(k.expected)) : "&mdash;"}</td>
+      <td>${hasExp
+        ? (over ? '<span class="badge bg-danger">over</span>'
+                : '<span class="badge bg-success">ok</span>')
+        : ""}</td>
+    </tr>`;
+  }
+  return `<table class="table table-sm small w-auto">
+    <thead><tr><th>KPI</th><th class="text-end">Value</th><th></th>
+    <th class="text-end">Expected</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+/* Donut data: "Hierarchies details" rows metric of a synthesis job */
+function donutJob(t) {
+  return TARGET_JOBS.get(t).find((j) =>
+    (j.metrics || []).some((m) => m.name === "Hierarchies details" && m.kind === "rows"));
+}
+/* Failed-job alerts: failing Summary lines shown before the job list */
+function targetIssues(t) {
+  let html = "";
+  for (const j of TARGET_JOBS.get(t)) {
+    if (j.status === "pass") continue;
+    const summary = (j.metrics || []).find((m) => m.name === "Summary");
+    const lines = ((summary && summary.data) || [])
+      .filter((r) => String(r.status).toLowerCase() !== "pass")
+      .map((r) => (r.step ? `[${r.step}] ` : "") + (r.message || ""));
+    html += `<div class="alert alert-${j.fail_kind === "environment" ? "warning" : "danger"}
+                  py-2 px-3 mb-2">
+      <strong>${esc(j.title || j.recipe)}</strong> — ${badge(jobStatus(j), jobLabel(j))}
+      ${lines.length ? `<div class="analyze-log mt-1">${lines.map(esc).join("\n")}</div>` : ""}
+    </div>`;
+  }
+  return html;
+}
+function jobHeaderMeta(j) {
+  const parts = [];
+  if (j.recipe) parts.push(esc(j.recipe));
+  if (j.job_started_at && j.job_end_at) parts.push(duration(j.job_end_at - j.job_started_at));
+  const jobLink = j.job_id
+    ? (j.job_url ? `<a href="${esc(j.job_url)}">job #${esc(j.job_id)}</a>`
+                 : `job #${esc(j.job_id)}`)
+    : "";
+  return `<span class="text-muted small">${parts.join(" &middot; ")}</span>
+          <span class="text-muted small ms-auto">${jobLink}</span>`;
+}
+/* --- collapsible cards: header shows status/value only, body is
+ * collapsed by default and rendered lazily where possible ------------ */
+function cardShell(head, clickAttr, bodyHtml) {
+  return `<div class="border rounded mb-1">
+    <div class="p-2 d-flex flex-wrap align-items-center gap-2 ${clickAttr ? "clickable" : ""}"
+         ${clickAttr}>${head}</div>${bodyHtml || ""}</div>`;
+}
+function plainCard(head) { return cardShell(head, "", ""); }
+function eagerCard(head, body) {
+  const id = `sec-${UID++}`;
+  return cardShell(head, `data-bs-toggle="collapse" data-bs-target="#${id}"`,
+    `<div class="collapse" id="${id}"><div class="p-2 pt-0 ps-3">${body}</div></div>`);
+}
+function lazyJobCard(head, j) {   /* body = job metrics, rendered on expand */
+  const id = `sec-${UID++}`;
+  return cardShell(head, `data-bs-toggle="collapse" data-bs-target="#${id}"`,
+    `<div class="collapse" id="${id}" data-job-idx="${j._idx}">
+       <div class="p-2 lazy-slot"><em class="small text-muted">loading…</em></div></div>`);
+}
+function lazyChildCard(head, doc) {  /* body = child report metrics */
+  const id = `child-${UID++}`;
+  CHILD_REG[id] = doc;
+  return cardShell(head, `data-bs-toggle="collapse" data-bs-target="#${id}"`,
+    `<div class="collapse" id="${id}" data-child-id="${id}">
+       <div class="p-2 lazy-slot"><em class="small text-muted">loading…</em></div></div>`);
+}
+function sectionHead(status, title, extra = "") {
+  return `${badge(status)} <span class="fw-bold">${esc(title)}</span>${extra}`;
+}
+function jobEntry(j) {
+  return lazyJobCard(
+    `${badge(jobStatus(j), jobLabel(j))} <span class="mono">${esc(j.title || j.recipe)}</span>
+     ${jobHeaderMeta(j)}`, j);
+}
+/* Section card backed by jobs: single job expands straight to its
+ * metrics, several jobs expand to a list of job entries. */
+function jobsCard(title, jobs) {
+  if (!jobs.length) return plainCard(sectionHead(null, title));
+  if (jobs.length === 1) {
+    const j = jobs[0];
+    return lazyJobCard(
+      `${badge(jobStatus(j), jobLabel(j))} <span class="fw-bold">${esc(title)}</span>
+       ${jobHeaderMeta(j)}`, j);
+  }
+  return eagerCard(sectionHead(worstStatus(jobs), title), jobs.map(jobEntry).join(""));
+}
+/* Section card with named subsections (e.g. Helloworld: Compilation /
+ * Run simulation). Empty subsections are hidden. Subsections marked
+ * infoOnly (e.g. Spike) are shown but excluded from the header status. */
+function groupCard(title, subs) {
+  const all = subs.flatMap(([, js]) => js);
+  if (!all.length) return plainCard(sectionHead(null, title));
+  const statusJobs = subs.filter(([, , infoOnly]) => !infoOnly).flatMap(([, js]) => js);
+  const body = subs.filter(([, js]) => js.length)
+                   .map(([st, js]) => jobsCard(st, js)).join("");
+  return eagerCard(
+    sectionHead(statusJobs.length ? worstStatus(statusJobs) : worstStatus(all), title),
+    body);
+}
+/* --- testlists: one card per testlist, then one card per test with
+ * Compilation / Run simulation sub-cards (child reports) ------------- */
+function testlistName(j) {
+  const tl = (j.context && j.context.testlist) || "";
+  return tl ? tl.split("/").pop().replace(/\.[^.]*$/, "") : "custom";
+}
+function entryStatus(e) {  /* per-test comp/run entry: doc wins over row */
+  if (e.doc && e.doc.status === "pass" && e.doc.context && e.doc.context.tandem_mismatch)
+    return "pass-tandem";
+  return (e.doc && e.doc.status) || e.status;
+}
+function testlistTests(jobs) {  /* test name -> {comp: {status, doc}, run: ...} */
+  const tests = new Map();
+  for (const j of jobs) {
+    const kind = j._class === "testlist_comp" ? "comp" : "run";
+    for (const m of j.metrics || []) {
+      if (m.kind !== "rows") continue;
+      for (const r of m.data || []) {
+        if (!r.test) continue;
+        const key = childKeyFor(j, r.report);
+        if (!tests.has(r.test)) tests.set(r.test, {});
+        tests.get(r.test)[kind] = {
+          status: String(r.status || "").toLowerCase(),
+          doc: key ? j.children[key] : null,
+        };
+      }
+    }
+  }
+  return tests;
+}
+function testlistCards(jobs) {
+  const tlJobs = jobs.filter((j) => ["testlist_comp", "testlist_run"].includes(j._class));
+  if (!tlJobs.length) return plainCard(sectionHead(null, "Testlists"));
+  const groups = new Map();  /* testlist name -> jobs[] */
+  for (const j of tlJobs) {
+    const n = testlistName(j);
+    if (!groups.has(n)) groups.set(n, []);
+    groups.get(n).push(j);
+  }
+  let html = "";
+  for (const [name, js] of groups) {
+    const tests = testlistTests(js);
+    let body = "";
+    for (const [test, e] of tests) {
+      const parts = [];
+      if (e.comp) parts.push(["Compilation", e.comp]);
+      if (e.run) parts.push(["Run simulation", e.run]);
+      const worst = worstOf(parts.map(([, x]) => entryStatus(x)));
+      const sub = parts.map(([st, x]) => {
+        const head = sectionHead(entryStatus(x), st);
+        return x.doc ? lazyChildCard(head, x.doc) : plainCard(head);
+      }).join("");
+      body += eagerCard(`${badge(worst)} <span class="mono small">${esc(test)}</span>`, sub);
+    }
+    /* the testlist job reports themselves (summary, console log) */
+    body += `<div class="small text-muted mt-2 mb-1">Job reports</div>`
+          + js.map(jobEntry).join("");
+    html += eagerCard(
+      sectionHead(worstStatus(js), `Testlist: ${name}`,
+        `<span class="text-muted small ms-auto">${tests.size} tests</span>`),
+      body);
+  }
+  return html;
+}
+/* Static per-target topology: compact collapsed cards, in this order.
+ * Main sections are always shown (— badge when empty); Post simulation
+ * and Other only when they have results. */
+function targetSections(jobs) {
+  const by = (...cls) => jobs.filter((j) => cls.includes(j._class));
+  let html = "";
+  html += jobsCard("Spyglass", by("spyglass"));
+  html += jobsCard("RTL elaboration", by("rtl_elab"));
+  html += groupCard("Helloworld", [
+    ["Compilation", by("hello_comp")],
+    ["Run simulation", by("hello_run")],
+    ["Spike — Run simulation", by("spike"), true]]);
+  html += testlistCards(jobs);
+  html += groupCard("Coremark", [
+    ["Compilation", by("coremark_comp")],
+    ["Run simulation", by("coremark_run")]]);
+  html += groupCard("Dhrystone", [
+    ["Compilation", by("dhrystone_comp")],
+    ["Run simulation", by("dhrystone_run")]]);
+  html += jobsCard("Synthesis", by("synthesis"));
+  const post = [["Netlist elaboration", by("postsim_elab")],
+                ["Netlist run simulation", by("postsim_run")]];
+  if (post.some(([, js]) => js.length)) html += groupCard("Post simulation", post);
+  const placedCls = ["spyglass", "rtl_elab", "hello_comp", "spike", "hello_run",
+    "testlist_comp", "testlist_run", "coremark_comp", "coremark_run",
+    "dhrystone_comp", "dhrystone_run", "synthesis", "postsim_elab", "postsim_run"];
+  const leftover = jobs.filter((j) => !placedCls.includes(j._class));
+  if (leftover.length) {
+    html += eagerCard(sectionHead(worstStatus(leftover), "Other"),
+                      leftover.map(jobEntry).join(""));
+  }
+  return html;
+}
+(function renderDetails() {
+  let html = "";
+  for (const t of TARGETS) {
+    const jobs = TARGET_JOBS.get(t);
+    const cid = `card-${t}`.replace(/[^\w-]/g, "_");
+    const nPass = jobs.filter((j) => j.status === "pass").length;
+    const donut = donutJob(t);
+    html += `
+    <div class="card shadow-sm mb-2">
+      <div class="card-header clickable d-flex flex-wrap align-items-center gap-2"
+           data-bs-toggle="collapse" data-bs-target="#${cid}">
+        ${badge(worstStatus(jobs))}
+        <span class="fw-bold mono" style="word-break: break-all">${esc(t)}</span>
+        <span class="text-muted small ms-auto">${nPass}/${jobs.length} jobs</span>
+      </div>
+      <div class="collapse" id="${cid}" data-target-name="${esc(t)}">
+        <div class="card-body">
+          ${targetIssues(t)}
+          <div class="d-flex flex-wrap gap-4 align-items-start mb-2">
+            <div>${kpiBlock(t)}</div>
+            ${donut ? `<div class="donut-box flex-grow-1">
+               <canvas data-donut-job="${donut._idx}"></canvas></div>` : ""}
+          </div>
+          ${t === CROSS_TARGET
+            ? `<h6 class="mt-2">Jobs</h6>${jobs.map(jobEntry).join("")}`
+            : targetSections(jobs)}
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById("target-details").innerHTML = html;
+})();
+
+/* =====================================================================
+ * LAZY RENDERING — bootstrap collapse events bubble to the document
+ * ===================================================================== */
+document.addEventListener("show.bs.collapse", (ev) => {
+  const el = ev.target;
+  if (el.dataset.rendered) return;
+  if (el.dataset.jobIdx !== undefined) {
+    el.dataset.rendered = "1";
+    el.querySelector(".lazy-slot").innerHTML = renderMetrics(JOBS[+el.dataset.jobIdx]);
+  } else if (el.dataset.childId !== undefined) {
+    el.dataset.rendered = "1";
+    el.querySelector(".lazy-slot").innerHTML = renderMetrics(CHILD_REG[el.dataset.childId]);
+  }
+});
+/* Donut on first target expansion (Chart.js renders poorly in display:none) */
+document.addEventListener("shown.bs.collapse", (ev) => {
+  const el = ev.target;
+  if (el.dataset.targetName === undefined) return;
+  const canvas = el.querySelector("[data-donut-job]:not([data-rendered])");
+  if (!canvas) return;
+  canvas.dataset.rendered = "1";
+  const job = JOBS[+canvas.dataset.donutJob];
+  const m = (job.metrics || []).find((x) => x.name === "Hierarchies details");
+  const labels = m.data.map((r) => r.hierarchy);
+  const values = m.data.map((r) => r.kgates);
+  new Chart(canvas, {
+    type: "doughnut",
+    data: { labels, datasets: [{ data: values, backgroundColor: DONUT_COLORS }] },
+    options: {
+      legend: { position: "bottom", labels: { boxWidth: 12, fontSize: 10 } },
+      title: { display: true, text: "Area per hierarchy (kGates)" },
+    },
+  });
+});
+/* Click on a matrix row: open and scroll to the target details */
+document.querySelectorAll("#matrix tr[data-target]").forEach((row) => {
+  row.addEventListener("click", () => {
+    const cid = `card-${row.dataset.target}`.replace(/[^\w-]/g, "_");
+    const card = document.getElementById(cid);
+    if (!card) return;
+    bootstrap.Collapse.getOrCreateInstance(card).show();
+    card.closest(".card").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+{% endraw %}
+</script>
+</body>
+</html>

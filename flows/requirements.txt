@@ -7,6 +7,7 @@ tqdm
 rich
 typer
 pyyaml
+jinja2
 pyserial
 black
 pylint
