@@ -38,25 +38,75 @@
     .matrix-wrap thead tr:nth-child(2) th { top: 1.9rem; }
     .matrix-wrap td { white-space: nowrap; vertical-align: middle; }
 
-    /* Testlist cell: the only cell holding several badges, so it is the one
-       cell allowed to wrap (selector kept more specific than the nowrap rule
-       above). Without this the row would grow as wide as the list of
-       testlists and push the whole table into horizontal scroll. */
-    .matrix-wrap td.cell-testlist {
-      white-space: normal; min-width: 9em; max-width: 22em;
-    }
-    .cell-testlist .tl-badge { font-weight: normal; margin: 1px 0; }
-    @media (max-width: 768px) {
-      .matrix-wrap td.cell-testlist { max-width: 12em; }
-    }
 
-    /* Truncated target names, full name on hover */
+    /* Target column: the name on its own line, truncated with the full one
+       on hover, and the configuration pills below it. Side by side, a long
+       name and its pills overflowed the column. */
+    .matrix-wrap td.cell-target { max-width: 26ch; }
+    .cell-target .target-name { display: block; max-width: 100%; }
+    .cell-target .cfg-tags { display: flex; margin-top: .15em; }
     .target-name {
       display: inline-block; max-width: 24ch; overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
       font-family: var(--bs-font-monospace); font-size: .85em;
     }
-    @media (max-width: 420px) { .target-name { max-width: 13ch; } }
+    @media (max-width: 420px) {
+      .target-name { max-width: 13ch; }
+      .matrix-wrap td.cell-target { max-width: 15ch; }
+    }
+
+        /* Configuration pills. One hue per group so that the variants of a same
+       family (OBI/AXI, WT/WB, with or without MMU) are told apart at a
+       glance rather than read. */
+    .cfg-tags { display: inline-flex; flex-wrap: wrap; gap: .25em; }
+    .cfg-tag {
+      font-size: .67em; font-weight: 600; line-height: 1.6;
+      padding: 0 .55em; border-radius: 999px; white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .cfg-xlen { background: #e7e3fb; color: #4b32b8; border-color: #cdc3f4; }
+    .cfg-bus  { background: #d9ecff; color: #0a58ca; border-color: #b6d9ff; }
+    .cfg-feat { background: #fde2d3; color: #a33b08; border-color: #f7c2a4; font-weight: 600; }
+    .cfg-mem  { background: #d7f2e3; color: #0f6b43; border-color: #aee3c8; }
+    .cfg-ext  { background: #eceef1; color: #5c636a; border-color: #d9dde1;
+                font-weight: 500; }
+    /* Hidden on narrow screens: the matrix columns matter more */
+    @media (max-width: 900px) { tr .cfg-tags { display: none; } }
+
+    /* Specifications of a target, at the top of its detail. Cards, so the
+       link has room for the title and the description of the manual. */
+    .doc-links-title {
+      font-size: .85em; font-weight: 600; color: #5c636a;
+      text-transform: uppercase; letter-spacing: .03em; margin-bottom: .35em;
+    }
+    .doc-cards { display: flex; flex-wrap: wrap; gap: .6em; }
+    .doc-card {
+      display: flex; flex-direction: column; gap: .15em;
+      flex: 1 1 22em; max-width: 30em;
+      padding: .5em .75em; border-radius: 6px; text-decoration: none;
+      background: #fffdf5; border: 1px solid #ffe69c;
+      transition: background .15s, border-color .15s;
+    }
+    .doc-card:hover {
+      background: #fff8e1; border-color: #e8c55a;
+    }
+    .doc-card-title { font-size: .9em; font-weight: 600; color: #8a6100; }
+    .doc-card:hover .doc-card-title { text-decoration: underline; }
+    .doc-card-text { font-size: .8em; color: #5c636a; line-height: 1.35; }
+    .doc-card-file { font-size: .72em; color: #8a929a; }
+
+    /* RTL configuration of a target: a reference table of ~96 rows. Bounded
+       and scrollable, so opening it does not push the KPIs and the jobs
+       below out of reach. */
+    .rtl-cfg { max-width: 32em; }
+    .rtl-cfg > summary { cursor: pointer; }
+    .rtl-cfg-wrap { max-height: 22em; overflow-y: auto; }
+    .rtl-cfg-table { font-size: .8em; }
+    .rtl-cfg-table td, .rtl-cfg-table th { padding: .15em .5em; }
+    .rtl-cfg-table thead th {
+      position: sticky; top: 0; background: var(--bs-body-bg);
+      border-bottom: 2px solid #dee2e6;
+    }
 
     .cell-status { min-width: 4.2em; }
     /* PASS with a non-blocking tandem mismatch (Spike-incompatible ISA) */
@@ -70,7 +120,7 @@
     .ctx-val { word-break: break-all; max-width: 70ch; }
 
     .analyze-log { font-family: var(--bs-font-monospace); font-size: .8em; white-space: pre-wrap; margin-bottom: 0; }
-    .donut-box { max-width: 340px; }
+    .donut-box { max-width: 420px; }
     .clickable { cursor: pointer; }
 
     /* "terminal" area: recipe console log (Details metric) */
@@ -211,6 +261,12 @@ function jobClass(j) {
   const test = String(ctx.test_name || "").toLowerCase();
   const gate = String(ctx.comp_mode || "").startsWith("gate");
   if (/^spyglass/.test(r)) return "spyglass";
+  /* The TestHarness is another testbench: its elaboration and its runs
+   * are verdicts of their own, next to those of the UVM one. */
+  if (r === "vcs-testharness-comp") return "th_vcs_elab";
+  if (r === "vcs-testharness-run") return "th_vcs_run";
+  if (/-testharness-comp$/.test(r)) return "th_elab";
+  if (/-testharness-run$/.test(r)) return "th_run";
   if (r === "sw-compile-testlist") return "testlist_comp";
   if (/run-testlist$/.test(r)) return "testlist_run";
   if (/-(uvm|generator)-comp$/.test(r)) return gate ? "postsim_elab" : "rtl_elab";
@@ -218,14 +274,27 @@ function jobClass(j) {
     if (gate) return "postsim_run";
     if (test.includes("coremark")) return "coremark_run";
     if (test.includes("dhrystone")) return "dhrystone_run";
+    /* A class of its own, so the stalling run is listed in the detail of
+     * the target without being counted as a second verdict in the matrix. */
+    if (String(ctx.run_name || "").includes("stall")) return "hello_run_stall";
     return r === "spike-run" ? "spike" : "hello_run";
   }
   if (r === "sw-compile") {
+    /* fpga-bootrom compiles the bootloader through sw-compile, as
+     * bootrom_<XLEN>: part of the FPGA flow, not a test of the target. */
+    if (/^bootrom_\d+$/.test(test)) return "fpga_bootrom_comp";
     if (test.includes("coremark")) return "coremark_comp";
     if (test.includes("dhrystone")) return "dhrystone_comp";
     return "hello_comp";
   }
   if (r === "dc-shell-synth") return "synthesis";
+  if (r === "docs-build") return "docs";
+  /* One class per step of the FPGA flow, grouped in the detail of the
+   * target; the matrix gathers them in a single column. */
+  if (r === "fpga-bootrom") return "fpga_bootrom";
+  if (/-fpga-build$/.test(r)) return "fpga_build";
+  if (/-fpga-program$/.test(r)) return "fpga_program";
+  if (r === "fpga-linux-boot") return "fpga_boot";
   if (/formating$|^pylint-run$|^self-check$|^git-dependencies$/.test(r)) return "lint";
   /* Setup work that prepares a target without testing anything
    * (riscv-isa-modify patches the ISA to work around a missing extension):
@@ -258,6 +327,87 @@ if (TARGETS.includes(CROSS_TARGET)) {  /* cross-target jobs shown first */
   TARGETS.unshift(CROSS_TARGET);
 }
 
+/* Configuration labels of a target (bus, MMU, PMP, extensions), read from
+ * its rtl_cfg_pkg.sv by merge-reports. Absent for the cross-target group. */
+const TARGET_CONFIG = PIPELINE.target_config || {};
+const CFG_GROUPS = ["xlen", "bus", "feat", "mem", "ext"];
+function configTags(t, groups) {
+  let tags = TARGET_CONFIG[t];
+  if (!tags || !tags.length) return "";
+  if (groups) tags = tags.filter((x) => groups.includes(x.group));
+  if (!tags.length) return "";
+  return `<span class="cfg-tags">` + tags.map((x) => {
+    const g = CFG_GROUPS.includes(x.group) ? x.group : "ext";
+    return `<span class="cfg-tag cfg-${g}">${esc(x.text)}</span>`;
+  }).join("") + `</span>`;
+}
+
+/* Specifications of a target, published next to this page by
+ * merge-reports under docs/<target>/<document>. A target no docs-build job
+ * ran on gets nothing. */
+/* Title and description shown for each manual. A manual absent from this
+ * table still gets a link, labelled by its key, so adding one to docs-build
+ * does not require editing the dashboard. */
+const MANUAL_DOC = {
+  priv: {
+    title: "RISC-V Privileged Architecture",
+    text: "Volume II of the ISA manual, generated for this configuration: " +
+          "privilege levels, CSRs, traps and memory protection as this " +
+          "target actually implements them.",
+  },
+  unpriv: {
+    title: "RISC-V Unprivileged Architecture",
+    text: "Volume I of the ISA manual, generated for this configuration: " +
+          "the instructions and the extensions this target implements.",
+  },
+  design: {
+    title: "CVA6 Design Documentation",
+    text: "The microarchitecture of this target: pipeline stages, caches, " +
+          "the value of every configuration parameter and the IO ports of " +
+          "each module, ports tied to a constant listed apart.",
+  },
+};
+
+const TARGET_DOCS = PIPELINE.target_docs || {};
+function docLinks(t) {  const docs = TARGET_DOCS[t];
+  if (!docs || !docs.length) return "";
+  const cards = docs.map((d) => {
+    const href = `docs/${encodeURIComponent(t)}/${encodeURIComponent(d.file)}`;
+    const meta = MANUAL_DOC[d.manual] || { title: d.manual, text: "" };
+    const fmt = d.format && d.format !== "html" ? ` — ${d.format}` : "";
+    return `<a class="doc-card" href="${href}" target="_blank" rel="noopener"
+               title="${esc(d.file)}">
+      <span class="doc-card-title">Click to open: ${esc(meta.title)}${esc(fmt)}</span>
+      ${meta.text ? `<span class="doc-card-text">${esc(meta.text)}</span>` : ""}
+      <span class="doc-card-file mono">${esc(d.file)}</span>
+    </a>`;
+  }).join("");
+  return `<div class="doc-links mb-3">
+    <div class="doc-links-title">Specifications of this target</div>
+    <div class="doc-cards">${cards}</div></div>`;
+}
+
+/* The parameters the design of a target is built from, as a disclosure
+ * widget. The table keeps the declaration order of the package, which is
+ * what makes a parameter findable when one knows the file. */
+const TARGET_PARAMS = PIPELINE.target_parameters || {};
+function rtlConfigDetails(t) {
+  const params = TARGET_PARAMS[t];
+  if (!params) return "";
+  const names = Object.keys(params);
+  const rows = names.map((n) =>
+    `<tr><td class="mono">${esc(n)}</td>
+         <td class="mono text-end">${esc(params[n])}</td></tr>`).join("");
+  return `<details class="rtl-cfg mb-2">
+    <summary class="small fw-bold">RTL configuration
+      <span class="text-muted fw-normal">(${names.length} parameters of
+      config/target/${esc(t)}/rtl_cfg_pkg.sv)</span></summary>
+    <div class="rtl-cfg-wrap border rounded mt-1">
+      <table class="table table-sm table-striped rtl-cfg-table mb-0">
+        <thead><tr><th>Parameter</th><th class="text-end">Value</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></details>`;
+}
+
 /* Matrix columns: fixed two-level model (group -> subcolumns). A
  * subcolumn is either a job-status cell (classes) or a KPI cell (kpi
  * name); it is rendered only when at least one target populates it.
@@ -267,10 +417,18 @@ if (TARGETS.includes(CROSS_TARGET)) {  /* cross-target jobs shown first */
  * the job detail, so the global view only shows actual verdicts. */
 const MATRIX_MODEL = [
   ["Lint",       [["", { classes: ["spyglass"] }]]],
-  ["Elab",       [["", { classes: ["rtl_elab"] }]]],
+  /* One elaboration per testbench and simulator: the TestHarness ones
+   * are on the AXI targets only. */
+  ["Elab",       [["VCS UVM", { classes: ["rtl_elab"] }],
+                  ["VCS TH", { classes: ["th_vcs_elab"] }],
+                  ["Verilator TH", { classes: ["th_elab"] }]]],
   ["Synth",      [["", { classes: ["synthesis"] }]]],
+  /* The runs show their cycle count, the label of their report. The
+   * stalling UVM run of the OBI targets is in the detail only. */
   ["HelloWorld", [["SW Comp", { classes: ["hello_comp"] }],
-                  ["Run Sim", { classes: ["hello_run"] }]]],
+                  ["Sim VCS UVM", { classes: ["hello_run"] }],
+                  ["Sim VCS TH", { classes: ["th_vcs_run"] }],
+                  ["Sim Verilator TH", { classes: ["th_run"] }]]],
   ["Testlist",   [["", { classes: ["testlist_comp", "testlist_run"],
                          testlists: true }]]],
   /* Bench cells show the score KPI; when the benchmark jobs ran but
@@ -283,6 +441,11 @@ const MATRIX_MODEL = [
                   ["DMIPS/MHz", { kpi: "dhrystone_dmips_per_mhz",
                                  classes: ["dhrystone_comp", "dhrystone_run"] }]]],
   ["Gate",       [["", { classes: ["postsim_elab", "postsim_run"] }]]],
+  /* Verdict of the docs-build job. The documents themselves are linked
+   * from the detail of the target, a matrix cell being a status only. */
+  ["Doc",        [["", { classes: ["docs"] }]]],
+  /* Bitstream and board boot, empty on the targets no FPGA job ran on. */
+  ["FPGA",       [["", { classes: ["fpga_bootrom_comp", "fpga_bootrom", "fpga_build", "fpga_program", "fpga_boot"] }]]],
 ];
 function colPopulated(col) {
   /* A score column needs the KPI itself: falling back to the job status
@@ -381,10 +544,10 @@ function matrixStageCell(jobs) {
   }
   return `<td class="cell-status" title="${tip}">${badge(status, label)}</td>`;
 }
-/* Testlist cell: one badge per testlist the target ran, green when both its
- * compile and run passed, red otherwise. A column per testlist would be
- * unreadable (a dozen of them, mostly empty), and a single count would not
- * say which list regressed. */
+/* Testlist cell: one badge, the testlists that passed out of those run,
+ * green when all did. A testlist passes when its compile and run jobs both
+ * did. The names are in the tooltip and in the detail of the target: a
+ * badge per testlist made the row wrap on the targets running many. */
 function matrixTestlistCell(jobs) {
   if (!jobs.length) return `<td class="cell-status">${STATUS_BADGE.none}</td>`;
   const byList = new Map();
@@ -394,18 +557,14 @@ function matrixTestlistCell(jobs) {
     if (!byList.has(name)) byList.set(name, []);
     byList.get(name).push(j);
   }
-  const badges = [...byList.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([name, js]) => {
-      const st = worstStatus(js);
-      const cls = { pass: "bg-success", fail: "bg-danger",
-                    env: "bg-warning text-dark" }[st] || "bg-secondary";
-      const tip = js.map((j) => `${j.title || j.recipe}: ` +
-                                `${(jobLabel(j) || j.status || "?").toUpperCase()}`)
-                    .join("&#10;");
-      return `<span class="badge ${cls} tl-badge" title="${name}&#10;${tip}">` +
-             `${esc(name)}</span>`;
-    }).join(" ");
-  return `<td class="cell-testlist">${badges}</td>`;
+  const lists = [...byList.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, js]) => [name, worstStatus(js)]);
+  /* pass-tandem counts as a pass, as it does in the matrix elsewhere; the
+   * colour is the worst testlist, ENV when one only failed on its setup */
+  const nPass = lists.filter(([, st]) => st.startsWith("pass")).length;
+  const status = worstOf(lists.map(([, st]) => st));
+  const tip = lists.map(([name, st]) => `${name}: ${st.toUpperCase()}`).join("&#10;");
+  return `<td class="cell-status" title="${tip}">${badge(status, `${nPass}/${lists.length}`)}</td>`;
 }
 function matrixKpiCell(t, name, jobs) {  const found = targetKpis(t).find(([n]) => n === name);
   if (!found) {
@@ -468,7 +627,8 @@ function matrixKpiCell(t, name, jobs) {  const found = targetKpis(t).find(([n]) 
     }
     if (!populated) continue;  /* e.g. lint-only cross-target group */
     html += `<tr class="clickable" data-target="${esc(t)}">
-      <td class="text-start"><span class="target-name" title="${esc(t)}">${esc(t)}</span></td>
+      <td class="text-start cell-target"><span class="target-name" title="${esc(t)}">${esc(t)}</span>
+      ${configTags(t, ["xlen", "bus", "feat", "mem"])}</td>
       ${cells}</tr>`;
   }
   document.getElementById("matrix").innerHTML = html + "</tbody>";
@@ -665,6 +825,87 @@ function kpiBlock(t) {
     <thead><tr><th>KPI</th><th class="text-end">Value</th><th></th>
     <th class="text-end">Expected</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+/* Instance name of a hierarchy path, without its generate blocks:
+ * i_cva6_top/gen_cva6.i_cva6/i_cva6_pipeline -> i_cva6_pipeline */
+function moduleName(path) {
+  return path.split("/").pop().split(".").pop();
+}
+/* Rings of a sunburst from the "Hierarchies details" rows (hierarchy,
+ * level, kcells), one Chart.js dataset per level, the innermost first.
+ * A ring follows the angles of the one inside it: each block is drawn
+ * under its parent, and the part of the parent its children do not
+ * cover (its own logic) is left blank. Each block of the first level
+ * that splits gets a colour, and its descendants shades of it. */
+function hierRings(rows) {
+  const byPath = new Map(rows.map((r) => [r.hierarchy, r]));
+  const children = new Map();
+  for (const r of rows) {
+    const parent = r.hierarchy.includes("/") ? r.hierarchy.slice(0, r.hierarchy.lastIndexOf("/")) : "";
+    if (!children.has(parent)) children.set(parent, []);
+    children.get(parent).push(r);
+  }
+  const depth = Math.max(...rows.map((r) => r.level));
+  const roots = children.get("") || [];
+  /* The colours go to the first level that splits into several blocks:
+   * the wrappers above it (cva6_top, cva6 without DCLS) hold one block
+   * each, and colouring them would paint the whole chart one colour */
+  let split = roots;
+  while (split.length === 1 && (children.get(split[0].hierarchy) || []).length) {
+    split = children.get(split[0].hierarchy);
+  }
+  const branchColour = new Map();
+  split.forEach((r, i) => branchColour.set(r.hierarchy, DONUT_COLORS[i % DONUT_COLORS.length]));
+  /* Below the split, the children of a block take shades of its colour,
+   * one per child, so two neighbours stay apart and a branch stays
+   * recognisable: ex_stage and issue_stage are two oranges of the
+   * pipeline. */
+  function shade(hex, k, n) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    /* from 25% darker to 35% lighter across the children */
+    const f = n > 1 ? -0.25 + (0.6 * k) / (n - 1) : 0;
+    const mix = (c) => Math.round(f < 0 ? c * (1 + f) : c + (255 - c) * f);
+    return "#" + [mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("");
+  }
+  function paint(r) {
+    const kids = children.get(r.hierarchy) || [];
+    kids.forEach((k, i) => {
+      branchColour.set(k.hierarchy, shade(branchColour.get(r.hierarchy), i, kids.length));
+      paint(k);
+    });
+  }
+  split.forEach(paint);
+  function colour(path) {
+    let p = path;
+    while (p && !branchColour.has(p)) p = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
+    /* the single-block wrappers above the split stay grey */
+    return branchColour.get(p) || "#bab0ac";
+  }
+  /* segments of a level: [{path, value}] in angular order, "" = blank */
+  let segments = roots.map((r) => ({ path: r.hierarchy, value: r.kcells }));
+  const rings = [];
+  for (let level = 1; level <= depth; level++) {
+    rings.push({
+      data: segments.map((s) => s.value),
+      names: segments.map((s) => (s.path ? moduleName(s.path) : "")),
+      backgroundColor: segments.map((s) => (s.path ? colour(s.path) : "rgba(0,0,0,0)")),
+      borderWidth: 1,
+    });
+    const next = [];
+    for (const s of segments) {
+      const kids = s.path ? children.get(s.path) || [] : [];
+      let covered = 0;
+      for (const k of kids) {
+        next.push({ path: k.hierarchy, value: k.kcells });
+        covered += k.kcells;
+      }
+      const rest = Math.max(0, +(s.value - covered).toFixed(2));
+      if (rest > 0 || !kids.length) next.push({ path: "", value: kids.length ? rest : s.value });
+    }
+    segments = next;
+  }
+  /* Chart.js draws the first dataset outermost */
+  return rings.reverse();
+}
 /* Donut data: "Hierarchies details" rows metric of a synthesis job */
 function donutJob(t) {
   return TARGET_JOBS.get(t).find((j) =>
@@ -811,9 +1052,11 @@ function testlistCards(jobs) {
       }).join("");
       body += eagerCard(`${badge(worst)} <span class="mono small">${esc(test)}</span>`, sub);
     }
-    /* the testlist job reports themselves (summary, console log) */
-    body += `<div class="small text-muted mt-2 mb-1">Job reports</div>`
-          + js.map(jobEntry).join("");
+    /* The reports of the testlist jobs themselves are not repeated: their
+     * rows are the tests listed above. A test only shows up when its
+     * compilation or run recorded it, so a job that stopped before its
+     * first test gets its report listed instead, for its error. */
+    if (!tests.size) body += js.map(jobEntry).join("");
     html += eagerCard(
       sectionHead(worstStatus(js), `Testlist: ${name}`,
         `<span class="text-muted small ms-auto">${tests.size} tests</span>`),
@@ -832,6 +1075,11 @@ function targetSections(jobs) {
   html += groupCard("Helloworld", [
     ["Compilation", by("hello_comp")],
     ["Run simulation", by("hello_run")],
+    ["Run simulation — stalling memory", by("hello_run_stall")],
+    ["TestHarness VCS — elaboration", by("th_vcs_elab")],
+    ["TestHarness VCS — run simulation", by("th_vcs_run")],
+    ["TestHarness Verilator — elaboration", by("th_elab")],
+    ["TestHarness Verilator — run simulation", by("th_run")],
     ["Spike — Run simulation", by("spike"), true]]);
   html += testlistCards(jobs);
   html += groupCard("Coremark", [
@@ -841,12 +1089,22 @@ function targetSections(jobs) {
     ["Compilation", by("dhrystone_comp")],
     ["Run simulation", by("dhrystone_run")]]);
   html += jobsCard("Synthesis", by("synthesis"));
+  html += jobsCard("Documentation", by("docs"));
+  html += groupCard("FPGA", [
+    ["Bootloader compilation", by("fpga_bootrom_comp")],
+    ["Bootloader", by("fpga_bootrom")],
+    ["Bitstream", by("fpga_build")],
+    ["Board programming", by("fpga_program")],
+    ["Linux boot", by("fpga_boot")]]);
   const post = [["Netlist elaboration", by("postsim_elab")],
                 ["Netlist run simulation", by("postsim_run")]];
   if (post.some(([, js]) => js.length)) html += groupCard("Post simulation", post);
   const placedCls = ["spyglass", "rtl_elab", "hello_comp", "spike", "hello_run",
+    "hello_run_stall", "th_vcs_elab", "th_vcs_run", "th_elab", "th_run",
     "testlist_comp", "testlist_run", "coremark_comp", "coremark_run",
-    "dhrystone_comp", "dhrystone_run", "synthesis", "postsim_elab", "postsim_run"];
+    "dhrystone_comp", "dhrystone_run", "synthesis", "docs",
+    "fpga_bootrom_comp", "fpga_bootrom", "fpga_build", "fpga_program", "fpga_boot",
+    "postsim_elab", "postsim_run"];
   const leftover = jobs.filter((j) => !placedCls.includes(j._class));
   if (leftover.length) {
     html += eagerCard(sectionHead(worstStatus(leftover), "Other"),
@@ -867,16 +1125,19 @@ function targetSections(jobs) {
            data-bs-toggle="collapse" data-bs-target="#${cid}">
         ${badge(worstStatus(jobs))}
         <span class="fw-bold mono" style="word-break: break-all">${esc(t)}</span>
+        ${configTags(t)}
         <span class="text-muted small ms-auto">${nPass}/${jobs.length} jobs</span>
       </div>
       <div class="collapse" id="${cid}" data-target-name="${esc(t)}">
         <div class="card-body">
           ${targetIssues(t)}
+          ${docLinks(t)}
           <div class="d-flex flex-wrap gap-4 align-items-start mb-2">
             <div>${kpiBlock(t)}</div>
             ${donut ? `<div class="donut-box flex-grow-1">
                <canvas data-donut-job="${donut._idx}"></canvas></div>` : ""}
           </div>
+          ${rtlConfigDetails(t)}
           ${t === CROSS_TARGET
             ? `<h6 class="mt-2">Jobs</h6>${jobs.map(jobEntry).join("")}`
             : targetSections(jobs)}
@@ -910,20 +1171,44 @@ document.addEventListener("shown.bs.collapse", (ev) => {
   canvas.dataset.rendered = "1";
   const job = JOBS[+canvas.dataset.donutJob];
   const m = (job.metrics || []).find((x) => x.name === "Hierarchies details");
-  const labels = m.data.map((r) => r.hierarchy);
-  const values = m.data.map((r) => r.kgates);
+  /* A synthesis on a techno gives an area in kGates; the GTECH one has
+   * no area and gives cell counts instead */
+  const cells = m.data.length && m.data[0].kcells !== undefined;
+  const unit = cells ? "kCells" : "kGates";
+  const datasets = cells ? hierRings(m.data)
+    : [{ data: m.data.map((r) => r.kgates), names: m.data.map((r) => moduleName(r.hierarchy)),
+         backgroundColor: DONUT_COLORS }];
   new Chart(canvas, {
     type: "doughnut",
-    data: { labels, datasets: [{ data: values, backgroundColor: DONUT_COLORS }] },
+    data: { labels: datasets[0].names, datasets },
     options: {
-      legend: { position: "bottom", labels: { boxWidth: 12, fontSize: 10 } },
-      title: { display: true, text: "Area per hierarchy (kGates)" },
+      /* The slices are named by the tooltip: a legend of every block
+       * would squeeze the chart */
+      legend: { display: false },
+      cutoutPercentage: cells ? 20 : 50,
+      title: {
+        display: true,
+        text: cells ? "Cells per hierarchy (kCells, GTECH), one ring per level"
+                    : "Area per hierarchy (kGates)",
+      },
+      tooltips: {
+        filter: (item, data) => data.datasets[item.datasetIndex].names[item.index] !== "",
+        callbacks: {
+          label: (item, data) => {
+            const ds = data.datasets[item.datasetIndex];
+            return `${ds.names[item.index]}: ${ds.data[item.index]} ${unit}`;
+          },
+        },
+      },
     },
   });
 });
-/* Click on a matrix row: open and scroll to the target details */
+/* Click on a matrix row: open and scroll to the target details. A link
+ * inside the row keeps its own behaviour, which without this would also
+ * expand the card below. */
 document.querySelectorAll("#matrix tr[data-target]").forEach((row) => {
-  row.addEventListener("click", () => {
+  row.addEventListener("click", (event) => {
+    if (event.target.closest("a")) return;
     const cid = `card-${row.dataset.target}`.replace(/[^\w-]/g, "_");
     const card = document.getElementById(cid);
     if (!card) return;

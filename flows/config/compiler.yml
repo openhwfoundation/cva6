@@ -38,6 +38,12 @@ dummy2: &dummy2
     NM: "riscv32-unknown-elf-nm"
     TARGET_TOOLCHAIN: "riscv32-unknown-elf"
 
+# Reference toolchain used to compile the benchmarks (coremark/dhrystone)
+# on every target in CI, so that performance numbers are comparable
+# across targets.
+gcc-15:
+  <<: *dummy2
+
 my_cv32a60x_toolchain:
   <<: *dummy1
 my_cv32a60x_no_zcmt_toolchain:

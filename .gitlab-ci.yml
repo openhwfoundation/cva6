@@ -8,27 +8,76 @@
 #
 # Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
 
-# Please refer to .gitlab-ci/README.md to add jobs
+# The whole regression is driven by a single recipe: `full-regression`
+# (flows/macros/full_regression.py). The job graph, the target matrix and
+# the CAD license pools are described there, in Python, and are replayable
+# on a workstation with the very same command:
+#
+#     ./cook.py full-regression
+#
+# The CI therefore only provides the machine, the environment and the
+# publication of the dashboard: adding a target or a testlist is a change
+# in the macro, not in this file.
+#
+# Three stages:
+#   build       build spike       tandem reference model, shared between
+#                                 pipelines and keyed by the core-v-verif
+#                                 commit, so it is a no-op once built
+#   regression  full regression   the macro, hence the whole pipeline. Every
+#                                 recipe writes its own build/**/cook_report.yml
+#                                 and the macro ends with merge-reports +
+#                                 report-html, so the dashboard
+#                                 (artifacts/reports/pipeline_report.html) is
+#                                 built inside the job
+#   deploy      pages             publishes that page, one deployment per
+#                                 branch/MR, `when: always`
+#
+# The FPGA images are jobs of the macro too: the bitstream is built once
+# the RTL of its target elaborates, then the board is programmed and Linux
+# booted on it. The runner therefore carries Vivado, its licence and the
+# connection to the board (see the variables of `full regression`).
+#
+# See the full-regression section of flows/README.md to add a job, a target
+# or a testlist.
 
+# PAGES_PREFIX is set here, next to the pipeline kind it belongs to: it
+# selects the GitLab Pages parallel deployment the dashboard is published
+# to (see the `pages` job). An empty prefix is the root of the site and is
+# reserved for the reference run on the default branch.
 workflow:
   rules:
     - if:
         $CI_PIPELINE_SOURCE == "web"
         # CI_KIND need to be set in web interface
+      variables:
+        PAGES_PREFIX: "br-$CI_COMMIT_REF_SLUG"
+        PAGES_EXPIRE: "1 month"
     - if: $CI_PIPELINE_SOURCE == "schedule"
       variables:
         CI_KIND: verif
+        PAGES_PREFIX: ""
+        PAGES_EXPIRE: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       variables:
         CI_KIND: dev
+        PAGES_PREFIX: "mr-$CI_MERGE_REQUEST_IID"
+        PAGES_EXPIRE: "1 month"
     - if: $CI_PIPELINE_SOURCE == "/.*_PR_.*/"
       variables:
         CI_KIND: dev
+        PAGES_PREFIX: "br-$CI_COMMIT_REF_SLUG"
+        PAGES_EXPIRE: "1 month"
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        PAGES_PREFIX: ""
+        PAGES_EXPIRE: never
     - if: $CI_COMMIT_BRANCH =~ /^dev.*/
       variables:
         CI_KIND: dev
+        PAGES_PREFIX: "br-$CI_COMMIT_REF_SLUG"
+        PAGES_EXPIRE: "1 month"
     - when: never
 
 variables:
@@ -39,68 +88,21 @@ variables:
   TERM: xterm-256color
   FORCE_COLOR: "1"
   COLUMNS: 180
-  MY_SIMULATOR: vcs
+  # Concurrency of the macro scheduler. MY_JOBS caps the total number of
+  # recipes running at once; the *_LICENSES variables cap each CAD license
+  # pool independently, so the pipeline never asks for more licenses than
+  # the site owns (see the macro docstring).
+  MY_JOBS: "8"
+  MY_VCS_LICENSES: "10"
+  MY_SPYGLASS_LICENSES: "1"
+  MY_SYNTH_LICENSES: "1"
+  MY_VIVADO_LICENSES: "1"
   #PYTHONUNBEFFERED: "1"
 
 stages:
   - build
-  - lint
-  - soft
-  - rtl
-  - benchmark
-  - testlist
-  - synth
-  - fpga
-  - report
-
-.global_matrix_target:
-  parallel:
-    matrix:
-      # OBI noPMP noMMU
-      - MY_TARGET: cv32a60x
-      - MY_TARGET: cv32a60x_no_zcmt
-      - MY_TARGET: cv32a65x_noPMP
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_nopmp_nommu_obi
-      # AXI noPMP noMMU
-      - MY_TARGET: cv32a60x_axi
-      - MY_TARGET: cv32a60x_no_zcmt_axi
-      - MY_TARGET: cv32a65x_noPMP_axi
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_nopmp_nommu_axi
-      # OBI PMP noMMU
-      - MY_TARGET: cv32a60x_zcmt_pmp
-      - MY_TARGET: cv32a65x
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_nommu_obi
-      # AXI PMP noMMU
-      - MY_TARGET: cv32a60x_zcmt_pmp_axi
-      - MY_TARGET: cv32a65x_axi
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_nommu_axi
-      # OBI PMP MMU
-      - MY_TARGET: cv32a6_imac_sv32_obi
-      - MY_TARGET: cv32a65x_sv32
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_mmu_obi
-      # AXI PMP MMU
-      - MY_TARGET: cv32a6_imac_sv32
-      - MY_TARGET: cv32a65x_sv32_axi
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi
-
-# Used to perform mapping 1:1 in jobs dependencies ("needs" in gitlab-ci)
-.global_matrix_mapping: &global_matrix_mapping
-  parallel:
-    matrix:
-      - MY_TARGET: ["$[[ matrix.MY_TARGET ]]"]
-
-.rules_verif:
-  rules:
-    - if: $CI_KIND == "verif"
-    - when: manual
-      allow_failure: true
-
-.rules_verif_regress:
-  rules:
-    - if: $CI_KIND == "verif"
-    - if: $CI_KIND == "regress"
-    - when: manual
-      allow_failure: true
+  - regression
+  - deploy
 
 .rules_verif_regress_dev:
   rules:
@@ -111,640 +113,157 @@ stages:
       allow_failure: true
 
 # ==========================================================
-# ENV
+# BUILD
 # ==========================================================
 
-before_script:
-  - source $CONFIG_DIR/setenv.sh
-
-.need_spike:
-  before_script:
-    - source $CONFIG_DIR/setenv.sh
-    - mkdir tools/
-    - export SPIKE_INSTALL_DIR=$SPIKE_PATH/$(git -C verif/core-v-verif/ log -1 --pretty=tformat:%h --abbrev=8)/spike
-    - ln -sfn $SPIKE_INSTALL_DIR/ tools/
-
-build_env:
+# Spike is the tandem reference model. It is built once per core-v-verif
+# commit into a shared directory, so this job is a no-op (and takes a few
+# seconds) as soon as another pipeline already built that commit.
+build spike:
   stage: build
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-  variables:
-    DASHBOARD_JOB_TITLE: "Build env"
-    DASHBOARD_JOB_DESCRIPTION: "Install Python requirements for the flow"
-  script:
-    - id
-    - pip3 install -r flows/requirements.txt
-
-build_spike:
-  stage: build
-  tags: [$TAGS_RUNNER_SIMU]
+  tags: [$TAGS_MC_RUNNER_SIMU]
   extends:
     - .rules_verif_regress_dev
   needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Build Spike"
-    DASHBOARD_JOB_DESCRIPTION: "Install Spike ISS used as tandem reference"
+  before_script:
+    - source $CONFIG_DIR/setenv.sh
   script:
     - echo NUMJOB=$NUM_JOBS
     - source $SYN_VCS_BASHRC
     - "export ROOT_PROJECT=$(pwd)"
-    - mkdir tools/
+    - mkdir -p tools/
     - SPIKE_INSTALL_DIR=$SPIKE_PATH/$(git -C verif/core-v-verif/ log -1 --pretty=tformat:%h --abbrev=8)/spike/
       source verif/regress/install-spike.sh
 
 # ==========================================================
-# LINT
+# REGRESSION
 # ==========================================================
 
-verible:
-  stage: lint
-  tags: [$TAGS_RUNNER_SIMU]
+full regression:
+  stage: regression
+  tags: [$TAGS_MC_RUNNER_SIMU]
   extends:
     - .rules_verif_regress_dev
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Verible formatting"
-    DASHBOARD_JOB_DESCRIPTION: "Check RTL formatting with Verible"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - export PATH="$VERIBLE_PATH:$PATH"
-    - ./cook.py verible-rtl-formating -t cv32a60x # today target is not really important
-    - git diff --name-only | tee verible-filename.log
-    - git diff --color | tee verible-git-diff.log
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/cv32a60x/verible/verible-cmd.log
-      - verible-git-diff.txt
-      - verible-filename.txt
-
-black:
-  stage: lint
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Black formatting"
-    DASHBOARD_JOB_DESCRIPTION: "Check Python formatting with Black"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - ./cook.py black-python-formating | tee black-cmd.log
-    - git diff --name-only | tee black-filename.log
-    - git diff --color | tee black-git-diff.log
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - black-cmd.log
-      - black-git-diff.txt
-      - black-filename.txt
-
-pylint:
-  stage: lint
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Pylint"
-    DASHBOARD_JOB_DESCRIPTION: "Check Python code quality with Pylint"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - ./cook.py pylint-run | tee pylint-cmd.log
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - pylint-cmd.log
-
-lint_spyglass:
-  stage: lint
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Spyglass lint"
-    DASHBOARD_JOB_DESCRIPTION: "Run Spyglass RTL lint checks per target"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_SG_BASHRC
-    - ./cook.py spyglass-design-read -t $MY_TARGET
-    - ./cook.py spyglass-run -t $MY_TARGET
-    # Report
-    - export MY_CVA6_HIER=obi #TOBEFIXED for AXI
-    - python3 .gitlab-ci/scripts/report_spyglass_lint.py
-      config/target/$MY_TARGET/expected_spyglass.rpt
-      build/$MY_TARGET/spyglass/sg_run_results/cva6_example_${MY_CVA6_HIER}_sg_reports/cva6_example_${MY_CVA6_HIER}_lint_lint_rtl/summary.rpt
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/spyglass/*.log
-      - build/$MY_TARGET/spyglass/sg_run_results
-      - build/$MY_TARGET/spyglass/sg_setup
-      - build/$MY_TARGET/spyglass/cook_manifest.yml
-
-# ==========================================================
-# TOOLCHAIN COMPILATION
-# ==========================================================
-
-sw_compile:
-  stage: soft
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "SW compile"
-    DASHBOARD_JOB_DESCRIPTION: "Compile hello-world with the target toolchain"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - ./cook.py hello-world -t $MY_TARGET -c my_${MY_TARGET}_toolchain
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/compile/hello-world/*
-
-# ==========================================================
-# SPIKE SIMULATIONS
-# ==========================================================
-
-run_sim_spike:
-  stage: soft
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .global_matrix_target
   needs:
-    - job: build_spike
-      artifacts: true
-    - job: sw_compile
-      artifacts: true
-      <<: *global_matrix_mapping
-  variables:
-    DASHBOARD_JOB_TITLE: "Spike simulation - ${MY_TARGET} - hello-world"
-    DASHBOARD_JOB_DESCRIPTION: "Run hello-world on the Spike ISS for target ${MY_TARGET}"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - ./cook.py spike-run -t $MY_TARGET -n hello-world
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/simulation/sim_spike/hello-world/*
-
-# ==========================================================
-# VCS UVM RTL SIMULATIONS
-# ==========================================================
-
-elab_rtl:
-  stage: rtl
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs:
-    - job: build_spike
-      artifacts: true
-  variables:
-    DASHBOARD_JOB_TITLE: "RTL elaboration"
-    DASHBOARD_JOB_DESCRIPTION: "Compile UVM testbench and RTL with VCS"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_VCS_BASHRC
-    - ./cook.py vcs-uvm-comp -t $MY_TARGET --comp-mode rtl --tandem-enabled
-      --trace-mode notrace
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/elab/sim_rtl/simv
-      - build/$MY_TARGET/elab/sim_rtl/simv.daidir
-      - build/$MY_TARGET/elab/sim_rtl/simv.vdb
-      - build/$MY_TARGET/elab/sim_rtl/compilation.log
-      - build/$MY_TARGET/elab/sim_rtl/cook_manifest.yml
-
-run_sim_rtl:
-  stage: rtl
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs:
-    - job: build_spike
-      artifacts: true
-    - job: elab_rtl
-      artifacts: true
-      <<: *global_matrix_mapping
-    - job: sw_compile
-      artifacts: true
-      <<: *global_matrix_mapping
-  variables:
-    DASHBOARD_JOB_TITLE: "RTL simulation - ${MY_TARGET} - hello-world"
-    DASHBOARD_JOB_DESCRIPTION: "Run hello-world on RTL with tandem check for target ${MY_TARGET}"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_VCS_BASHRC
-    - ./cook.py vcs-uvm-run -t $MY_TARGET -n hello-world --comp-mode rtl --tandem-enabled
-      --trace-mode notrace
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/simulation/sim_rtl/hello-world/*
-
-# ==========================================================
-# POST SYNTHESIS SIMULATIONS (ASIC)
-# ==========================================================
-
-.asic_synthesis:
-  stage: synth
-  tags: [$TAGS_RUNNER_SYNTH]
-  extends:
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs:
-    - job: elab_rtl
+    - job: build spike
       artifacts: false
-      <<: *global_matrix_mapping
-  variables:
-    MY_SYNTH_PERIOD: 15
-    DASHBOARD_JOB_TITLE: "ASIC synthesis"
-    DASHBOARD_JOB_DESCRIPTION: "Synthesize the design with DC Shell"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_DCSHELL_BASHRC
-    - ./cook.py dc-shell-synth -t $MY_TARGET --techno $MY_TECHNO --period $MY_SYNTH_PERIOD
-    - ./cook.py report-dc-shell-synth-kpi --target $MY_TARGET
-    - ./cook.py report-dc-shell-synth-graph
-      --target $MY_TARGET
-      --top cva6
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/synthesis/synthesis.log
-      - build/$MY_TARGET/synthesis/Flist.libverilog
-      - build/$MY_TARGET/synthesis/reports
-      - build/$MY_TARGET/synthesis/netlist
-      - build/$MY_TARGET/synthesis/cook_manifest.yml
-
-.asic_synthesis_elab:
-  stage: synth
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs:
-    - job: build_spike
-      artifacts: true
-    - job: asic_synthesis
-      artifacts: true
-      <<: *global_matrix_mapping
-  variables:
-    DASHBOARD_JOB_TITLE: "Gate-level elaboration"
-    DASHBOARD_JOB_DESCRIPTION: "Compile post-synthesis netlist for gate simulation"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_VCS_BASHRC
-    - ./cook.py vcs-uvm-comp -t $MY_TARGET --comp-mode gate_wc_timing
-      --tandem-enabled --trace-mode notrace
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/elab/sim_gate_wc_timing/simv.daidir
-      - build/$MY_TARGET/elab/sim_gate_wc_timing/simv.vdb
-      - build/$MY_TARGET/elab/sim_gate_wc_timing/compilation.log
-      - build/$MY_TARGET/elab/sim_gate_wc_timing/cook_manifest.yml
-
-.asic_synthesis_run_sim:
-  stage: synth
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .global_matrix_target
-  needs:
-    - job: build_spike
-      artifacts: true
-    - job: asic_synthesis_elab
-      artifacts: true
-      <<: *global_matrix_mapping
-    - job: sw_compile
-      artifacts: true
-      <<: *global_matrix_mapping
-  variables:
-    DASHBOARD_JOB_TITLE: "Gate-level simulation - ${MY_TARGET} - hello-world"
-    DASHBOARD_JOB_DESCRIPTION: "Run hello-world on the post-synthesis netlist for target ${MY_TARGET}"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_VCS_BASHRC
-    - ./cook.py vcs-uvm-run -t $MY_TARGET -n hello-world --comp-mode gate_wc_timing
-      --no-tandem-enabled --no-tb-performance-mode --trace-mode notrace
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/simulation/sim_gate_wc_timing/hello-world/*
-
-# ==========================================================
-# BENCHMARK
-# ==========================================================
-
-.benchmark_matrix_target:
-  parallel:
-    matrix:
-      - MY_TARGET: cv32a60x
-        MY_BENCHMARK:
-          - coremark
-          - dhrystone
-      - MY_TARGET: cv32a65x
-        MY_BENCHMARK:
-          - coremark
-          - dhrystone
-
-# Used to perform mapping 1:1 in jobs dependencies ("needs" in gitlab-ci)
-.benchmark_matrix_mapping: &benchmark_matrix_mapping
-  parallel:
-    matrix:
-      - MY_TARGET: ["$[[ matrix.MY_TARGET ]]"]
-        MY_BENCHMARK: ["$[[ matrix.MY_BENCHMARK ]]"]
-
-benchmark_compile:
-  stage: benchmark
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-    - .benchmark_matrix_target
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Benchmark compile"
-    DASHBOARD_JOB_DESCRIPTION: "Compile the benchmark for the target"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - verif/regress/install-riscv-tests.sh
-    - ./cook.py $MY_BENCHMARK -t $MY_TARGET -c my_${MY_TARGET}_toolchain
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/compile/${MY_BENCHMARK}/*
-
-benchmark_run_sim_rtl:
-  stage: benchmark
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .benchmark_matrix_target
-  needs:
-    - job: build_spike
-      artifacts: true
-    - job: elab_rtl
-      artifacts: true
-      <<: *global_matrix_mapping
-    - job: benchmark_compile
-      artifacts: true
-      <<: *benchmark_matrix_mapping
-  allow_failure: true
-  variables:
-    DASHBOARD_JOB_TITLE: "Benchmark RTL run - ${MY_TARGET} - ${MY_BENCHMARK}"
-    DASHBOARD_JOB_DESCRIPTION: "Run benchmark ${MY_BENCHMARK} on RTL and report performance for target ${MY_TARGET}"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_VCS_BASHRC
-    - ./cook.py vcs-uvm-run -t $MY_TARGET -n $MY_BENCHMARK --comp-mode rtl
-      --tandem-enabled --tb-performance-mode --trace-mode notrace
-    - ./cook.py report-benchmark -t $MY_TARGET -n $MY_BENCHMARK --comp-mode rtl
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/simulation/sim_rtl/${MY_BENCHMARK}/*
-
-# ==========================================================
-# TESTLIST REGRESSION (SPIKE TANDEM)
-# ==========================================================
-
-.testlist_matrix_target:
-  parallel:
-    matrix:
-      # OBI noPMP noMMU
-      - MY_TARGET: cv32a60x
-        MY_TESTLISTS: "base_rv32_p base_zcmt"
-      - MY_TARGET: cv32a60x_no_zcmt
-        MY_TESTLISTS: "base_rv32_p"
-      - MY_TARGET: cv32a65x_noPMP
-        MY_TESTLISTS: "base_rv32_p base_zcmt"
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_nopmp_nommu_obi
-        MY_TESTLISTS: "base_rv64_p"
-      # AXI noPMP noMMU
-      - MY_TARGET: cv32a60x_axi
-        MY_TESTLISTS: "base_rv32_p base_zcmt"
-      - MY_TARGET: cv32a60x_no_zcmt_axi
-        MY_TESTLISTS: "base_rv32_p"
-      - MY_TARGET: cv32a65x_noPMP_axi
-        MY_TESTLISTS: "base_rv32_p base_zcmt"
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_nopmp_nommu_axi
-        MY_TESTLISTS: "base_rv64_p"
-      # OBI PMP noMMU
-      - MY_TARGET: cv32a60x_zcmt_pmp
-        MY_TESTLISTS: "base_rv32_p base_zcmt base_pmp"
-      - MY_TARGET: cv32a65x
-        MY_TESTLISTS: "base_rv32_p base_zcmt base_pmp"
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_nommu_obi
-        MY_TESTLISTS: "base_rv64_p base_pmp base_rv64_amo_p"
-      # AXI PMP noMMU
-      - MY_TARGET: cv32a60x_zcmt_pmp_axi
-        MY_TESTLISTS: "base_rv32_p base_zcmt base_pmp"
-      - MY_TARGET: cv32a65x_axi
-        MY_TESTLISTS: "base_rv32_p base_zcmt base_pmp"
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_nommu_axi
-        MY_TESTLISTS: "base_rv64_p base_pmp base_rv64_amo_p"
-      # OBI PMP MMU
-      - MY_TARGET: cv32a6_imac_sv32_obi
-        MY_TESTLISTS: "base_rv32_p base_rv32_v base_pmp base_rv32_amo_p base_rv32_amo_v"
-      - MY_TARGET: cv32a65x_sv32
-        MY_TESTLISTS: "base_rv32_p base_rv32_v base_pmp"
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_mmu_obi
-        MY_TESTLISTS: "base_rv64_p base_rv64_v base_pmp base_rv64_amo_p base_rv64_amo_v"
-      # AXI PMP MMU
-      - MY_TARGET: cv32a6_imac_sv32
-        MY_TESTLISTS: "base_rv32_p base_rv32_v base_pmp base_rv32_amo_p base_rv32_amo_v"
-      - MY_TARGET: cv32a65x_sv32_axi
-        MY_TESTLISTS: "base_rv32_p base_rv32_v base_pmp"
-      - MY_TARGET: cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi
-        MY_TESTLISTS: "base_rv64_p base_rv64_v base_pmp base_rv64_amo_p base_rv64_amo_v"
-
-# Used to perform mapping 1:1 in jobs dependencies ("needs" in gitlab-ci)
-.testlist_matrix_mapping: &testlist_matrix_mapping
-  parallel:
-    matrix:
-      - MY_TARGET: ["$[[ matrix.MY_TARGET ]]"]
-
-testlist_compile:
-  stage: testlist
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .rules_verif_regress_dev
-    - .testlist_matrix_target
-  needs: []
-  variables:
-    DASHBOARD_JOB_TITLE: "Testlist compile - ${MY_TARGET}"
-    DASHBOARD_JOB_DESCRIPTION: "Compile all tests from multiple testlists for target ${MY_TARGET}"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - verif/regress/install-riscv-tests.sh
-    - |
-      exit_code=0
-      for testlist in ${MY_TESTLISTS}; do
-        echo "=== Compiling testlist: ${testlist} ==="
-        # Check if testlist needs F extension (virtual memory tests)
-        march_flag=""
-        if echo "${testlist}" | grep -qE "_v$"; then
-          march=$(grep '^march:' config/target/$MY_TARGET/isa.yml | awk '{print $2}')
-          # Add 'f' extension if needed using riscv-isa-modify recipe
-          echo "Original ISA: ${march}"
-          ./cook.py riscv-isa-modify -t $MY_TARGET --isa "${march}" --add f --quiet
-          march=$(grep modified_isa build/$MY_TARGET/riscv_isa_modify/modified_isa.yml | awk '{print $2}')
-          echo "Modified ISA: ${march}"
-          march_flag="--march ${march}"
-        fi
-        ./cook.py sw-compile-testlist -t $MY_TARGET -c my_${MY_TARGET}_toolchain -l verif/tests/${testlist}.yaml $march_flag || exit_code=1
-      done
-      exit $exit_code
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/compile/*
-
-testlist_run_sim_rtl:
-  stage: testlist
-  tags: [$TAGS_RUNNER_SIMU]
-  extends:
-    - .need_spike
-    - .rules_verif_regress_dev
-    - .testlist_matrix_target
-  needs:
-    - job: build_spike
-      artifacts: true
-    - job: elab_rtl
-      artifacts: true
-      <<: *global_matrix_mapping
-    - job: testlist_compile
-  variables:
-    DASHBOARD_JOB_TITLE: "Testlist RTL run - ${MY_TARGET}"
-    DASHBOARD_JOB_DESCRIPTION: "Run multiple testlists on RTL with Spike tandem for target ${MY_TARGET}"
-  script:
-    - python3 .gitlab-ci/scripts/report_fail.py
-    - source $SYN_VCS_BASHRC
-    - |
-      exit_code=0
-      for testlist in ${MY_TESTLISTS}; do
-        echo "=== Running testlist: ${testlist} ==="
-        ./cook.py uvm-run-testlist --simulator ${MY_SIMULATOR} -t $MY_TARGET -l verif/tests/${testlist}.yaml --comp-mode rtl \
-          --tandem-enabled --trace-mode notrace || exit_code=1
-      done
-      exit $exit_code
-    - python3 .gitlab-ci/scripts/report_pass.py
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-      - build/$MY_TARGET/simulation/sim_rtl/*
-
-# ============================================================
-# FPGA BOOT
-# ============================================================
-
-fpga-synth:
-  stage: fpga
-  tags: [$TAGS_RUNNER_FPGA]
-  timeout : 2 hours
-  parallel:
-    matrix:
-      - TARGET: ['cv32a6_imac_sv32']
-  variables:
-    DASHBOARD_JOB_TITLE: "FPGA Build $TARGET"
-    DASHBOARD_JOB_DESCRIPTION: "Test FPGA Build flow"
-  script:
-    - source $VIVADO_SETUP
-    - source ./verif/sim/setup-env.sh
-    - mkdir -p artifacts/FPGA/logs/$TARGET
-    - make target=$TARGET fpga &> artifacts/FPGA/logs/$TARGET/fpga_synth.log
-    - mkdir -p artifacts/FPGA/bitstream
-    - mv corev_apu/fpga/work-fpga/ariane_xilinx.bit artifacts/FPGA/bitstream/ariane_xilinx_$TARGET.bit
-    - python3 .gitlab-ci/scripts/report_fpga.py corev_apu/fpga/reports/ariane.utilization.rpt
-  artifacts:
-    when: always
-    paths:
-      - artifacts/reports/report_*.yml
-
-fpga-boot:
-  stage: fpga
-  tags: [$TAGS_RUNNER_FPGA]
-  timeout : 1 hours
-  parallel:
-    matrix:
-      - TARGET: ['cv32a6_imac_sv32']
-  variables:
-    DASHBOARD_JOB_TITLE: "FPGA Linux Boot $TARGET"
-    DASHBOARD_JOB_DESCRIPTION: "Test FPGA Linux Boot"
-  needs:
-    - job: fpga-synth
+  # The macro drives the FPGA board: only one pipeline at a time may run it
   resource_group: physical_fpga_lock
+  # The macro plays every branch of the graph to the end even when a job
+  # fails, so the job duration is bounded by the longest branch (gate-level
+  # and benchmarks included), not by the sum of all recipes.
+  timeout: 12h
+  # The documentation is one of those branches, so the runner needs the
+  # AsciiDoctor extensions and the two diagram generators, installed once
+  # on the image like the CAD tools:
+  #   gem install -g docs/riscv-isa/riscv-isa-manual/dependencies/Gemfile
+  #   npm install -g wavedrom-cli bytefield-svg
+  #   apt install $(grep -v '^#' \
+  #       docs/riscv-isa/riscv-isa-manual/dependencies/apt_packages.txt)
+  # None of it is pinned upstream, so a combination that does not work
+  # leaves a manual without the diagrams it could not render, which
+  # docs-build reports as a failure.
+  # The FPGA jobs of the macro reach the board through the environment of
+  # the runner:
+  #   $XILINX_VIVADO_BASHRC  settings64.sh of Vivado 2018.2, with a licence
+  #                          covering the device of the board
+  #   $HW_SERVER_URL         hw_server driving the board, e.g. localhost:3121
+  #   $UART_SERIAL           board console, a device or a socket://host:port URL
+  #   $VIVADO_CMD            vivado_lab on a runner carrying the lab edition
+  #                          only, which is enough to program a board
+  before_script:
+    - source $CONFIG_DIR/setenv.sh
+    - source $XILINX_VIVADO_BASHRC
+    # setenv.sh sources the bashrc of every tool in turn, and the Verdi one
+    # overwrites VCS_HOME with a version that does not match the `vcs`
+    # binary put in PATH by the VCS bashrc. The job runs VCS, Spyglass
+    # and DC Shell together, so re-source the VCS bashrc last to
+    # restore a consistent VCS_HOME (a mismatch makes VCS abort at
+    # elaboration without writing anything to its log).
+    - source $SYN_VCS_BASHRC
+    - pip3 install -r flows/requirements.txt
+    # Point at the Spike built by the `build spike` job: it lives in a
+    # shared directory keyed by the core-v-verif commit, so nothing has to
+    # transit through artifacts.
+    - mkdir -p tools/
+    - ln -sfn $SPIKE_PATH/$(git -C verif/core-v-verif/ log -1 --pretty=tformat:%h --abbrev=8)/spike
+      tools/
   script:
-    - source $VIVADO_SETUP
-    - source ./verif/sim/setup-env.sh
-    - cd corev_apu/fpga/scripts
-    - source check_fpga_boot.sh $CI_PROJECT_DIR/artifacts/FPGA/bitstream/ariane_xilinx_$TARGET.bit
-    - cd -
-    - python3 .gitlab-ci/scripts/report_fpga_boot.py corev_apu/fpga/scripts/fpga_boot.rpt
-
-
-# ============================================================
-# DASHBOARD GENERATION
-# ============================================================
-
-merge reports:
-  stage: report
-  tags: [$TAGS_RUNNER_SIMU]
-  variables:
-    GIT_SUBMODULE_STRATEGY: none
-    DASHBOARD_JOB_TITLE: "Merge reports"
-    DASHBOARD_JOB_DESCRIPTION: "Merge all job reports into the pipeline dashboard"
-  extends:
-    - .rules_verif_regress_dev
-  when: always
-  script:
-    - mkdir -p build/
-    - python3 .gitlab-ci/scripts/merge_job_reports.py
+    - ./cook.py full-regression
+      --jobs $MY_JOBS
+      --vcs-licenses $MY_VCS_LICENSES
+      --spyglass-licenses $MY_SPYGLASS_LICENSES
+      --synth-licenses $MY_SYNTH_LICENSES
+      --vivado-licenses $MY_VIVADO_LICENSES
+  # Gather the per-recipe reports and tool logs under artifacts/, keeping
+  # their build/ tree structure. Done here rather than through globs in
+  # `artifacts:paths` because `expose_as` rejects wildcards, and in
+  # after_script so the logs of a failed regression are collected too.
+  # build/ itself is not archived: it also holds the simv binaries.
+  after_script:
+    - mkdir -p artifacts/logs
+    - find build -name 'cook_report.yml' -o -name 'cook_manifest.yml' -o -name '*.log'
+      | tar -cf - -T - | tar -xf - -C artifacts/logs
   artifacts:
     when: always
+    expose_as: "Regression report"
+    # UVM transaction logs make the whole collection weigh a few hundred
+    # MB per pipeline: the dashboard itself is kept on Pages, these are
+    # only needed to investigate a recent failure.
+    expire_in: 2 weeks
     paths:
-      - artifacts/reports/pipeline_report_${CI_PIPELINE_ID}.yml
+      # Dashboard first: this is the link exposed in the merge request
+      - artifacts/reports/pipeline_report.html
+      - artifacts/reports/pipeline_report.yml
+      - artifacts/logs
+
+# ==========================================================
+# DASHBOARD PUBLICATION
+# ==========================================================
+
+# The dashboard is a single self-contained HTML page (no server, no
+# external resource), so publishing it is just a copy into public/.
+# `when: always`: a failed regression is precisely the one worth reading.
+#
+# One deployment per branch/MR, through `pages.path_prefix` (parallel
+# deployments). The default branch is published at the root of the site,
+# every other pipeline under its own prefix:
+#
+#   $CI_PAGES_URL/            default branch
+#   $CI_PAGES_URL/mr-42/      merge request 42
+#   $CI_PAGES_URL/br-dev-foo/ branch dev/foo
+#
+pages:
+  stage: deploy
+  tags: [$TAGS_MC_RUNNER_SIMU]
+  extends:
+    - .rules_verif_regress_dev
+  needs:
+    - job: full regression
+      artifacts: true
+  when: always
+  variables:
+    GIT_STRATEGY: none
+    GIT_SUBMODULE_STRATEGY: none
+  pages:
+    path_prefix: "$PAGES_PREFIX"
+    # Keep the site from accumulating one deployment per branch forever.
+    # $PAGES_EXPIRE is never for the root deployment (the reference
+    # dashboard of the default branch, which must stay up between two
+    # nightly runs) and bounded for the per-branch/per-MR ones.
+    expire_in: "$PAGES_EXPIRE"
+  environment:
+    name: "pages/$PAGES_PREFIX"
+    url: "$CI_PAGES_URL/$PAGES_PREFIX"
+  before_script: []
+  script:
+    - mkdir -p public
+    - cp artifacts/reports/pipeline_report.html public/index.html
+    - cp artifacts/reports/pipeline_report.yml public/
+    # Specifications of the documented targets, published under the path
+    # the dashboard links to (docs/<target>/<document>). Copied rather than
+    # linked: Pages serves `public/` only.
+    - cp -r artifacts/reports/docs public/docs || true
+  artifacts:
+    paths:
+      - public

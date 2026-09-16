@@ -35,6 +35,8 @@ export QUARTUS_SETUP=/altera_path/quartus/version/setup/bashrc.example
 #export JTAG_CABLE="AGF FPGA Development Kit [1-3]"
 #Generic tool
 export VERIBLE_PATH=/verible_path/verible-v0.0-3922-g26d4b0e0/bin
+# Verilator of the TestHarness recipes, also put in PATH below
+export VERILATOR_INSTALL_DIR=/verilator_path/verilator-v5.008
 #Python
 # The interpreter the recipes run with, and the one pip installs their
 # entry points next to: black, pylint and sphinx-build are found through
@@ -64,6 +66,7 @@ export DASHBOARD_USER_NAME="gituser"
 export DASHBOARD_URL="git@exemple.com:group/dashboard.git"
 #Update Path
 export PATH=$PATH:$VERIBLE_PATH
+export PATH=$PATH:$VERILATOR_INSTALL_DIR/bin
 export PATH=$PATH:$PYTHON_PATH
 # Activating the virtual environment last puts its interpreter first, so
 # `./cook.py` runs with it whatever the shell had before.
