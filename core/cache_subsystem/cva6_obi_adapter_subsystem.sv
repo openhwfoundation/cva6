@@ -156,6 +156,9 @@ module cva6_obi_adapter_subsystem
   assign dcache_flush_ack_o = dcache_flush_i;
   assign wbuffer_empty_o = 1'b1;
   assign wbuffer_not_ni_o = 1'b1;
+  // No L1 caches in this subsystem, hence no miss to report to PERF_COUNTERS
+  assign icache_miss_o = 1'b0;
+  assign dcache_miss_o = 1'b0;
 
 
   //REQ assignemnts

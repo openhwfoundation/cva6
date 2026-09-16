@@ -65,6 +65,7 @@ module zcmt_decoder #(
   assign ypb_zcmt_req_o.cacheable = config_pkg::is_inside_cacheable_regions(
       CVA6Cfg, {{64 - CVA6Cfg.PLEN{1'b0}}, ypb_zcmt_req_o.paddr}  //TO DO CHECK GRANULARITY
   );
+  assign ypb_zcmt_req_o.access_type = 1'b1;  //1 = data
 
   always_comb begin
     state_d                 = state_q;
