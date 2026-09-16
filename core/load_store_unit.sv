@@ -410,7 +410,6 @@ module load_store_unit
       // MMU port
       .translation_req_o    (st_translation_req),
       .vaddr_o              (st_vaddr),
-      .rvfi_mem_paddr_o     (rvfi_mem_paddr_o),
       .tinst_o              (st_tinst),
       .hs_ld_st_inst_o      (st_hs_ld_st_inst),
       .hlvx_inst_o          (st_hlvx_inst),
@@ -753,6 +752,10 @@ module load_store_unit
   );
 
   assign rvfi_lsu_ctrl_o = lsu_ctrl;
+  // Probe only: the translated address of the access currently presented to
+  // the store buffer / AMO buffer. Pairing it with the access it belongs to is
+  // done in cva6_rvfi.sv, no RVFI logic lives in the CPU RTL.
+  assign rvfi_mem_paddr_o = mmu_paddr;
 
 endmodule
 

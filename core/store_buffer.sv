@@ -42,7 +42,6 @@ module store_buffer
     input  logic         valid_without_flush_i, // just tell if the address is valid which we are current putting and do not take any further action
 
     input  logic [CVA6Cfg.PLEN-1:0]  paddr_i,         // physical address of store which needs to be placed in the queue
-    output logic [CVA6Cfg.PLEN-1:0] rvfi_mem_paddr_o,
     input logic [CVA6Cfg.XLEN-1:0] data_i,  // data which is placed in the queue
     input logic [(CVA6Cfg.XLEN/8)-1:0] be_i,  // byte enable in
     input logic [1:0] data_size_i,  // type of request we are making (e.g.: bytes to write)
@@ -139,8 +138,6 @@ module store_buffer
   logic direct_req_from_speculative;
   // we will never kill a request in the store buffer since we already know that the translation is valid
   // e.g.: a kill request will only be necessary if we are not sure if the requested memory address will result in a TLB fault
-
-  assign rvfi_mem_paddr_o = direct_req_from_speculative ? speculative_queue_q[speculative_read_pointer_q].address : commit_queue_n[commit_read_pointer_n].address;
 
   assign ypb_store_req_o.vreq = '0;
   assign ypb_store_req_o.vaddr = '0;

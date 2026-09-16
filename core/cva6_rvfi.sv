@@ -428,6 +428,7 @@ module cva6_rvfi
     logic [CVA6Cfg.XLEN-1:0] rs1_rdata;
     logic [CVA6Cfg.XLEN-1:0] rs2_rdata;
     logic [CVA6Cfg.VLEN-1:0] lsu_addr;
+    logic [CVA6Cfg.PLEN-1:0] lsu_paddr;
     logic [(CVA6Cfg.XLEN/8)-1:0] lsu_rmask;
     logic [(CVA6Cfg.XLEN/8)-1:0] lsu_wmask;
     logic [CVA6Cfg.XLEN-1:0] lsu_wdata;
@@ -438,6 +439,11 @@ module cva6_rvfi
   } sb_mem_t;
   sb_mem_t [CVA6Cfg.NR_SB_ENTRIES-1:0] mem_q, mem_n;
 
+  // Delayed copy of the access signals, used to pair mem_paddr with the
+  // access it belongs to when an MMU delays the store buffer by one cycle.
+  logic [(CVA6Cfg.XLEN/8)-1:0] lsu_rmask_q, lsu_wmask_q;
+  logic [CVA6Cfg.TRANS_ID_BITS-1:0] lsu_addr_trans_id_q;
+
   always_comb begin : issue_fifo
     mem_n = mem_q;
 
@@ -447,6 +453,7 @@ module cva6_rvfi
             rs1_rdata: rs1[i],
             rs2_rdata: rs2[i],
             lsu_addr: '0,
+            lsu_paddr: '0,
             lsu_rmask: '0,
             lsu_wmask: '0,
             lsu_wdata: '0,
@@ -461,6 +468,17 @@ module cva6_rvfi
       mem_n[branch_trans_id].branch_valid = branch_valid_iti;
       mem_n[branch_trans_id].is_taken = is_taken_iti;
     end
+    // The physical address is latched with the access it belongs to, next to
+    // the virtual one: mem_paddr is a probe of the address currently presented
+    // to the store buffer, so sampling it at commit time would report whatever
+    // access the LSU happens to handle then, which follows the memory latency
+    // rather than the instruction.
+    //
+    // With an MMU the store buffer accepts the entry one cycle after lsu_ctrl
+    // presents the access (store_unit.sv registers store_buffer_valid), so the
+    // address of the access seen this cycle only reaches mem_paddr on the next
+    // one: use the delayed lsu_ctrl to pair them. Without an MMU both are
+    // combinational and coincide.
     if (lsu_rmask != 0) begin
       mem_n[lsu_addr_trans_id].lsu_addr  = lsu_addr;
       mem_n[lsu_addr_trans_id].lsu_rmask = lsu_rmask;
@@ -469,13 +487,26 @@ module cva6_rvfi
       mem_n[lsu_addr_trans_id].lsu_wmask = lsu_wmask;
       mem_n[lsu_addr_trans_id].lsu_wdata = wbdata[STORE_WB];
     end
+    if (CVA6Cfg.MmuPresent) begin
+      if (lsu_wmask_q != 0 || lsu_rmask_q != 0) begin
+        mem_n[lsu_addr_trans_id_q].lsu_paddr = mem_paddr;
+      end
+    end else if (lsu_rmask != 0 || lsu_wmask != 0) begin
+      mem_n[lsu_addr_trans_id].lsu_paddr = mem_paddr;
+    end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : regs
     if (!rst_ni) begin
       mem_q <= '{default: sb_mem_t'(0)};
+      lsu_rmask_q <= '0;
+      lsu_wmask_q <= '0;
+      lsu_addr_trans_id_q <= '0;
     end else begin
       mem_q <= mem_n;
+      lsu_rmask_q <= lsu_rmask;
+      lsu_wmask_q <= lsu_wmask;
+      lsu_addr_trans_id_q <= lsu_addr_trans_id;
     end
   end
 
@@ -519,8 +550,7 @@ module cva6_rvfi
       )) ? commit_instr_result[i] : wdata[i];
       rvfi_instr_o[i].pc_rdata <= commit_instr_pc[i];
       rvfi_instr_o[i].mem_addr <= mem_q[commit_pointer[i]].lsu_addr;
-      // So far, only write paddr is reported. TODO: read paddr
-      rvfi_instr_o[i].mem_paddr <= mem_paddr;
+      rvfi_instr_o[i].mem_paddr <= mem_q[commit_pointer[i]].lsu_paddr;
       rvfi_instr_o[i].mem_wmask <= mem_q[commit_pointer[i]].lsu_wmask;
 
       // For AMO operations, compute the actual write value
