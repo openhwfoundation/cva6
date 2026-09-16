@@ -1,12 +1,12 @@
-# Copyright 2021 Thales DIS design services SAS
-#
-# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
-# You may obtain a copy of the License at https://solderpad.org/licenses/
-#
-# Original Author: Jean-Roch COULON - Thales
-#
+// Copyright 2021 Thales DIS design services SAS
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Original Author: Jean-Roch COULON - Thales
+//
 
 +incdir+${CVA6_REPO_DIR}/core/include/
 +incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/include/
@@ -60,7 +60,7 @@ ${CVA6_REPO_DIR}/core/cache_subsystem/axi_adapter.sv
 ${LIB_VERILOG}
 ${CVA6_REPO_DIR}/build/${TARGET_CFG}/synthesis/netlist/synth.v
 
-# Dedicated to black box in caches, cv32a65x only
+// Dedicated to black box in caches, cv32a65x only
 ${CVA6_REPO_DIR}/pd/synth/tc_sram_wrapper_256_64_00000008_00000001_00000001_none_0.sv
 ${CVA6_REPO_DIR}/pd/synth/hpdcache_sram_wbyteenable_1rw_00000007_00000020_00000080_00000002.sv
 ${CVA6_REPO_DIR}/pd/synth/hpdcache_sram_1rw_00000006_0000001c_00000040_00000001.sv
