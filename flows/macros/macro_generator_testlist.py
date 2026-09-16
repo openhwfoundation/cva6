@@ -8,22 +8,20 @@
 # Original Author: Théo GIOVINAZZI
 
 import random
+from pathlib import Path
 import typer
 
 from flows.recipes.sw_compile_testlist import sw_compile_testlist
 from flows.recipes.vcs_generator_run_testlist import vcs_generator_run_testlist
 from flows.recipes.uvm_run_testlist import uvm_run_testlist
-from flows.utils.utils import (
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.autocompletion import (
     CompMode,
     ToolchainOption,
     TraceMode,
     UvmVerbosity,
     autocompletion_target,
     autocompletion_testlist,
-    print_error,
-    print_recipe_title,
-    print_success,
-    print_step,
 )
 
 app = typer.Typer()
@@ -88,13 +86,57 @@ def macro_vcs_generator_testlist(
     """
     Macro : VCS Generator -> SW Compile -> UVM Run from a testlist
     """
-    print_recipe_title("MACRO: VCS GENERATOR -> COMPILATION -> SIMULATION", quiet=quiet)
+    repo_dir = Path.cwd()
+
+    # One pass/fail row per executed step, with the path of
+    # each sub-recipe cook_report.yml (each report stays in its own out_dir)
+    report = RecipeReport(
+        "macro-vcs-generator-testlist",
+        out_dir=repo_dir / "build" / target,
+        title="MACRO: VCS GENERATOR -> COMPILATION -> SIMULATION",
+        context={
+            "target": target,
+            "testlist": testlist,
+            "test_name": test_name,
+            "toolchain": toolchain,
+            "march": march,
+            "mabi": mabi,
+            "comp_mode": comp_mode,
+            "trace_mode": trace_mode,
+            "uvm_verbosity": uvm_verbosity,
+            "tandem_enabled": tandem_enabled,
+            "tb_performance_mode": tb_performance_mode,
+            "stats": stats,
+            "sim_profile": sim_profile,
+            "run_opts": run_opts,
+            "batch_size": batch_size,
+            "seed": seed,
+            "uvm_seed": uvm_seed,
+        },
+        quiet=quiet,
+    )
+    results = report.metric("Macro steps")
+
+    # cook_report.yml locations of the sub-recipes (their out_dir)
+    generator_report = (
+        repo_dir / "build" / "cv32a65x" / "dv_generated" / "cook_report.yml"
+    )
+    sw_compile_report = repo_dir / "build" / target / "compile" / "cook_report.yml"
+    inout_dir = {
+        CompMode.rtl: "sim_rtl",
+        CompMode.coverage: "sim_cov",
+        CompMode.gate_wc_timing: "sim_gate_wc_timing",
+        CompMode.gate_wc_power: "sim_gate_wc_power",
+    }[comp_mode]
+    uvm_run_report = (
+        repo_dir / "build" / target / "simulation" / inout_dir / "cook_report.yml"
+    )
 
     # ==========================================
     # STEP 1 : GENERATOR
     # ==========================================
     try:
-        print_step("\n=== STEP 1: RUN GENERATOR ===", quiet=quiet)
+        report.step("STEP 1: RUN GENERATOR")
         vcs_generator_run_testlist(
             testlist=testlist,
             test_name=test_name,
@@ -102,16 +144,23 @@ def macro_vcs_generator_testlist(
             batch_size=batch_size,
             quiet=quiet,
         )
-    except typer.Exit as e:
-        print_error("Macro Error: Run Generator", quiet=quiet)
-        raise e
+        results.add_row(
+            status="pass", step="Run Generator", report=str(generator_report)
+        )
+    except typer.Exit:
+        report.error("Macro Error: Run Generator")
+        results.add_row(
+            status="fail", step="Run Generator", report=str(generator_report)
+        )
+        report.set_label("FAIL: Run Generator")
+        report.end("FAIL: Run Generator")
 
     # ==========================================
     # STEP 2 : SOFTWARE COMPILE
     # ==========================================
 
     try:
-        print_step("\n=== STEP 2: SW COMPILE ===", quiet=quiet)
+        report.step("STEP 2: SW COMPILE")
         sw_compile_testlist(
             target=target,
             toolchain=toolchain,
@@ -121,15 +170,18 @@ def macro_vcs_generator_testlist(
             mabi=mabi,
             quiet=quiet,
         )
-    except typer.Exit as e:
-        print_error("Macro Error: Sw Compile", quiet=quiet)
-        raise e
+        results.add_row(status="pass", step="Sw Compile", report=str(sw_compile_report))
+    except typer.Exit:
+        report.error("Macro Error: Sw Compile")
+        results.add_row(status="fail", step="Sw Compile", report=str(sw_compile_report))
+        report.set_label("FAIL: Sw Compile")
+        report.end("FAIL: Sw Compile")
 
     # ==========================================
     # STEP 3 : UVM SIMULATION RUN
     # ==========================================
     try:
-        print_step("\n=== STEP 3: UVM RUN ===", quiet=quiet)
+        report.step("STEP 3: UVM RUN")
         uvm_run_testlist(
             simulator="vcs",
             target=target,
@@ -142,12 +194,26 @@ def macro_vcs_generator_testlist(
             tb_performance_mode=tb_performance_mode,
             stats=stats,
             sim_profile=sim_profile,
+            interactive_gui=False,
             run_opts=run_opts,
             uvm_seed=uvm_seed,
+            sim_timeout=3000,
+            cycle_timeout=None,
             quiet=quiet,
         )
-    except typer.Exit as e:
-        print_error("Macro Error: UVM run", quiet=quiet)
-        raise e
+        results.add_row(status="pass", step="UVM Run", report=str(uvm_run_report))
+    except typer.Exit:
+        report.error("Macro Error: UVM run")
+        results.add_row(status="fail", step="UVM Run", report=str(uvm_run_report))
+        report.set_label("FAIL: UVM Run")
+        report.end("FAIL: UVM Run")
 
-    print_success("\nSuccess Macro", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.print_metric(results)
+    n_total = len(results.values)
+    report.set_label(f"{n_total}/{n_total} PASS")
+    report.success(f"All {n_total} step(s) passed")
+
+    report.end("Completed")

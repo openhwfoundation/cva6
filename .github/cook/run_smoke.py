@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
 # Copyright 2026 OpenHW Foundation
 # SPDX-License-Identifier: Apache-2.0
-"""Run the committed two-Hello smoke through Cook and validate its evidence."""
+"""Run the committed two-Hello smoke through Cook and validate its evidence.
+
+Every Cook recipe leaves two files in its output directory, and the checks
+below read nothing else from Cook:
+
+- cook_report.yml: the verdict. `status` is `pass` or `fail`, `label` a
+  short summary, `metrics` the tables the recipe printed.
+- cook_manifest.yml: the recipe and the options it ran with, `recipe` and
+  `options`.
+
+The simulation log is read on top of them, as a second opinion that does
+not depend on how Cook reached its verdict.
+"""
 
 from datetime import datetime, timezone
 import hashlib
@@ -14,59 +26,89 @@ import sys
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from flows.utils.logged_process import run_logged_process
-
 TARGET = "cv32a65x_axi"
 TESTLIST = "verif/tests/testlist_verilator_testharness_smoke.yaml"
 TESTS = ("hello-original_0", "hello-uart_0")
 GREETING = "0: Hello World !"
-SIMULATION = Path("build") / TARGET / "simulation"
-RUNS = SIMULATION / "sim_rtl_verilator_testharness"
-REPORT = (
-    SIMULATION / "testharness_verilator_testlist_verilator_testharness_smoke_report.yml"
-)
-SUMMARY = REPORT.with_name(REPORT.name.replace("_report.yml", "_summary.yml"))
+BUILD = Path("build") / TARGET
+RUNS = BUILD / "simulation" / "sim_rtl_verilator_testharness"
+# testharness-run-testlist writes its table in a directory named after the
+# simulator and the stem of the testlist.
+BATCH = BUILD / "simulation" / f"testharness_verilator_{Path(TESTLIST).stem}"
+MODEL = BUILD / "elab" / "sim_rtl_verilator_testharness"
+REPORT = "cook_report.yml"
+MANIFEST = "cook_manifest.yml"
 
 
 def read_yaml(path):
+    "Load a YAML file."
     with path.open(encoding="utf-8") as stream:
         return yaml.safe_load(stream)
 
 
 def require_fields(data, expected, label):
-    if not isinstance(data, dict) or any(data.get(k) != v for k, v in expected.items()):
-        raise ValueError(f"Missing or inconsistent {label}")
+    "Raise unless `data` is a mapping holding every item of `expected`."
+    if not isinstance(data, dict):
+        raise ValueError(f"Missing {label}")
+    wrong = {k: data.get(k) for k, v in expected.items() if data.get(k) != v}
+    if wrong:
+        raise ValueError(f"Inconsistent {label}: {wrong}, expected {expected}")
+
+
+def metric(report, name, label):
+    "Return the rows of the table `name` of a Cook report."
+    for table in report.get("metrics") or []:
+        if isinstance(table, dict) and table.get("name") == name:
+            return table.get("data") or []
+    raise ValueError(f"No '{name}' table in the {label}")
+
+
+def checked_report(directory, recipe, label):
+    """
+    Return the Cook report of a recipe after checking that it passed.
+
+    `fail_kind` tells a failure of the environment (a tool missing, a
+    prerequisite not built) from a failure of the design: worth reporting,
+    the fix is not in the same place.
+    """
+    report = read_yaml(directory / REPORT)
+    if not isinstance(report, dict):
+        raise ValueError(f"Missing {label} in {directory}")
+    if report.get("recipe") != recipe or report.get("status") != "pass":
+        raise ValueError(
+            f"{label}: recipe={report.get('recipe')!r} status={report.get('status')!r}"
+            f" fail_kind={report.get('fail_kind')!r} label={report.get('label')!r}"
+        )
+    return report
 
 
 def checked_run(directory, name):
-    result = read_yaml(directory / "result.yml")
-    require_fields(
-        result, {"target": TARGET, "test_name": name, "status": "PASS"}, "run result"
-    )
-    if result.get("iss_enabled") is not False or not isinstance(
-        result.get("detail"), str
-    ):
-        raise ValueError("Invalid run result detail or ISS setting")
-    manifest = read_yaml(directory / "cook_manifest.yml")
-    options = {
-        "target": TARGET,
-        "test_name": name,
-        "comp_mode": "rtl",
-        "trace_mode": "notrace",
-        "iss_enabled": False,
-        "interactive_gui": False,
-    }
+    "Check one test run by verilator-testharness-run, and return its verdict."
+    report = checked_report(directory, "verilator-testharness-run", f"{name} report")
+    manifest = read_yaml(directory / MANIFEST)
     require_fields(
         manifest,
-        {"recipe": "verilator-testharness-run", "options": options},
-        "run manifest",
+        {"recipe": "verilator-testharness-run"},
+        f"{name} manifest",
     )
-    if any(
-        manifest["options"].get(key) is not False
-        for key in ("iss_enabled", "interactive_gui")
-    ):
-        raise ValueError("Invalid run manifest booleans")
+    require_fields(
+        manifest.get("options"),
+        {
+            "target": TARGET,
+            "test_name": name,
+            "comp_mode": "rtl",
+            "trace_mode": "notrace",
+            "interactive_gui": False,
+        },
+        f"{name} manifest options",
+    )
+
+    # The verdict of the recipe, as it wrote it in the table of its steps.
+    steps = metric(report, "Summary", f"{name} report")
+    verdict = [row for row in steps if row.get("step") == f"Run {name}"]
+    if len(verdict) != 1 or verdict[0].get("status") != "pass":
+        raise ValueError(f"{name}: no passing 'Run {name}' step in the report")
+
     log = (directory / "testharness.log").read_text(encoding="utf-8")
     if "*** SUCCESS *** (tohost = 0)" not in log or any(
         marker in log
@@ -82,64 +124,38 @@ def checked_run(directory, name):
     # Only UART Hello promises visible text with this bare-metal runtime.
     if name == "hello-uart_0" and GREETING not in log:
         raise ValueError("UART Hello did not print the expected greeting")
-    return result
+    return verdict[0]["message"]
 
 
-def checked_batch(summary, report, receipts):
+def checked_batch(root):
+    "Check the report of testharness-run-testlist against the two runs."
+    report = checked_report(root / BATCH, "testharness-run-testlist", "testlist report")
+    if report.get("label") != f"{len(TESTS)}/{len(TESTS)} PASS":
+        raise ValueError(f"Unexpected testlist label: {report.get('label')!r}")
     require_fields(
-        summary,
+        report.get("context"),
         {
-            "schema_version": 1,
             "target": TARGET,
-            "testlist": TESTLIST,
             "simulator": "verilator",
             "comp_mode": "rtl",
             "trace_mode": "notrace",
-            "status": "PASS",
         },
-        "testlist summary",
+        "testlist report context",
     )
-    if summary.get("iss_enabled") is not False:
-        raise ValueError("Summary unexpectedly enables ISS")
-    for key, value in {"total": 2, "passed": 2, "failed": 0}.items():
-        if type(summary.get(key)) is not int or summary[key] != value:
-            raise ValueError(f"Incorrect testlist count: {key}")
-    cases = summary.get("cases")
+    rows = metric(report, "Test results", "testlist report")
     expected = [
-        {"test_name": name, "status": "PASS", "detail": receipts[name]["detail"]}
+        {"status": "pass", "test": name, "report": str(root / RUNS / name)}
         for name in TESTS
     ]
-    if cases != expected:
-        raise ValueError("Summary disagrees with the two batch receipts")
-    require_fields(report, {"status": "pass"}, "Cook report")
-    metrics = report.get("metrics")
-    if not isinstance(metrics, list) or len(metrics) != 1:
-        raise ValueError("Expected one Cook report metric")
-    rows = [
-        {
-            "status": "pass",
-            "label": "PASS",
-            "col": [TARGET, case["test_name"], case["detail"]],
-        }
-        for case in expected
-    ]
-    require_fields(
-        metrics[0],
-        {"status": "pass", "type": "table_status", "value": rows},
-        "Cook report rows",
-    )
+    if rows != expected:
+        raise ValueError(f"Testlist rows disagree with the two runs: {rows}")
+    return report
 
 
 def cook_commands():
+    "Return the Cook commands of the smoke, as (stage, argv) in order."
     cook = [sys.executable, "cook.py"]
-    run_options = [
-        "-t",
-        TARGET,
-        "--trace-mode",
-        "notrace",
-        "--no-iss-enabled",
-        "--quiet",
-    ]
+    run_options = ["-t", TARGET, "--trace-mode", "notrace", "--quiet"]
     return [
         (
             "compile-software",
@@ -179,7 +195,26 @@ def cook_commands():
     ]
 
 
+def run_logged(command, *, cwd, env, log, timeout):
+    "Run a command with its output in `log`; return (exit code, timed out)."
+    with log.open("w", encoding="utf-8") as stream:
+        try:
+            done = subprocess.run(
+                command,
+                cwd=cwd,
+                env=env,
+                stdout=stream,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return None, True
+    return done.returncode, False
+
+
 def sha256(path):
+    "Return the SHA-256 of a file."
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
@@ -188,6 +223,7 @@ def sha256(path):
 
 
 def write_summary(evidence, destination):
+    "Append the result table to the GitHub step summary."
     lines = [
         f"## Two-Hello smoke: {evidence['status']}",
         "",
@@ -211,25 +247,37 @@ def write_summary(evidence, destination):
     if "error" in evidence:
         lines += [
             "",
-            "Failure details are in `ci-results/evidence.json` and the step logs.",
+            f"Error: `{evidence['error']}`",
+            "",
+            "Details are in `ci-results/evidence.json`, the step logs, and the"
+            " `cook_report.yml` of the failing recipe.",
         ]
     with destination.open("a", encoding="utf-8") as stream:
         stream.write("\n".join(lines) + "\n")
 
 
-def main():
+def save(root, output, directory, names):
+    "Copy the Cook files of a recipe into the uploaded results."
+    saved = output / directory.relative_to(BUILD)
+    saved.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        if (root / directory / name).exists():
+            shutil.copy2(root / directory / name, saved / name)
+
+
+def main():  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    "Run the smoke, write ci-results/evidence.json, and return the exit code."
     root = Path.cwd()
     output = root / "ci-results"
     output.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     evidence = {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "FAIL",
         "target": TARGET,
         "testlist": TESTLIST,
         "validation_mode": "rtl-only",
         "reference_model": None,
-        "iss_enabled": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "commands": [],
         "checks": {
@@ -241,7 +289,7 @@ def main():
     rc = 1
     try:
         # A fresh hosted checkout must never accept previous build products.
-        if (root / "build" / TARGET).exists():
+        if (root / BUILD).exists():
             raise ValueError(
                 "Use a fresh checkout without existing target build outputs"
             )
@@ -258,6 +306,8 @@ def main():
             "hello-original",
             "hello-uart",
         ] or any(
+            # type() rather than isinstance(): `True` is an int too.
+            # pylint: disable-next=unidiomatic-typecheck
             type(entry.get("iterations")) is not int or entry["iterations"] != 1
             for entry in entries
         ):
@@ -279,10 +329,12 @@ def main():
         )
         evidence["environment"] = environment
         shutil.copy2(metadata, output / "toolchain-environment.yml")
+
+        verdicts = {}
         for label, command in cook_commands():
             log = output / f"{label}.log"
             print("Running:", " ".join(command), flush=True)
-            code, timed_out = run_logged_process(
+            code, timed_out = run_logged(
                 command, cwd=root, env=env, log=log, timeout=2100
             )
             evidence["commands"].append(
@@ -301,34 +353,41 @@ def main():
                 raise ValueError(
                     f"{label} failed: exit={code}, timed_out={timed_out}; see {log.name}"
                 )
+            if label == "compile-testharness":
+                checked_report(root / MODEL, "verilator-testharness-comp", label)
+                save(root, output, MODEL, (REPORT, MANIFEST, "verilator.version"))
             if label in TESTS:
                 evidence["checks"]["single"][label] = "FAIL"
-                checked_run(root / RUNS / label, label)
+                verdicts[label] = checked_run(root / RUNS / label, label)
                 evidence["checks"]["single"][label] = "PASS"
+                # The testlist reruns the same tests in the same directories:
+                # keep what the single runs left before it overwrites them.
                 saved = output / "single" / label
                 saved.mkdir(parents=True)
-                for name in ("testharness.log", "result.yml", "cook_manifest.yml"):
+                for name in ("testharness.log", REPORT, MANIFEST):
                     shutil.copy2(root / RUNS / label / name, saved / name)
-        receipts = {}
+
         for name in TESTS:
             evidence["checks"]["batch"][name] = "FAIL"
-            receipts[name] = checked_run(root / RUNS / name, name)
+            checked_run(root / RUNS / name, name)
             evidence["checks"]["batch"][name] = "PASS"
+            save(root, output, RUNS / name, ("testharness.log", REPORT, MANIFEST))
         evidence["report_check"] = "FAIL"
-        summary, report = read_yaml(root / SUMMARY), read_yaml(root / REPORT)
-        checked_batch(summary, report, receipts)
+        report = checked_batch(root)
         evidence["report_check"] = "PASS"
-        evidence["results"] = summary
-        for path in (REPORT, SUMMARY):
-            shutil.copy2(root / path, output / path.name)
+        evidence["results"] = {
+            "label": report["label"],
+            "cases": [
+                {"test_name": name, "status": "PASS", "detail": verdicts[name]}
+                for name in TESTS
+            ],
+        }
+        save(root, output, BATCH, (REPORT,))
+
         for name in TESTS:
-            path = Path("build") / TARGET / "compile" / name / f"{name}.elf"
+            path = BUILD / "compile" / name / f"{name}.elf"
             evidence["sha256"][str(path)] = sha256(root / path)
-        binary = (
-            Path("build")
-            / TARGET
-            / "elab/sim_rtl_verilator_testharness/Variane_testharness"
-        )
+        binary = MODEL / "Variane_testharness"
         evidence["sha256"][str(binary)] = sha256(root / binary)
         evidence["status"], rc = "PASS", 0
     except (

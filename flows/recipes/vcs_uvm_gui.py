@@ -17,18 +17,13 @@ from flows.utils.manifest import (
     require_prerequisite,
     require_manifest_option,
 )
-from flows.utils.utils import (
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import (
     CompMode,
     TraceMode,
     autocompletion_target,
     autocompletion_testname_compiled,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_success,
-    print_error,
-    print_param_table,
-    run_cmd,
 )
 
 app = typer.Typer()
@@ -69,13 +64,15 @@ def vcs_uvm_gui(
     """
     Verdi open simulation trace (fsdb only)
     """
-
-    # Title
-    print_recipe_title("VCS Simulation open trace", quiet=quiet)
-
-    print_param_table(
-        {"Target": target, "Test name": test_name, "Compilation mode": comp_mode.value},
-        "Options",
+    report = RecipeReport(
+        "vcs-uvm-gui",
+        title="VCS Simulation open trace",
+        context={
+            "target": target,
+            "test_name": test_name,
+            "comp_mode": comp_mode,
+            "session": session,
+        },
         quiet=quiet,
     )
 
@@ -89,50 +86,51 @@ def vcs_uvm_gui(
     elif comp_mode == CompMode.gate_wc_power:
         inout_dir = "sim_gate_wc_power"
     else:
-        print_error("Unknown comp_mode", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Unknown comp_mode", env=True)
 
     # Test tools in path
     verdi_path = shutil.which("verdi")
     if verdi_path is not None:
-        print_success(f"verdi: {verdi_path}", quiet=quiet)
+        report.success(f"verdi: {verdi_path}")
     else:
-        print_error("VERDI: Not found", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("VERDI: Not found", env=True)
 
     # Create files and folder paths
     repo_dir = Path.cwd()
     build_root = repo_dir / "build" / target
     elab_dir = build_root / "elab" / inout_dir
     simulation_dir = build_root / "simulation" / inout_dir / test_name
+    report.set_out_dir(simulation_dir)
 
     # ==========================================================
     # CHECK PREREQUISITES
     # ==========================================================
-    print_step("Check prerequisites", quiet=quiet)
+    report.step("Check prerequisites")
 
     require_prerequisite(
         simulation_dir / "trace.fsdb",
         f"FSDB trace for test '{test_name}' (comp mode '{comp_mode.value}')",
         f"./cook.py vcs-uvm-run -t {target} -n {test_name} --comp-mode {comp_mode.value} --trace-mode gui (design must be elaborated with --trace-mode gui too)",
+        report=report,
     )
 
-    sim_manifest = read_manifest(simulation_dir)
+    sim_manifest = read_manifest(simulation_dir, report)
     require_manifest_option(
         sim_manifest,
         "trace_mode",
         [TraceMode.gui.value, TraceMode.fast.value],
         "Verdi needs an FSDB trace generated with --trace-mode gui or fast",
         f"./cook.py vcs-uvm-run -t {target} -n {test_name} --comp-mode {comp_mode.value} --trace-mode gui",
+        report=report,
         manifest_dir=simulation_dir,
     )
 
-    print_success("Prerequisites OK", quiet=quiet)
+    report.success("Prerequisites OK")
 
     # ==========================================================
     # BUILD VERDI COMMAND
     # ==========================================================
-    print_step("Build verdi command", quiet=quiet)
+    report.step("Build verdi command")
 
     verdi_cmd = ["verdi"]
     verdi_cmd += ["-ssf", f"{simulation_dir / 'trace.fsdb'}"]
@@ -144,26 +142,26 @@ def vcs_uvm_gui(
     if session is not None:
         session_file = Path(session)
         if session_file.exists():
-            print_step(
-                "Saved session found, session restoring configuration", quiet=quiet
-            )
+            report.step("Saved session found, session restoring configuration")
             verdiRestoreTCL = Path("flows/utils/verdiRestore.tcl")
             verdi_cmd += ["-play", f"{verdiRestoreTCL}"]
             with verdiRestoreTCL.open("w", encoding="utf-8") as f:
-                f.write(f"set session_file {session_file}\n")
+                # .as_posix(): backslashes are escape characters in TCL
+                f.write(f"set session_file {session_file.as_posix()}\n")
                 f.write("debRestoreSession $session_file\n")
         else:
-            print_step("Session file is none, skipping session restoring", quiet=quiet)
+            report.step("Session file is none, skipping session restoring")
 
     # ==========================================================
     # LAUNCH VERDI
     # ==========================================================
-    print_step("Launch Verdi", quiet=quiet)
+    report.step("Launch Verdi")
 
     log_file = simulation_dir / "verdi.log"
 
     run_cmd(
         cmd=verdi_cmd,
+        report=report,
         cwd=None,
         env=None,
         error_patterns=None,
@@ -173,7 +171,10 @@ def vcs_uvm_gui(
         timeout=3600,
         check=False,
         capture_output=False,
-        quiet=quiet,
     )
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+
+    report.end("Completed")

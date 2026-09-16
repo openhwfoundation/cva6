@@ -14,12 +14,8 @@ import typer
 import yaml
 
 from flows.recipes.vcs_generator_run import vcs_generator_run
-from flows.utils.utils import (
-    autocompletion_testlist,
-    print_error,
-    print_recipe_title,
-    print_success,
-)
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.autocompletion import autocompletion_testlist
 
 app = typer.Typer()
 
@@ -53,11 +49,29 @@ def vcs_generator_run_testlist(
     """
     VCS UVM generator run testlist simulation flow
     """
-    code = 0
-
-    print_recipe_title("VCS DESIGN RUN GENERATOR TESTLIST", quiet=quiet)
-
     repo_dir = Path.cwd()
+
+    # One pass/fail row per generated test.
+    # Testlist report is stored in a subdirectory named after the testlist
+    # so several testlists can run in the same workdir without overwriting
+    # each other
+    report = RecipeReport(
+        "vcs-generator-run-testlist",
+        out_dir=repo_dir / "build" / "cv32a65x" / "dv_generated" / Path(testlist).stem,
+        title="VCS DESIGN RUN GENERATOR TESTLIST",
+        context={
+            "testlist": testlist,
+            "test_name": test_name,
+            "seed": seed,
+            "batch_size": batch_size,
+        },
+        quiet=quiet,
+    )
+    results = report.metric("Generation results")
+
+    # Per-test output dirs of the vcs-generator-run sub-recipe
+    dv_generated_dir = repo_dir / "build" / "cv32a65x" / "dv_generated"
+
     data = {"testlist": []}
 
     testlist_file = repo_dir / testlist
@@ -70,12 +84,10 @@ def vcs_generator_run_testlist(
             elif isinstance(raw, dict) and "testlist" in raw:
                 data = raw
             else:
-                print_error(f"YAML format error in {testlist_file}", quiet=quiet)
-                raise typer.Exit(code=1)
+                report.error_exit(f"YAML format error in {testlist_file}", env=True)
 
-    except FileNotFoundError as e:
-        print_error(f"File Not found in file {testlist_file}", quiet=quiet)
-        raise typer.Exit(code=1) from e
+    except FileNotFoundError:
+        report.error_exit(f"File Not found in file {testlist_file}", env=True)
 
     for test in data["testlist"]:
         # Single test mode
@@ -85,14 +97,14 @@ def vcs_generator_run_testlist(
 
         # Skip disabled tests
         if "iterations" not in test:
-            print_error("Iterations not found in the TestList", quiet=quiet)
-            raise typer.Exit(code=1)
+            report.error_exit("Iterations not found in the TestList", env=True)
 
         iterations = test["iterations"]
 
         if iterations == 0:
             continue
 
+        child_report = dv_generated_dir / test["test"] / "cook_report.yml"
         try:
             # ==========================================================
             # RUN GENERATOR
@@ -116,16 +128,27 @@ def vcs_generator_run_testlist(
                 tvec_alignment=8,
                 num_of_sub_program=0,
                 illegal_instr_ratio=0,
+                unsupported_instr_ratio=0,
                 instr_cnt=300,
                 opts=opts,
                 quiet=quiet,
             )
+            results.add_row(status="pass", test=test["test"], report=str(child_report))
 
         except typer.Exit:
-            print_error(f"{test['test']}: Return Error", quiet=quiet)
-            code = 1
+            report.error(f"{test['test']}: Return Error")
+            results.add_row(status="fail", test=test["test"], report=str(child_report))
 
-    if code != 0:
-        raise typer.Exit(code=1)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.print_metric(results)
+    n_total = len(results.values)
+    n_pass = sum(1 for row in results.values if row["status"] == "pass")
+    report.set_label(f"{n_pass}/{n_total} PASS")
+    if n_pass != n_total:
+        report.error(f"{n_total - n_pass} generation(s) failed")
+    else:
+        report.success(f"All {n_total} generation(s) passed")
 
-    print_success("Sucess", quiet=quiet)
+    report.end("Completed")

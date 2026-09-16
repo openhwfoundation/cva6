@@ -55,16 +55,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Set
 import typer
-from flows.utils.utils import (
-    autocompletion_target,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_param_table,
-)
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.autocompletion import autocompletion_target
 
 app = typer.Typer()
 
@@ -677,16 +669,30 @@ def riscv_isa_modify(
         # Add and remove extensions in one command
         ./cook.py riscv-isa-modify -t cv32a60x --isa rv32imc_zicsr --add f --add d --remove c
     """
-    # Init code
-    code = 0
 
-    print_recipe_title("RISC-V ISA STRING MODIFICATION", quiet=quiet)
+    # Setup directory structure (per-target isolation)
+    repo_dir = Path.cwd()
+    output_dir = repo_dir / "build" / target / "riscv_isa_modify"
+    env_file = output_dir / "modified_isa.yml"
+
+    report = RecipeReport(
+        "riscv-isa-modify",
+        out_dir=output_dir,
+        title="RISC-V ISA STRING MODIFICATION",
+        context={
+            "target": target,
+            "isa_string": isa_string,
+            "add_ext": add_ext,
+            "remove_ext": remove_ext,
+        },
+        quiet=quiet,
+    )
 
     # ==========================================================
     # VALIDATE INPUT
     # ==========================================================
 
-    print_step("Validate input", quiet=quiet)
+    report.step("Validate input")
 
     # Check for conflicting extensions (present in both add and remove)
     add_set = set(_normalize_ext(ext) for ext in add_ext)
@@ -695,44 +701,25 @@ def riscv_isa_modify(
 
     if conflicts:
         conflict_list = ", ".join(sorted(conflicts))
-        print_error(
-            f"Conflicting extensions found in both add and remove lists: {conflict_list}",
-            quiet=quiet,
+        report.error(
+            f"Conflicting extensions found in both add and remove lists: {conflict_list}"
         )
-        print_error(
-            "Each extension must be in either add or remove list, not both",
-            quiet=quiet,
+        report.error_exit(
+            "Each extension must be in either add or remove list, not both"
         )
-        raise typer.Exit(code=1)
 
     # Validate ISA string format
     try:
         parsed_original = parse_isa(isa_string)
-        print_success(f"Input ISA string is valid: {isa_string}", quiet=quiet)
+        report.success(f"Input ISA string is valid: {isa_string}")
     except ValueError as e:
-        print_error(f"Invalid ISA string: {e}", quiet=quiet)
-        raise typer.Exit(code=1)
-
-    # Display input parameters
-    add_ext_str = ", ".join(add_ext) if add_ext else "None"
-    remove_ext_str = ", ".join(remove_ext) if remove_ext else "None"
-
-    print_param_table(
-        {
-            "Target": target,
-            "Input ISA": isa_string,
-            "Extensions to add": add_ext_str,
-            "Extensions to remove": remove_ext_str,
-        },
-        "Options",
-        quiet=quiet,
-    )
+        report.error_exit(f"Invalid ISA string: {e}")
 
     # ==========================================================
     # PROCESS EXTENSIONS
     # ==========================================================
 
-    print_step("Process extensions", quiet=quiet)
+    report.step("Process extensions")
 
     result_isa = isa_string
 
@@ -740,27 +727,23 @@ def riscv_isa_modify(
     if add_ext:
         try:
             result_isa = add_extensions(result_isa, *add_ext)
-            print_info(f"After adding extensions: {result_isa}", quiet=quiet)
+            report.info(f"After adding extensions: {result_isa}")
         except Exception as e:
-            print_error(f"Error adding extensions: {e}", quiet=quiet)
-            code = 1
-            raise typer.Exit(code=1)
+            report.error_exit(f"Error adding extensions: {e}")
 
     # Then remove extensions
     if remove_ext:
         try:
             result_isa = remove_extensions(result_isa, *remove_ext)
-            print_info(f"After removing extensions: {result_isa}", quiet=quiet)
+            report.info(f"After removing extensions: {result_isa}")
         except Exception as e:
-            print_error(f"Error removing extensions: {e}", quiet=quiet)
-            code = 1
-            raise typer.Exit(code=1)
+            report.error_exit(f"Error removing extensions: {e}")
 
     # ==========================================================
     # DISPLAY RESULTS
     # ==========================================================
 
-    print_step("Results", quiet=quiet)
+    report.step("Results")
 
     # Parse final ISA string to show details
     try:
@@ -774,7 +757,7 @@ def riscv_isa_modify(
         final_single = "".join(parsed_final.single)
         final_multi = ", ".join(parsed_final.multi) if parsed_final.multi else "None"
 
-        print_param_table(
+        report.param_table(
             {
                 "Original ISA": isa_string,
                 "Original prefix": parsed_original.prefix,
@@ -782,10 +765,9 @@ def riscv_isa_modify(
                 "Original multi-letter": original_multi,
             },
             "Original ISA Details",
-            quiet=quiet,
         )
 
-        print_param_table(
+        report.param_table(
             {
                 "Modified ISA": result_isa,
                 "Modified prefix": parsed_final.prefix,
@@ -793,38 +775,33 @@ def riscv_isa_modify(
                 "Modified multi-letter": final_multi,
             },
             "Modified ISA Details",
-            quiet=quiet,
         )
 
-        print_success(f"Final ISA string: {result_isa}", quiet=quiet)
+        report.metric("Result", {"input_isa": isa_string, "modified_isa": result_isa})
+        report.set_label(result_isa)
+
+        report.success(f"Final ISA string: {result_isa}")
 
     except Exception as e:
-        print_error(f"Error parsing final ISA string: {e}", quiet=quiet)
-        code = 1
+        report.error(f"Error parsing final ISA string: {e}")
 
     # ==========================================================
     # EXPORT TO FILE (for GitLab CI)
     # ==========================================================
 
-    print_step("Export to file", quiet=quiet)
-
-    # Setup directory structure (per-target isolation)
-    repo_dir = Path.cwd()
-    output_dir = repo_dir / "build" / target / "riscv_isa_modify"
-    env_file = output_dir / "modified_isa.yml"
+    report.step("Export to file")
 
     # Clean output directory
     try:
         if output_dir.exists():
             shutil.rmtree(output_dir)
-            print_info(f"remove {output_dir}", quiet=quiet)
+            report.info(f"remove {output_dir}")
     except Exception as e:
-        print_error(f"Clean error: {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error: {e}", env=True)
 
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {output_dir}", quiet=quiet)
+    report.info(f"create {output_dir}")
 
     # Write result to YAML file
     try:
@@ -833,21 +810,14 @@ def riscv_isa_modify(
             f.write(f"modified_isa: {result_isa}\n")
             f.write(f"original_isa: {isa_string}\n")
 
-        print_info(f"YAML file created: {env_file}", quiet=quiet)
+        report.info(f"YAML file created: {env_file}")
         if not quiet:
-            print_info(
-                f"To use: grep modified_isa {env_file} | awk '{{print $2}}'",
-                quiet=quiet,
-            )
+            report.info(f"To use: grep modified_isa {env_file} | awk '{{print $2}}'")
     except Exception as e:
-        print_error(f"Error writing environment file: {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Error writing environment file: {e}", env=True)
 
     # ==========================================================
     # COMPLETION
     # ==========================================================
 
-    print_recipe_end("Completed", quiet=quiet)
-
-    if code != 0:
-        raise typer.Exit(code=1)
+    report.end("Completed")

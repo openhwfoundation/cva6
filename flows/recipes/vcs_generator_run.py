@@ -15,14 +15,8 @@ import typer
 import yaml
 
 from flows.utils.manifest import require_prerequisite
-from flows.utils.utils import (
-    print_info,
-    print_param_table,
-    print_recipe_title,
-    print_step,
-    print_success,
-    run_cmd,
-)
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
 
 app = typer.Typer()
 
@@ -136,26 +130,32 @@ def vcs_generator_run(
     """
     RISC-V DV Simulate command
     """
-
-    print_recipe_title("DV SIMULATE GENERATOR", quiet=quiet)
+    report = RecipeReport(
+        "vcs-generator-run",
+        title="DV SIMULATE GENERATOR",
+        context={
+            "target": "cv32a65x",
+            "test_name": test_name,
+            "type_instr": type_instr,
+            "gen_test": gen_test,
+            "iterations": iterations,
+            "batch_size": batch_size,
+            "instr_cnt": instr_cnt,
+            "extensions": extensions,
+            "directed_instrs": directed_instrs,
+            "illegal_instr_ratio": illegal_instr_ratio,
+            "unsupported_instr_ratio": unsupported_instr_ratio,
+            "num_of_sub_program": num_of_sub_program,
+            "seed": seed,
+            "tvec_alignment": tvec_alignment,
+            "verbose": verbose,
+            "opts": opts,
+        },
+        quiet=quiet,
+    )
 
     # Seed Initialisation
     seed_gen = SeedGen(None, seed, None)
-
-    print_param_table(
-        {
-            "Target": "cv32a65x",
-            "Test Name": test_name,
-            "Gen Test": gen_test,
-            "Iterations": iterations,
-            "Batch Size": batch_size,
-            "Extensions": ", ".join(extensions),
-            "Directed Instrs": directed_instrs,
-            "Base Seed": None,
-        },
-        "Options",
-        quiet=quiet,
-    )
 
     # ==========================================================
     # PATHS
@@ -165,11 +165,13 @@ def vcs_generator_run(
     build_dir = repo_dir / "build" / "dv"
     simv_path = build_dir / "simv"
     output_dir = repo_dir / "build" / "cv32a65x" / "dv_generated" / test_name
+    report.set_out_dir(output_dir)
 
     require_prerequisite(
         simv_path,
         "compiled random test generator (simv)",
         "./cook.py vcs-generator-comp",
+        report=report,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -215,7 +217,7 @@ def vcs_generator_run(
     batch_cnt = 1
     if batch_size > 0:
         batch_cnt = int((iterations + batch_size - 1) / batch_size)
-    print_info(f"Running {test_name} with {batch_cnt} batches", quiet=quiet)
+    report.info(f"Running {test_name} with {batch_cnt} batches")
 
     sim_seed = {}
     for i in range(0, batch_cnt):
@@ -243,7 +245,7 @@ def vcs_generator_run(
             sim_cmd = [str(simv_path)] + cmd_options + opts
         else:
             sim_cmd = [str(simv_path)] + cmd_options + base_options
-        print_step(f"Run Batch {i + 1}/{batch_cnt} (Tests: {test_cnt})", quiet=quiet)
+        report.step(f"Run Batch {i + 1}/{batch_cnt} (Tests: {test_cnt})")
 
         # ==========================================================
         # LAUNCH SIMV
@@ -251,6 +253,7 @@ def vcs_generator_run(
 
         run_cmd(
             cmd=sim_cmd,
+            report=report,
             cwd=repo_dir,
             env=None,
             error_patterns=[r"\[ERROR\]", r"^UVM_ERROR", r"Fatal"],
@@ -259,7 +262,6 @@ def vcs_generator_run(
             timeout=3600,
             check=False,
             capture_output=False,
-            quiet=quiet,
         )
 
     # ==========================================================
@@ -274,7 +276,7 @@ def vcs_generator_run(
         with open(seedlist_path, "a", encoding="utf-8") as seedlist_file:
             yaml.dump(sim_seed, seedlist_file, default_flow_style=False)
 
-        print_info(f"Seeds appended to {seedlist_path}", quiet=quiet)
+        report.info(f"Seeds appended to {seedlist_path}")
 
         seed_path = output_dir / "seed.yaml"
         with open(seed_path, "w", encoding="utf-8") as seed_file:
@@ -283,7 +285,7 @@ def vcs_generator_run(
     # ==========================================================
     # Clean
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
 
     target_dir = repo_dir
 
@@ -291,24 +293,33 @@ def vcs_generator_run(
     for map_file in target_dir.glob("simv_start_maps_*.txt"):
         if map_file.is_file():
             map_file.unlink()
-            print_info(f"File {map_file} deleted", quiet=quiet)
+            report.info(f"File {map_file} deleted")
 
     # Remove ucli.key
     ucli_file = target_dir / "ucli.key"
     if ucli_file.exists():
         ucli_file.unlink()
-        print_info(f"File {ucli_file} deleted", quiet=quiet)
+        report.info(f"File {ucli_file} deleted")
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
+    generated = []
     for i in range(iterations):
         file = asm_dir / f"{test_name}_{i}.S"
         if file.exists():
-            print_info(file, quiet=quiet)
+            report.info(f"> {file}")
+            generated.append(str(file.relative_to(repo_dir)))
 
-    print_success("Instruction generation complete", quiet=quiet)
+    report.success("Instruction generation complete")
+
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
+
+    report.end("Completed")
 
 
 if __name__ == "__main__":

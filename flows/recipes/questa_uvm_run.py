@@ -22,23 +22,18 @@ from flows.utils.manifest import (
     read_manifest,
     require_prerequisite,
     require_manifest_option,
+    get_manifest_option,
 )
-from flows.utils.utils import (
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.rvfi_timing import extract_rvfi_timing, benchmark_window
+from flows.utils.tandem import check_tandem_verdict, spike_broken_extensions
+from flows.utils.autocompletion import (
     CompMode,
     TraceMode,
     UvmVerbosity,
     autocompletion_target,
     autocompletion_testname_compiled,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_warning,
-    print_info,
-    print_success,
-    print_error,
-    print_param_table,
-    tail_file,
-    run_cmd,
 )
 
 app = typer.Typer()
@@ -78,6 +73,15 @@ def questa_uvm_run(
     uvm_seed: str = typer.Option(
         default=str(random.getrandbits(31)), help="Randomize UVM seed"
     ),
+    sim_timeout: int = typer.Option(
+        3000, "--sim-timeout", help="Simulation timeout in seconds"
+    ),
+    run_name: str = typer.Option(
+        None,
+        "--run-name",
+        help="Name of the output directory, when the same test is run more "
+        "than once on the same design (default: the test name)",
+    ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
     ),
@@ -85,36 +89,34 @@ def questa_uvm_run(
     """
     Questa UVM run simulation flow
     """
-    # Init code
-    code = 0
+
+    report = RecipeReport(
+        "questa-uvm-run",
+        title="QUESTA DESIGN RUN SIMULATION",
+        context={
+            "target": target,
+            "test_name": test_name,
+            "comp_mode": comp_mode,
+            "trace_mode": trace_mode,
+            "uvm_verbosity": uvm_verbosity,
+            "tandem_enabled": tandem_enabled,
+            "tb_performance_mode": tb_performance_mode,
+            "stats": stats,
+            "interactive_gui": interactive_gui,
+            "run_opts": run_opts,
+            "uvm_seed": uvm_seed,
+            "run_name": run_name,
+            "sim_timeout": sim_timeout,
+        },
+        quiet=quiet,
+    )
 
     # Test tools in path
     vsim_path = shutil.which("vsim")
     if vsim_path is not None:
-        print_success(f"vsim: {vsim_path}", quiet=quiet)
+        report.success(f"vsim: {vsim_path}")
     else:
-        print_error("vsim: Not found", quiet=quiet)
-        raise typer.Exit(code=1)
-
-    print_recipe_title("QUESTA DESIGN RUN SIMULATION", quiet=quiet)
-
-    print_param_table(
-        {
-            "Target": target,
-            "Test name": test_name,
-            "Compilation mode": comp_mode.value,
-            "Trace mode": trace_mode.value,
-            "UVM verbosity": uvm_verbosity.value,
-            "Tandem enabled": tandem_enabled,
-            "TB perf mode": tb_performance_mode,
-            "RTL gen perf": stats,
-            "Interactive GUI": interactive_gui,
-            "Simulation run options": run_opts,
-            "UVM seed": uvm_seed,
-        },
-        "Options",
-        quiet=quiet,
-    )
+        report.error_exit("vsim: Not found", env=True)
 
     # Mode dir
     if comp_mode == CompMode.rtl:
@@ -126,8 +128,7 @@ def questa_uvm_run(
     elif comp_mode == CompMode.gate_wc_power:
         inout_dir = "sim_gate_wc_power"
     else:
-        print_error("Unknown comp_mode", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Unknown comp_mode", env=True)
 
     # Create files and folder paths
     repo_dir = Path.cwd()
@@ -135,28 +136,26 @@ def questa_uvm_run(
     compile_dir = build_root / "compile" / test_name
     elab_dir = build_root / "elab" / inout_dir
     work_dir = elab_dir / "work"
-    simulation_dir = build_root / "simulation" / inout_dir / test_name
+    # Named after the run rather than the test, so running the same test
+    # twice on one elaboration keeps both outputs and both reports.
+    simulation_dir = build_root / "simulation" / inout_dir / (run_name or test_name)
+    report.set_out_dir(simulation_dir)
 
     spike_dir = repo_dir / "tools" / "spike"
     spike_dasm = spike_dir / "bin" / "spike-dasm"
     spike_lib = spike_dir / "lib"
 
-    file_add_tohost = compile_dir / f"{test_name}.add_tohost"
-    file_add_GLOBAL_PATTERN_start = (
-        compile_dir / f"{test_name}.add_GLOBAL_PATTERN_start"
-    )
-    file_add_GLOBAL_PATTERN_end = compile_dir / f"{test_name}.add_GLOBAL_PATTERN_end"
-
     # ==========================================================
     # CHECK PREREQUISITES
     # ==========================================================
-    print_step("Check prerequisites", quiet=quiet)
+    report.step("Check prerequisites")
 
     # Software must be compiled first
     require_prerequisite(
         compile_dir / f"{test_name}.elf",
         f"compiled software for test '{test_name}'",
         f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
+        report=report,
     )
 
     # Hardware must be elaborated first (in the same comp_mode)
@@ -164,10 +163,29 @@ def questa_uvm_run(
         work_dir,
         f"Questa elaborated design (comp mode '{comp_mode.value}')",
         f"./cook.py questa-uvm-comp -t {target} --comp-mode {comp_mode.value}",
+        report=report,
     )
 
     # Options must be compatible with how the design was elaborated
-    elab_manifest = read_manifest(elab_dir)
+    elab_manifest = read_manifest(elab_dir, report)
+    compile_manifest = read_manifest(compile_dir, report)
+
+    # Spike tandem is force-disabled when the ISA the test was compiled
+    # with (march of the sw-compile manifest) contains an extension known
+    # to be incompatible with the current Spike version (see
+    # SPIKE_TANDEM_BROKEN_EXTENSIONS): the tandem verdict would be
+    # unreliable. Other tests keep the requested tandem behavior.
+    if tandem_enabled:
+        tandem_broken = spike_broken_extensions(
+            get_manifest_option(compile_manifest, "march", "")
+        )
+        if tandem_broken:
+            tandem_enabled = False
+            report.add_context({"tandem_enabled": tandem_enabled})
+            report.warning(
+                "Spike tandem force-disabled: ISA extension(s) "
+                f"{', '.join(tandem_broken)} incompatible with the current Spike"
+            )
 
     if trace_mode != TraceMode.notrace:
         require_manifest_option(
@@ -176,6 +194,7 @@ def questa_uvm_run(
             [TraceMode.gui.value, TraceMode.fast.value, TraceMode.compact.value],
             f"trace mode '{trace_mode.value}' requires a design elaborated with trace support",
             f"./cook.py questa-uvm-comp -t {target} --comp-mode {comp_mode.value} --trace-mode {trace_mode.value}",
+            report=report,
             manifest_dir=elab_dir,
         )
 
@@ -186,6 +205,7 @@ def questa_uvm_run(
             [True],
             "spike tandem requires a design elaborated with --tandem-enabled",
             f"./cook.py questa-uvm-comp -t {target} --comp-mode {comp_mode.value} --tandem-enabled",
+            report=report,
             manifest_dir=elab_dir,
         )
 
@@ -196,69 +216,60 @@ def questa_uvm_run(
             [True],
             "RTL perf tracer requires a design elaborated with --stats",
             f"./cook.py questa-uvm-comp -t {target} --comp-mode {comp_mode.value} --stats",
+            report=report,
             manifest_dir=elab_dir,
         )
 
-    print_success("Prerequisites OK", quiet=quiet)
+    report.success("Prerequisites OK")
 
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if simulation_dir.exists():
             shutil.rmtree(simulation_dir)
-            print_info(f"remove {simulation_dir}", quiet=quiet)
+            report.info(f"remove {simulation_dir}")
     except Exception as e:
-        print_error(f"Clean error : {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error : {e}", env=True)
 
     simulation_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {simulation_dir}", quiet=quiet)
+    report.info(f"create {simulation_dir}")
 
     # ==========================================================
     # OPTIONS
     # ==========================================================
 
-    # timing window
-    if file_add_tohost.exists():
-        add_tohost = file_add_tohost.read_text().strip()
-    else:
-        print_error(f"Missing {file_add_tohost}", quiet=quiet)
-        raise typer.Exit(code=1)
+    # Symbol addresses extracted at compile time (sw-compile manifest):
+    # tohost drives the end-of-test detection, the GLOBAL_PATTERN symbols
+    # bound the benchmark timing window (0 = not instrumented)
+    symbols = get_manifest_option(compile_manifest, "symbols", {})
 
-    if file_add_GLOBAL_PATTERN_start.exists():
-        add_start_window = file_add_GLOBAL_PATTERN_start.read_text().strip()
-    else:
-        print_info(f"Missing {file_add_GLOBAL_PATTERN_start}", quiet=quiet)
-        add_start_window = 0
+    add_tohost = symbols.get("tohost")
+    if add_tohost is None:
+        report.error_exit(
+            f"No tohost symbol recorded in the sw-compile manifest of {compile_dir}",
+            env=True,
+        )
 
-    if file_add_GLOBAL_PATTERN_end.exists():
-        add_end_window = file_add_GLOBAL_PATTERN_end.read_text().strip()
-    else:
-        print_info(f"Missing {file_add_GLOBAL_PATTERN_end}", quiet=quiet)
-        add_end_window = 0
+    add_start_window = symbols.get("GLOBAL_PATTERN_start", 0)
+    add_end_window = symbols.get("GLOBAL_PATTERN_end", 0)
 
     spike_param_file = repo_dir / "config" / "target" / target / "spike.yaml"
 
-    if spike_param_file.exists():
-        spike_param_string = f"+config_file={spike_param_file}"
-    else:
-        spike_param_string = ""
-        print_warning(
-            "The spike parameter file is missing. Tandem simulation will be configured automatically"
-        )
+    if not spike_param_file.exists():
+        report.error_exit(f"Missing {spike_param_file}", env=True)
 
     elf = compile_dir / f"{test_name}.elf"
     signature = compile_dir / f"{test_name}.elf.signature_output"
+    tandem_report = simulation_dir / "tandem_report.yml"
 
     # Get QUESTASIM_HOME
     questasim_home = shutil.which("vsim")
     if questasim_home:
         questasim_home = Path(questasim_home).parent.parent
     else:
-        print_error("Cannot determine QUESTASIM_HOME", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Cannot determine QUESTASIM_HOME", env=True)
 
     # VSIM options
     options = [
@@ -309,7 +320,8 @@ def questa_uvm_run(
         "+mhartid=0",
         f"+signature={signature}",
         "+UVM_TESTNAME=uvmt_cva6_firmware_test_c",
-        spike_param_string,
+        f"+report_file={tandem_report}",
+        f"+config_file={spike_param_file}",
         f"+UVM_VERBOSITY=UVM_{uvm_verbosity}",
         f"+tandem_enabled={int(tandem_enabled)}",
         f"+tohost_addr={add_tohost}",
@@ -361,7 +373,7 @@ def questa_uvm_run(
         # Create DO script for waveform dumping
         do_file = simulation_dir / "questa_trace.do"
         do_file.write_text("log -r /*\n" + "run -all\n" + "quit -f\n")
-        print_info(f"Created trace DO file: {do_file}", quiet=quiet)
+        report.info(f"Created trace DO file: {do_file}")
     elif trace_mode == TraceMode.compact:
         # Generate WLF waveform (compressed)
         options += [
@@ -374,7 +386,7 @@ def questa_uvm_run(
         # Create DO script for waveform dumping
         do_file = simulation_dir / "questa_trace.do"
         do_file.write_text("log -r /*\n" + "run -all\n" + "quit -f\n")
-        print_info(f"Created trace DO file: {do_file}", quiet=quiet)
+        report.info(f"Created trace DO file: {do_file}")
     elif trace_mode == TraceMode.notrace:
         # Batch mode with no waveforms
         if not interactive_gui:
@@ -401,7 +413,7 @@ def questa_uvm_run(
     # ==========================================================
     # LAUNCH VSIM
     # ==========================================================
-    print_step("Run Questa simulation", quiet=quiet)
+    report.step("Run Questa simulation")
 
     log_file = simulation_dir / "simulation.log"
 
@@ -411,26 +423,27 @@ def questa_uvm_run(
         "QUESTASIM_HOME": str(questasim_home),
     }
 
+    # The CVA6 UVM testbench emits `UVM_ERROR @ <time> ns : ...`
+    # (underscore, see verif/tb/core/custom_uvm_macros.svh) and `%t` pads
+    # the line start: do not match `UVM-ERROR`, do not anchor `^UVM_ERROR`.
+    # Same patterns as analyze_log below: keep them in sync.
     run_cmd(
         cmd=vsim_cmd,
         cwd=elab_dir,
         env=env_vars,
-        error_patterns=["(^\\*\\* Error|^# \\*\\* Error|UVM-ERROR|Fatal)"],
-        warning_patterns=["(^\\*\\* Warning|^# \\*\\* Warning|UVM-WARNING)"],
+        error_patterns=["(^\\*\\* Error|^# \\*\\* Error|UVM_ERROR|UVM_FATAL|Fatal)"],
+        warning_patterns=["(^\\*\\* Warning|^# \\*\\* Warning|UVM_WARNING)"],
         highlight_patterns=None,
         log_file=log_file,
-        timeout=3000,
+        timeout=sim_timeout,
         check=False,
         capture_output=False,
-        quiet=quiet,
+        report=report,
     )
 
     # ==========================================================
     # POST PROCESS LOGS
     # ==========================================================
-
-    # Tail log
-    tail_file(log_file, n=20, quiet=quiet)
 
     status_passed = re.compile(r"^#\s+SIMULATION PASSED")
     status_failed = re.compile(r"^#\s+SIMULATION FAILED")
@@ -440,110 +453,104 @@ def questa_uvm_run(
         with log_file.open("r") as f_in:
             for line in f_in:
                 if status_passed.search(line):
-                    print_success("Simulation PASSED", quiet=quiet)
+                    report.success("Simulation PASSED")
                     found = 1
                     break
                 if status_failed.search(line):
-                    print_error("Simulation FAILED", quiet=quiet)
-                    code = 1
+                    report.error("Simulation FAILED")
                     found = 1
                     break
     except Exception as e:
-        print_error(f"Error process log: {e}", quiet=quiet)
+        report.error(f"Error process log: {e}", env=True)
 
     if found == 0:
-        print_error("Simulation status unknown", quiet=quiet)
-        code = 1
+        report.error("Simulation status unknown")
+
+    report.analyze_log(
+        log_file,
+        name="simulation.log analysis",
+        error_patterns=[r"(^\*\* Error|^# \*\* Error|UVM_ERROR|UVM_FATAL|Fatal)"],
+        warning_patterns=[r"(^\*\* Warning|^# \*\* Warning|UVM_WARNING)"],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+            r"no such file or directory",
+            r"command not found",
+        ],
+        fail_on_error=False,
+    )
+
+    # ==========================================================
+    # TANDEM VERDICT
+    # ==========================================================
+    # The `SIMULATION PASSED` banner alone does not cover the tandem
+    # comparison: read the scoreboard report back for a blocking verdict
+    if tandem_enabled:
+        check_tandem_verdict(tandem_report, spike_param_file, report)
 
     # ==========================================================
     # POST PROCESS TIMING
     # ==========================================================
-    print_step("Post-process timing info", quiet=quiet)
+    # Timing events displayed by rvfi_tracer.sv (UVM testbench): the
+    # GLOBAL_PATTERN symbol hits and the end of simulation, as pure
+    # ns/cycle values. See flows/utils/rvfi_timing.py.
+    report.step("Post-process timing info")
 
-    def extract_pattern_to_file(
-        log_file, grep_pattern, awk_idx, dest_file, label_begin, label_end
-    ):
-        try:
-            with log_file.open("r") as f_in:
-                for line in f_in:
-                    if grep_pattern in line:
-                        fields = line.split()
-                        if len(fields) >= awk_idx + 1:
-                            dest_file.write_text(fields[awk_idx])
-                            print_success(
-                                f"{label_begin} detected at {fields[awk_idx]} {label_end}",
-                                quiet=quiet,
-                            )
-                            break
-        except Exception as e:
-            print_error(f"Error extraction pattern: {e}", quiet=quiet)
+    try:
+        timing_events = extract_rvfi_timing(log_file)
+    except OSError as e:
+        report.warning(f"Cannot read {log_file}: {e}")
+        timing_events = {}
 
-    # Fallback : windows is 0 to end of simu
-    (simulation_dir / "timing_GLOBAL_PATTERN_start").write_text("0")
-    (simulation_dir / "timing_GLOBAL_PATTERN_start_cycle").write_text("0")
-    extract_pattern_to_file(
-        log_file,
-        "$finish at simulation time",
-        4,
-        simulation_dir / "timing_GLOBAL_PATTERN_end",
-        "Simulation end time",
-        "ns",
-    )
-    extract_pattern_to_file(
-        log_file,
-        "*** [rvfi_tracer] INFO: Simulation terminated after",
-        7,
-        simulation_dir / "timing_GLOBAL_PATTERN_end_cycle",
-        "Simulation end cycle",
-        "cycles",
-    )
-    # Window is the between GLOBAL_PATTERN symbol only
-    extract_pattern_to_file(
-        log_file,
-        "*** [rvfi_tracer] INFO: GLOBAL_PATTERN_start",
-        8,
-        simulation_dir / "timing_GLOBAL_PATTERN_start",
-        "Symbol GLOBAL_PATTERN_start",
-        "ns",
-    )
-    extract_pattern_to_file(
-        log_file,
-        "*** [rvfi_tracer] INFO: GLOBAL_PATTERN_end",
-        8,
-        simulation_dir / "timing_GLOBAL_PATTERN_end",
-        "Symbol GLOBAL_PATTERN_end",
-        "ns",
-    )
-    extract_pattern_to_file(
-        log_file,
-        "*** [rvfi_tracer] INFO: GLOBAL_PATTERN_start",
-        10,
-        simulation_dir / "timing_GLOBAL_PATTERN_start_cycle",
-        "Symbol GLOBAL_PATTERN_start",
-        "cycles",
-    )
-    extract_pattern_to_file(
-        log_file,
-        "*** [rvfi_tracer] INFO: GLOBAL_PATTERN_end",
-        10,
-        simulation_dir / "timing_GLOBAL_PATTERN_end_cycle",
-        "Symbol GLOBAL_PATTERN_end",
-        "cycles",
-    )
+    if timing_events:
+        timing = report.metric("Timing", fmt={"cycles": "cycles"})
+        for event, values in timing_events.items():
+            timing.add_row(event=event, **values)
+        report.print_metric(timing)
+
+    # ==========================================================
+    # BENCHMARK CYCLE COUNT
+    # ==========================================================
+    # Record the measured cycle count; for known benchmarks (coremark,
+    # dhrystone...) the score is computed from the iteration count the
+    # binary was compiled with (sw-compile manifest) and the cycle count
+    # is checked against the target expected values.
+    report.step("Benchmark cycle count")
+    cycles = benchmark_window(timing_events)
+    if cycles is None:
+        report.info("No cycle count available, skipping benchmark reporting")
+    else:
+        # Score only from an instrumented window: without the
+        # GLOBAL_PATTERN symbols the fallback covers the whole simulation
+        # (boot included) and the per-MHz score would be silently skewed
+        iterations = None
+        if "GLOBAL_PATTERN_end" in timing_events:
+            iterations = get_manifest_option(compile_manifest, "benchmark_iterations")
+        report.benchmark(target, test_name, cycles, iterations=iterations)
 
     # ==========================================================
     # Disassemble rvfi trace with spike_dasm
     # ==========================================================
-    print_step("Disassemble rvfi trace", quiet=quiet)
+    report.step("Disassemble rvfi trace")
 
     spike_dasm_log_file = simulation_dir / "spike_dasm.log"
-    isa = (compile_dir / "isa_string").read_text()
+
+    # Disassemble with the march the ELF was compiled with (sw-compile
+    # manifest), which may differ from the target isa.yml: users may add
+    # or remove extensions for software compilation only.
+    isa = get_manifest_option(compile_manifest, "march")
 
     trace_rvfi_file = elab_dir / "trace_rvfi_hart_00.dasm"
 
-    if trace_rvfi_file.exists():
-        print_step("Disassemble rvfi trace", quiet=quiet)
-
+    if not trace_rvfi_file.exists():
+        report.info(
+            "Trace RVFI not found, if rvfi interface is disabled it's normal",
+        )
+    elif isa is None:
+        report.warning(
+            "No march recorded in the sw-compile manifest, skipping disassembly"
+        )
+    else:
         env_vars_dasm = {"LD_LIBRARY_PATH": f"{spike_lib}"}
 
         spike_dasm_cmd = [str(spike_dasm)]
@@ -562,18 +569,13 @@ def questa_uvm_run(
                 timeout=30,
                 check=False,
                 capture_output=False,
-                quiet=quiet,
+                report=report,
             )
-    else:
-        print_info(
-            "Trace RVFI not found, if rvfi interface is disabled it's normal",
-            quiet=quiet,
-        )
 
     # ==========================================================
     # MOVE LOGS / TRACES
     # ==========================================================
-    print_step("Move files", quiet=quiet)
+    report.step("Move files")
 
     for pattern in [
         elab_dir / "tandem.log",
@@ -582,17 +584,17 @@ def questa_uvm_run(
         for file_path in glob.glob(str(pattern)):
             try:
                 shutil.move(file_path, str(simulation_dir))
-                print_info(f"Moved {file_path} -> {simulation_dir}", quiet=quiet)
+                report.info(f"Moved {file_path} -> {simulation_dir}")
             except FileNotFoundError:
-                print_error(f"No file matched: {file_path}", quiet=quiet)
+                report.warning(f"No file matched: {file_path}")
             except Exception as e:
-                print_error(f"Failed to move {file_path}: {e}", quiet=quiet)
+                report.warning(f"Failed to move {file_path}: {e}")
 
     # ==========================================================
     # Stats
     # ==========================================================
     if stats:
-        print_step("Analysis Stats", quiet=quiet)
+        report.step("Analysis Stats")
 
         path_script = (
             repo_dir / "perf-model" / "rtl_models_trace" / "scripts" / "main_stats.py"
@@ -635,8 +637,9 @@ def questa_uvm_run(
             "stats": stats,
             "run_opts": run_opts,
             "uvm_seed": uvm_seed,
+            "run_name": run_name,
         },
-        quiet=quiet,
+        report=report,
     )
 
     # ==========================================================
@@ -646,10 +649,9 @@ def questa_uvm_run(
     gen_files = [
         simulation_dir / "simulation.log",
         simulation_dir / "tandem.log",
+        simulation_dir / "tandem_report.yml",
         simulation_dir / "trace_rvfi_hart_00.dasm",
         simulation_dir / "spike_dasm.log",
-        simulation_dir / "timing_GLOBAL_PATTERN_start",
-        simulation_dir / "timing_GLOBAL_PATTERN_end",
         simulation_dir / "trace.wlf",
         simulation_dir / "coverage.ucdb",
         simulation_dir / f"stalls_{test_name}_{target}.json",
@@ -657,12 +659,16 @@ def questa_uvm_run(
         simulation_dir / f"analysis_{test_name}_{target}.txt",
     ]
 
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
 
-    if code != 0:
-        raise typer.Exit(code=1)
+    report.end("Completed")

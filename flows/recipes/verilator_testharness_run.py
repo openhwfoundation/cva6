@@ -7,46 +7,45 @@
 #
 # Original Author: Junchao Chen (junchao.chen@eclipse-foundation.org)
 
-from __future__ import annotations
+# Please refer to flows/README.md to add target
+
+"""
+Run one test on the Verilator TestHarness.
+
+The harness prints its verdict rather than returning it: the simulation
+exits 0 whatever the program did, so the log is what says whether the
+test passed.
+"""
 
 import os
 from pathlib import Path
 import re
 import shutil
 import stat
-import subprocess
 
 import typer
-import yaml
 
-from flows.recipes.verilator_testharness_comp import (
-    build_directory,
-    elaboration_directory,
-    testharness_binary,
-    target_directory,
-    validate_options,
+from flows.utils.autocompletion import (
+    CompMode,
+    TraceMode,
+    autocompletion_target,
+    autocompletion_testname_compiled,
 )
 from flows.utils.manifest import (
     MANIFEST_NAME,
+    get_manifest_option,
     read_manifest,
     require_manifest_option,
     require_prerequisite,
     write_manifest,
 )
-from flows.utils.logged_process import run_logged_process
-from flows.utils.utils import (
-    CompMode,
-    TraceMode,
-    autocompletion_target,
-    autocompletion_testname_compiled,
-    print_error,
-    print_info,
-    print_param_table,
-    print_recipe_end,
-    print_recipe_title,
-    print_step,
-    print_success,
-    tail_file,
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.recipes.verilator_testharness_comp import (
+    build_directory,
+    check_target,
+    elaboration_directory,
+    testharness_binary,
 )
 
 app = typer.Typer()
@@ -60,27 +59,32 @@ def validate_path_component(value: str, label: str) -> str:
     return value
 
 
-def validate_run_options(
-    comp_mode: CompMode, trace_mode: TraceMode, interactive_gui: bool
+def check_run_options(
+    comp_mode: CompMode, trace_mode: TraceMode, interactive_gui: bool, report
 ) -> None:
-    validate_options(comp_mode, trace_mode, stats=False)
-    if interactive_gui:
-        raise ValueError(
-            "Interactive GUI is not supported by the Verilator TestHarness recipe"
+    "Stop on an option the Verilator harness does not implement"
+    if comp_mode != CompMode.rtl:
+        report.error_exit(
+            f"Verilator TestHarness supports only the rtl compilation mode, "
+            f"got {comp_mode.value}",
+            env=True,
         )
+    if trace_mode == TraceMode.gui or interactive_gui:
+        report.error_exit("Verilator TestHarness has no interactive GUI mode", env=True)
 
 
 def simulation_directory(
-    repo_dir: Path, target: str, test_name: str, comp_mode: CompMode
+    repo_dir: Path, target: str, test_name: str, comp_mode: CompMode, run_name=None
 ) -> Path:
+    "Return the output directory of a run, named after it rather than the test"
     target = validate_path_component(target, "target name")
-    test_name = validate_path_component(test_name, "test name")
+    name = validate_path_component(run_name or test_name, "run name")
     return build_directory(
         repo_dir,
         target,
         "simulation",
         f"sim_{comp_mode.value}_verilator_testharness",
-        test_name,
+        name,
     )
 
 
@@ -107,24 +111,33 @@ def testharness_log_passed(log: Path) -> tuple[bool, str]:
     return True, "TestHarness completed"
 
 
-def runtime_environment(repo_dir: Path, target: str) -> tuple[dict[str, str], Path]:
-    try:
-        riscv = Path(os.environ["RISCV"]).resolve()
-    except KeyError as error:
-        raise ValueError("RISCV is not set") from error
+def runtime_environment(repo_dir: Path, target: str, report) -> tuple[dict, Path]:
+    """
+    Return the environment the harness runs with, and the Spike prefix.
+
+    The binary is linked against the Spike and toolchain libraries but
+    carries no rpath for them, so they have to be on LD_LIBRARY_PATH.
+    SPIKE_TANDEM is dropped: it makes the harness expect a reference model
+    this recipe does not run.
+    """
+    riscv_env = os.environ.get("RISCV")
+    if not riscv_env:
+        report.error_exit("RISCV is not set (see setenv.sh)", env=True)
+    riscv = Path(riscv_env).resolve()
     spike = Path(
         os.environ.get("SPIKE_INSTALL_DIR", repo_dir / "tools" / "spike")
     ).resolve()
 
-    env = os.environ.copy()
     libraries = [str(spike / "lib"), str(riscv / "lib")]
-    if env.get("LD_LIBRARY_PATH"):
-        libraries.append(env["LD_LIBRARY_PATH"])
-    env["LD_LIBRARY_PATH"] = os.pathsep.join(libraries)
-    env["CVA6_REPO_DIR"] = str(repo_dir)
-    env["TARGET_CFG"] = target
-    env["SPIKE_INSTALL_DIR"] = str(spike)
-    env.pop("SPIKE_TANDEM", None)
+    if os.environ.get("LD_LIBRARY_PATH"):
+        libraries.append(os.environ["LD_LIBRARY_PATH"])
+    env = {
+        "LD_LIBRARY_PATH": os.pathsep.join(libraries),
+        "CVA6_REPO_DIR": str(repo_dir),
+        "TARGET_CFG": target,
+        "SPIKE_INSTALL_DIR": str(spike),
+        "SPIKE_TANDEM": "",
+    }
     return env, spike
 
 
@@ -161,43 +174,6 @@ def testharness_command(
     return command
 
 
-def run_spike_dasm(
-    spike_dasm: Path,
-    raw_trace: Path,
-    output_log: Path,
-    error_log: Path,
-    compiler_isa: str,
-    timeout: int,
-    *,
-    env: dict[str, str],
-) -> tuple[bool, str]:
-    try:
-        with (
-            raw_trace.open("rb") as source,
-            output_log.open("wb") as output,
-            error_log.open("wb") as errors,
-        ):
-            result = subprocess.run(
-                [str(spike_dasm), f"--isa={compiler_isa}"],
-                stdin=source,
-                stdout=output,
-                stderr=errors,
-                timeout=timeout,
-                check=False,
-                env=env,
-            )
-    except subprocess.TimeoutExpired:
-        return False, f"spike-dasm timed out after {timeout} seconds"
-    except OSError as error:
-        return False, f"trace disassembly I/O or launch error: {error}"
-    if result.returncode != 0:
-        return (
-            False,
-            f"spike-dasm exited with code {result.returncode}; see {error_log}",
-        )
-    return True, "trace disassembly completed"
-
-
 def check_manifests(
     *,
     target: str,
@@ -206,203 +182,68 @@ def check_manifests(
     trace_mode: TraceMode,
     compile_dir: Path,
     elab_dir: Path,
+    report,
 ) -> None:
-    software_manifest = read_manifest(compile_dir)
-    for directory in (compile_dir, elab_dir):
-        manifest = read_manifest(directory)
-        if not isinstance(manifest, dict) or not isinstance(
-            manifest.get("options"), dict
-        ):
-            raise ValueError(
-                f"Missing or malformed Cook manifest: {directory / MANIFEST_NAME}; compile the prerequisite again"
-            )
+    "Refuse a binary built for another target, test or trace mode"
+    software = read_manifest(compile_dir, report)
+    hint_sw = (
+        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>"
+    )
     require_manifest_option(
-        software_manifest,
+        software,
         "target",
         [target],
         "compiled software target does not match the requested target",
-        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
+        hint_sw,
+        report,
         manifest_dir=compile_dir,
     )
     require_manifest_option(
-        software_manifest,
+        software,
         "test_name",
         [test_name],
         "compiled software name does not match the requested test",
-        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
+        hint_sw,
+        report,
         manifest_dir=compile_dir,
     )
 
-    hardware_manifest = read_manifest(elab_dir)
-    if hardware_manifest.get("recipe") != "verilator-testharness-comp":
-        raise ValueError("Hardware must be produced by verilator-testharness-comp")
+    hardware = read_manifest(elab_dir, report)
+    hint_hw = f"./cook.py verilator-testharness-comp -t {target}"
+    if hardware and hardware.get("recipe") != "verilator-testharness-comp":
+        report.error_exit(
+            f"{elab_dir} was produced by {hardware.get('recipe')!r}, not by "
+            f"verilator-testharness-comp\n  Fix: {hint_hw}",
+            env=True,
+        )
     require_manifest_option(
-        hardware_manifest,
+        hardware,
         "target",
         [target],
         "TestHarness target does not match the requested target",
-        f"./cook.py verilator-testharness-comp -t {target}",
+        hint_hw,
+        report,
         manifest_dir=elab_dir,
     )
     require_manifest_option(
-        hardware_manifest,
+        hardware,
         "comp_mode",
         [comp_mode.value],
         "TestHarness compilation mode does not match the requested mode",
-        f"./cook.py verilator-testharness-comp -t {target} --comp-mode {comp_mode.value}",
+        f"{hint_hw} --comp-mode {comp_mode.value}",
+        report,
         manifest_dir=elab_dir,
     )
     if trace_mode != TraceMode.notrace:
         require_manifest_option(
-            hardware_manifest,
+            hardware,
             "trace_mode",
             [trace_mode.value],
-            f"trace mode '{trace_mode.value}' requires a matching TestHarness build",
-            f"./cook.py verilator-testharness-comp -t {target} --trace-mode {trace_mode.value}",
+            f"trace mode {trace_mode.value!r} requires a matching TestHarness build",
+            f"{hint_hw} --trace-mode {trace_mode.value}",
+            report,
             manifest_dir=elab_dir,
         )
-
-
-def run_testharness_and_trace(
-    *,
-    command: list[str],
-    output_dir: Path,
-    env: dict[str, str],
-    spike_install: Path,
-    compiler_isa: str,
-    timeout: int,
-) -> tuple[bool, str]:
-    testharness_log = output_dir / "testharness.log"
-    return_code, timed_out = run_logged_process(
-        command,
-        cwd=output_dir,
-        env=env,
-        log=testharness_log,
-        timeout=timeout,
-    )
-    if timed_out:
-        return False, f"TestHarness timed out after {timeout} seconds"
-    if return_code != 0:
-        return False, f"TestHarness returned {return_code}"
-
-    passed, detail = testharness_log_passed(testharness_log)
-    if not passed:
-        return False, detail
-
-    raw_trace = output_dir / "trace_rvfi_hart_00.dasm"
-    failure = "RTL simulation passed; trace post-processing failed"
-    # Only an absent path is optional; invalid trace paths must not be skipped.
-    try:
-        trace_stat = raw_trace.lstat()
-    except FileNotFoundError:
-        return (
-            True,
-            f"{detail}; trace disassembly skipped: raw trace not produced ({raw_trace.name})",
-        )
-    except OSError as error:
-        return False, f"{failure}: cannot inspect raw trace: {error}"
-    if not stat.S_ISREG(trace_stat.st_mode):
-        return False, f"{failure}: raw trace is not a regular file: {raw_trace}"
-
-    trace_passed, trace_detail = run_spike_dasm(
-        spike_install / "bin" / "spike-dasm",
-        raw_trace,
-        output_dir / "verilator.log",
-        output_dir / "spike_dasm.log",
-        compiler_isa,
-        min(timeout, 120),
-        env=env,
-    )
-    if not trace_passed:
-        return False, f"{failure}: {trace_detail}"
-    return True, f"{detail}; {trace_detail}"
-
-
-def run_test(
-    *,
-    target: str,
-    test_name: str,
-    comp_mode: CompMode,
-    trace_mode: TraceMode,
-    iss_enabled: bool,
-    interactive_gui: bool,
-    timeout: int = SIMULATION_TIMEOUT,
-) -> tuple[bool, str, Path]:
-    if iss_enabled:
-        raise ValueError("ISS comparison is not supported by this version")
-
-    repo_dir = Path.cwd().resolve()
-    validate_run_options(comp_mode, trace_mode, interactive_gui)
-    target = validate_path_component(target, "target name")
-    test_name = validate_path_component(test_name, "test name")
-
-    target_directory(repo_dir, target)
-    compile_dir = repo_dir / "build" / target / "compile" / test_name
-    elab_dir = elaboration_directory(repo_dir, target, comp_mode)
-    output_dir = simulation_directory(repo_dir, target, test_name, comp_mode)
-    elf = compile_dir / f"{test_name}.elf"
-    isa_file = compile_dir / "isa_string"
-    tohost_file = compile_dir / f"{test_name}.add_tohost"
-    binary = testharness_binary(repo_dir, target, comp_mode)
-
-    require_prerequisite(
-        elf,
-        f"compiled software for test '{test_name}'",
-        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
-    )
-    require_prerequisite(
-        isa_file,
-        f"compiler ISA for test '{test_name}'",
-        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
-    )
-    require_prerequisite(
-        tohost_file,
-        f"tohost address for test '{test_name}'",
-        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
-    )
-    require_prerequisite(
-        binary,
-        f"Verilator TestHarness (comp mode '{comp_mode.value}')",
-        f"./cook.py verilator-testharness-comp -t {target} --comp-mode {comp_mode.value}",
-    )
-    check_manifests(
-        target=target,
-        test_name=test_name,
-        comp_mode=comp_mode,
-        trace_mode=trace_mode,
-        compile_dir=compile_dir,
-        elab_dir=elab_dir,
-    )
-
-    compiler_isa = isa_file.read_text(encoding="utf-8").strip()
-    tohost = tohost_file.read_text(encoding="utf-8").strip()
-    if not compiler_isa:
-        raise ValueError(f"Empty compiler ISA in {isa_file}")
-    if not re.fullmatch(r"(?:0[xX])?[0-9a-fA-F]+", tohost) or int(tohost, 16) == 0:
-        raise ValueError(f"Invalid or zero tohost address in {tohost_file}")
-    if not os.access(binary, os.X_OK):
-        raise ValueError(f"TestHarness is not executable: {binary}")
-    env, spike_install = runtime_environment(repo_dir, target)
-
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True)
-    command = testharness_command(
-        binary,
-        elf,
-        target=target,
-        tohost=tohost,
-        trace_mode=trace_mode,
-    )
-    passed, detail = run_testharness_and_trace(
-        command=command,
-        output_dir=output_dir,
-        env=env,
-        spike_install=spike_install,
-        compiler_isa=compiler_isa,
-        timeout=timeout,
-    )
-    return passed, detail, output_dir
 
 
 @app.command()
@@ -428,93 +269,163 @@ def verilator_testharness_run(
         TraceMode.notrace,
         help="notrace, fast (VCD), or compact (FST); must match the build",
     ),
-    iss_enabled: bool = typer.Option(
-        False, help="Reserved for ISS comparison; enabling it is not yet supported"
-    ),
     interactive_gui: bool = typer.Option(
         False, help="Interactive GUI is currently unsupported"
+    ),
+    sim_timeout: int = typer.Option(
+        SIMULATION_TIMEOUT, "--sim-timeout", help="Simulation timeout in seconds"
+    ),
+    run_name: str = typer.Option(
+        None,
+        "--run-name",
+        help="Name of the output directory, when the same test is run more "
+        "than once on the same design (default: the test name)",
     ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
     ),
 ) -> None:
-    """Run a single ELF with the Verilator TestHarness (no ISS comparison)."""
-    print_recipe_title("VERILATOR TESTHARNESS RUN", quiet=quiet)
-    print_param_table(
-        {
-            "Target": target,
-            "Test": test_name,
-            "Compilation mode": comp_mode.value,
-            "Trace mode": trace_mode.value,
-            "ISS comparison": iss_enabled,
-            "Interactive GUI": interactive_gui,
+    """
+    Run one test on the Verilator TestHarness
+    """
+    repo_dir = Path.cwd().resolve()
+    output_dir = simulation_directory(repo_dir, target, test_name, comp_mode, run_name)
+    report = RecipeReport(
+        "verilator-testharness-run",
+        out_dir=output_dir,
+        title="VERILATOR TESTHARNESS RUN",
+        context={
+            "target": target,
+            "test_name": test_name,
+            "comp_mode": comp_mode.value,
+            "trace_mode": trace_mode.value,
+            "interactive_gui": interactive_gui,
+            "run_name": run_name,
         },
-        "Options",
         quiet=quiet,
     )
-    print_step(f"Run {test_name}", quiet=quiet)
 
-    try:
-        passed, detail, output_dir = run_test(
-            target=target,
-            test_name=test_name,
-            comp_mode=comp_mode,
-            trace_mode=trace_mode,
-            iss_enabled=iss_enabled,
-            interactive_gui=interactive_gui,
+    report.step("Check prerequisites")
+    check_run_options(comp_mode, trace_mode, interactive_gui, report)
+    check_target(target, report)
+
+    compile_dir = build_directory(repo_dir, target, "compile", test_name)
+    elab_dir = elaboration_directory(repo_dir, target, comp_mode)
+    elf = compile_dir / f"{test_name}.elf"
+    binary = testharness_binary(repo_dir, target, comp_mode)
+
+    hint_sw = (
+        f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>"
+    )
+    require_prerequisite(
+        elf, f"compiled software for test '{test_name}'", hint_sw, report
+    )
+    require_prerequisite(
+        binary,
+        f"Verilator TestHarness (comp mode '{comp_mode.value}')",
+        f"./cook.py verilator-testharness-comp -t {target} --comp-mode {comp_mode.value}",
+        report,
+    )
+    check_manifests(
+        target=target,
+        test_name=test_name,
+        comp_mode=comp_mode,
+        trace_mode=trace_mode,
+        compile_dir=compile_dir,
+        elab_dir=elab_dir,
+        report=report,
+    )
+
+    # Recorded by sw-compile rather than kept in files of their own: the
+    # ISA the trace is disassembled with is the one the test was built for.
+    software = read_manifest(compile_dir, report)
+    compiler_isa = get_manifest_option(software, "march")
+    if not compiler_isa:
+        report.error_exit(
+            f"No march in the sw-compile manifest of {compile_dir}", env=True
         )
-    except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
-        print_error(str(error))
-        raise typer.Exit(code=1) from error
+    tohost = str(get_manifest_option(software, "symbols", {}).get("tohost", ""))
+    # A zero tohost means the linker did not place the symbol: the harness
+    # would run to the timeout instead of stopping on the test verdict.
+    if not re.fullmatch(r"(?:0[xX])?[0-9a-fA-F]+", tohost) or int(tohost, 16) == 0:
+        report.error_exit(
+            f"Invalid or zero tohost address in the sw-compile manifest of "
+            f"{compile_dir}: {tohost!r}",
+            env=True,
+        )
 
-    if (not quiet or not passed) and (output_dir / "testharness.log").is_file():
-        tail_file(output_dir / "testharness.log", n=20)
-    options = {
-        "target": target,
-        "test_name": test_name,
-        "comp_mode": comp_mode.value,
-        "trace_mode": trace_mode.value,
-        "iss_enabled": iss_enabled,
-        "interactive_gui": interactive_gui,
-    }
+    env, spike_install = runtime_environment(repo_dir, target, report)
+    report.success("Prerequisites OK")
+
+    report.step("Clean")
+    try:
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+        output_dir.mkdir(parents=True)
+        report.info(f"create {output_dir}")
+    except OSError as e:
+        report.error_exit(f"Clean error: {e}", env=True)
+
+    report.step(f"Run {test_name}")
+    log_file = output_dir / "testharness.log"
+    run_cmd(
+        cmd=testharness_command(
+            binary, elf, target=target, tohost=tohost, trace_mode=trace_mode
+        ),
+        report=report,
+        cwd=output_dir,
+        env=env,
+        log_file=log_file,
+        timeout=sim_timeout,
+    )
+
+    # The harness exits 0 whatever the program did, so the verdict is in
+    # the log: a test that never reached tohost looks like a clean run.
+    passed, detail = testharness_log_passed(log_file)
+    if passed:
+        report.success(f"{test_name}: {detail}")
+    else:
+        report.error(f"{test_name}: {detail}")
+
+    report.step("Disassemble the trace")
+    raw_trace = output_dir / "trace_rvfi_hart_00.dasm"
+    if not raw_trace.exists():
+        report.info(f"{raw_trace.name} not produced, nothing to disassemble")
+    elif not stat.S_ISREG(raw_trace.lstat().st_mode):
+        report.error(f"Raw trace is not a regular file: {raw_trace}")
+    else:
+        with raw_trace.open("rb") as source:
+            run_cmd(
+                cmd=[
+                    str(spike_install / "bin" / "spike-dasm"),
+                    f"--isa={compiler_isa}",
+                ],
+                report=report,
+                cwd=output_dir,
+                env=env,
+                stdin=source,
+                log_file=output_dir / "spike_dasm.log",
+                timeout=min(sim_timeout, 120),
+                check=False,
+            )
+
     write_manifest(
         output_dir,
         "verilator-testharness-run",
-        options,
-        quiet=quiet,
+        {
+            "target": target,
+            "test_name": test_name,
+            "comp_mode": comp_mode,
+            "trace_mode": trace_mode,
+            "interactive_gui": interactive_gui,
+            "run_name": run_name,
+        },
+        report,
     )
-    manifest = read_manifest(output_dir)
-    if (
-        not isinstance(manifest, dict)
-        or manifest.get("recipe") != "verilator-testharness-run"
-        or manifest.get("options") != options
-    ):
-        print_error(
-            f"Run manifest was not written correctly: {output_dir / MANIFEST_NAME}"
-        )
-        raise typer.Exit(code=1)
-    try:
-        (output_dir / "result.yml").write_text(
-            yaml.safe_dump(
-                {
-                    "target": target,
-                    "test_name": test_name,
-                    "status": "PASS" if passed else "FAIL",
-                    "iss_enabled": iss_enabled,
-                    "detail": detail,
-                },
-                sort_keys=False,
-            ),
-            encoding="utf-8",
-        )
-    except OSError as error:
-        print_error(f"Cannot write run result: {error}")
-        raise typer.Exit(code=1) from error
-    if passed:
-        print_success(f"{test_name}: PASS ({detail})", quiet=quiet)
-    else:
-        print_error(f"{test_name}: FAIL ({detail}); results: {output_dir}")
-    print_info(f"Results: {output_dir}", quiet=quiet)
-    print_recipe_end("Completed", quiet=quiet)
-    if not passed:
-        raise typer.Exit(code=1)
+
+    report.step("Generated files")
+    for path in (log_file, raw_trace, output_dir / MANIFEST_NAME):
+        if path.exists():
+            report.info(f"> {path}")
+
+    report.end()

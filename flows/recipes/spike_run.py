@@ -12,19 +12,19 @@
 from pathlib import Path
 import shutil
 import typer
-from flows.utils.manifest import write_manifest, require_prerequisite
-from flows.utils.utils import (
+from flows.utils.manifest import (
+    write_manifest,
+    read_manifest,
+    require_prerequisite,
+    get_manifest_option,
+)
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.tandem import spike_broken_extensions
+from flows.utils.target_config import target_dir
+from flows.utils.autocompletion import (
     autocompletion_target,
     autocompletion_testname_compiled,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_param_table,
-    tail_file,
-    run_cmd,
 )
 
 app = typer.Typer()
@@ -58,17 +58,14 @@ def spike_run(
     """
     VCS UVM run simulation flow
     """
-    # Init code
-    code = 0
 
-    print_recipe_title("SPIKE SIMULATION", quiet=quiet)
-
-    print_param_table(
-        {
-            "Target": target,
-            "Test name": test_name,
+    report = RecipeReport(
+        "spike-run",
+        title="SPIKE SIMULATION",
+        context={
+            "target": target,
+            "test_name": test_name,
         },
-        "Options",
         quiet=quiet,
     )
 
@@ -80,6 +77,7 @@ def spike_run(
     build_root = repo_dir / "build" / target
     compile_dir = build_root / "compile" / test_name
     simulation_dir = build_root / "simulation" / inout_dir / test_name
+    report.set_out_dir(simulation_dir)
 
     spike_dir = repo_dir / "tools" / "spike"
     spike_bin = spike_dir / "bin" / "spike"
@@ -88,44 +86,70 @@ def spike_run(
     # ==========================================================
     # CHECK PREREQUISITES
     # ==========================================================
-    print_step("Check prerequisites", quiet=quiet)
+    report.step("Check prerequisites")
 
     require_prerequisite(
         spike_bin,
         "SPIKE simulator binary",
         "./cook.py git-dependencies",
+        report=report,
     )
 
     require_prerequisite(
         compile_dir / f"{test_name}.elf",
         f"compiled software for test '{test_name}'",
         f"./cook.py sw-compile -t {target} -c <toolchain> --out {test_name} <sources>",
+        report=report,
     )
 
-    print_success("Prerequisites OK", quiet=quiet)
+    # Spike parameters of the target: passed to --param-file below. Checked
+    # here rather than left to Spike, which reports it as a parameter error
+    # instead of a missing target configuration file.
+    spike_param_file = target_dir(target) / "spike.yaml"
+    require_prerequisite(
+        spike_param_file,
+        f"Spike parameters of target '{target}'",
+        f"add config/target/{target}/spike.yaml (see another target for the format)",
+        report=report,
+    )
+
+    report.success("Prerequisites OK")
 
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if simulation_dir.exists():
             shutil.rmtree(simulation_dir)
-            print_info(f"remove {simulation_dir}", quiet=quiet)
+            report.info(f"remove {simulation_dir}")
     except Exception as e:
-        print_error(f"Clean error: {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error: {e}", env=True)
 
     simulation_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {simulation_dir}", quiet=quiet)
+    report.info(f"create {simulation_dir}")
 
     # ==========================================================
     # OPTIONS
     # ==========================================================
 
+    # The ISA the test was compiled with (march of the sw-compile
+    # manifest) must not contain an extension known to be incompatible
+    # with the current Spike version (see SPIKE_TANDEM_BROKEN_EXTENSIONS):
+    # the Spike behavior would be unreliable. Do not run Spike at all.
+    compile_manifest = read_manifest(compile_dir, report)
+    tandem_broken = spike_broken_extensions(
+        get_manifest_option(compile_manifest, "march", "")
+    )
+    if tandem_broken:
+        report.error_exit(
+            "Spike run disabled: ISA extension(s) "
+            f"{', '.join(tandem_broken)} incompatible with the current Spike",
+            env=True,
+        )
+
     env_vars = {"LD_LIBRARY_PATH": f"{spike_lib}"}
 
-    spike_param_file = repo_dir / "config" / "target" / target / "spike.yaml"
     elf = compile_dir / f"{test_name}.elf"
 
     options = [
@@ -147,12 +171,13 @@ def spike_run(
     # ==========================================================
     # LAUNCH SIMV
     # ==========================================================
-    print_step("Run SPIKE simulation", quiet=quiet)
+    report.step("Run SPIKE simulation")
 
     log_file = simulation_dir / "simulation.log"
 
     run_cmd(
         cmd=spike_cmd,
+        report=report,
         cwd=simulation_dir,
         env=env_vars,
         error_patterns=["(ERROR|Error|No such file or directory)"],
@@ -162,20 +187,18 @@ def spike_run(
         timeout=3000,
         check=False,
         capture_output=False,
-        quiet=quiet,
     )
 
     # ==========================================================
     # POST PROCESS LOGS
     # ==========================================================
 
-    # Tail log
-    tail_file(log_file, n=20, quiet=quiet)
+    # tohost address extracted at compile time (sw-compile manifest)
+    symbols = get_manifest_option(compile_manifest, "symbols", {})
+    add_tohost = symbols.get("tohost")
 
-    file_add_tohost = compile_dir / f"{test_name}.add_tohost"
     found = 0
-    if file_add_tohost.exists():
-        add_tohost = file_add_tohost.read_text().strip()
+    if add_tohost is not None:
         try:
             with log_file.open("r") as f_in:
                 lines = f_in.readlines()
@@ -185,31 +208,38 @@ def spike_run(
             return_val = last_line_words[-1]
             if tohost[2:] == add_tohost:
                 if return_val[2:] == "00000001":
-                    print_success(
+                    report.success(
                         f"Spike ended with value {return_val[2:]} in tohost ({add_tohost})",
-                        quiet=quiet,
                     )
                     found = 1
                 else:
-                    print_error(
+                    report.error(
                         f"Spike ended with value {return_val[2:]} in tohost ({add_tohost})",
-                        quiet=quiet,
                     )
                     found = 1
             else:
-                print_error(
+                report.error(
                     f"Spike did not end with write in tohost ({add_tohost}): {tohost[2:]}",
-                    quiet=quiet,
                 )
                 found = 1
         except Exception as e:
-            print_error(f"Error process log: {e}", quiet=quiet)
+            report.error(f"Error process log: {e}", env=True)
     else:
-        print_error(f"Missing {file_add_tohost}", quiet=quiet)
+        report.error(
+            f"No tohost symbol recorded in the sw-compile manifest of {compile_dir}",
+            env=True,
+        )
 
     if found == 0:
-        print_error("Simulation status unknown", quiet=quiet)
-        code = 1
+        report.error("Simulation status unknown")
+
+    report.analyze_log(
+        log_file,
+        error_patterns=["(ERROR|Error)"],
+        warning_patterns=["(WARNING|Warning)"],
+        env_patterns=["No such file or directory", "command not found"],
+        fail_on_error=False,
+    )
 
     # ==========================================================
     # BUILD MANIFEST
@@ -221,22 +251,26 @@ def spike_run(
             "target": target,
             "test_name": test_name,
         },
-        quiet=quiet,
+        report=report,
     )
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     gen_files = [
         simulation_dir / "simulation.log",
     ]
 
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
 
-    if code != 0:
-        raise typer.Exit(code=1)
+    report.end("Completed")

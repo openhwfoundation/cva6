@@ -14,17 +14,11 @@ import shutil
 import re
 from datetime import datetime
 import typer
-from flows.utils.utils import (
+from flows.utils.autocompletion import (
     autocompletion_target,
     autocompletion_param_config,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_error,
-    print_param_table,
-    print_table,
 )
+from flows.utils.recipe_report import RecipeReport
 
 app = typer.Typer()
 
@@ -58,7 +52,17 @@ def hwconfig_forge(
     """
     Hardware config modify/overwrite
     """
-    print_recipe_title("HWCONFIG : Forging new config", quiet=quiet)
+    report = RecipeReport(
+        "hwconfig-forge",
+        out_dir=Path.cwd() / "config" / "gen_from_riscv_config" / new_target_name,
+        title="HWCONFIG : Forging new config",
+        context={
+            "new_target_name": new_target_name,
+            "target": target,
+            "arg_replace": arg_replace,
+        },
+        quiet=quiet,
+    )
 
     # ==========================================================
     # GENERATE MODIFICATIONS DICTIONARY
@@ -66,31 +70,16 @@ def hwconfig_forge(
 
     try:
         arg_replace_dict = dict(item.split("=") for item in arg_replace)
-        arg_replace_str = ""
-        for key, value in arg_replace_dict.items():
-            arg_replace_str += f"{key}: {value}\n"
     except Exception as e:
-        print_error(
+        report.error_exit(
             f'\033[1mThe list of arguments to overwrite is incorrect, please use ./cook.py hwconfig-forge TARGET "PARAMETER=VALUE" "PARAMETER=VALUE"...\033[0m{e}',
-            quiet=quiet,
         )
-        raise typer.Exit(code=1)
-
-    print_param_table(
-        {
-            "New target config": new_target_name,
-            "Original target config": target,
-            "Values to overwrite": arg_replace_str,
-        },
-        "Options",
-        quiet=quiet,
-    )
 
     # ==========================================================
     # FETCH TEMPLATE (ORIGINAL TARGET CONFIG PKG)
     # ==========================================================
 
-    print_step("Target config package fetch", quiet=quiet)
+    report.step("Target config package fetch")
     repo_dir = Path.cwd()
     config_pkg_dir = repo_dir / "core" / "include"
     config_pkg = config_pkg_dir / f"{target}_config_pkg.sv"
@@ -114,17 +103,14 @@ def hwconfig_forge(
         / "spike.yaml"
     )
     if config_pkg.exists():
-        print_info(
-            f"{config_pkg_dir}/{target}_config_pkg.sv exists and found", quiet=quiet
-        )
+        report.info(f"{config_pkg_dir}/{target}_config_pkg.sv exists and found")
         config_pkg = config_pkg.open()
     else:
-        print_error(
-            f"{config_pkg_dir}/{target}_config_pkg.sv does not exist", quiet=quiet
+        report.error_exit(
+            f"{config_pkg_dir}/{target}_config_pkg.sv does not exist", env=True
         )
-        raise typer.Exit(code=1)
 
-    print_step("Target config package forge", quiet=quiet)
+    report.step("Target config package forge")
 
     # ==========================================================
     # FORGE MODIFIED CONFIG PKG
@@ -170,32 +156,34 @@ def hwconfig_forge(
 
         forged_config_content.append(line)
 
-    print_table(
+    report.styled_table(
         params=param_table,
         title="Updated config values",
         column_name=titles_l,
         style=style_l,
-        quiet=quiet,
     )
 
-    print_step(f"New target '{new_target_name}' generation", quiet=quiet)
+    # Record updated values in the report (already printed by styled_table)
+    updated = report.metric("Updated config values")
+    for param, (old_value, new_value) in param_table.items():
+        updated.add_row(parameter=param, old=old_value, new=new_value)
+
+    report.step(f"New target '{new_target_name}' generation")
 
     with forged_config_pkg.open("w") as f:
         for line in forged_config_content:
             f.write(f"{line}\n")
-        print_info(f"create {new_target_name}_config_pkg.sv", quiet=quiet)
+        report.info(f"create {new_target_name}_config_pkg.sv")
 
     # Create parents dir and do not raise error if directories already exists
     if not forged_config_linker.exists():
         forged_config_linker.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(config_linker, forged_config_linker)
-        print_info(f"Copy {config_linker} -> {forged_config_linker}", quiet=quiet)
+        report.info(f"Copy {config_linker} -> {forged_config_linker}")
     if not forged_config_spike_file.exists():
         forged_config_spike_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(config_spike_file, forged_config_spike_file)
-        print_info(
-            f"Copy {config_spike_file} -> {forged_config_spike_file}", quiet=quiet
-        )
+        report.info(f"Copy {config_spike_file} -> {forged_config_spike_file}")
 
     # ==========================================================
     # List
@@ -207,11 +195,14 @@ def hwconfig_forge(
         forged_config_spike_file,
     ]
 
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
         else:
-            print_error(f"> Missing: {genfile}", quiet=quiet)
+            report.error(f"> Missing: {genfile}")
 
-    print_recipe_end("Completed", quiet=quiet)
+    if not report.failed:
+        report.success(f"New target '{new_target_name}' forged")
+
+    report.end("Completed")

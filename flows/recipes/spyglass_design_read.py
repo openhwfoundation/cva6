@@ -12,20 +12,13 @@
 from pathlib import Path
 import shutil
 import typer
-import yaml
 from flows.utils.manifest import write_manifest
-from flows.utils.utils import (
-    Cva6Hier,
-    autocompletion_target,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_param_table,
-    run_cmd,
-    print_code,
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import autocompletion_target
+from flows.utils.target_config import (
+    read_config_or_exit_testbench_cfg,
+    top_elaborate as get_top_elaborate,
 )
 
 app = typer.Typer()
@@ -52,46 +45,37 @@ def spyglass_design_read(
     """
     Spyglass design read
     """
-    print_recipe_title("Spyglass design read", quiet=quiet)
-
-    # Get testbench config
-    repo_dir = Path.cwd()
-    testbench_cfg = None
-    with (repo_dir / "config" / "target" / target / "testbench_cfg.yml").open(
-        "r", encoding="utf-8"
-    ) as f:
-        testbench_cfg = yaml.safe_load(f)
-    cva6_hier = Cva6Hier(testbench_cfg["hier"])
-
-    print_param_table(
-        {
-            "Target": target,
-            "Testbench hier": cva6_hier.value,
+    report = RecipeReport(
+        "spyglass-design-read",
+        title="Spyglass design read",
+        context={
+            "target": target,
         },
-        "Options",
         quiet=quiet,
     )
+
+    # Output directory set first: a failure reading the target
+    # configuration below must still produce a report.
+    repo_dir = Path.cwd()
+    build_root = repo_dir / "build" / target
+    spyglass_dir = build_root / "spyglass"
+    report.set_out_dir(spyglass_dir)
+
+    # Get testbench config
+    cva6_hier = read_config_or_exit_testbench_cfg(target, report)
 
     # Test tools in path
     aipk_read_path = shutil.which("aipk_read")
     if aipk_read_path is not None:
-        print_success(f"aipk_read: {aipk_read_path}", quiet=quiet)
+        report.success(f"aipk_read: {aipk_read_path}")
     else:
-        print_error("aipk_read: Not found", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("aipk_read: Not found", env=True)
 
-    # Testbench selection
-    if cva6_hier == Cva6Hier.obi:
-        top_elaborate = "cva6_example_obi"
-    elif cva6_hier == Cva6Hier.axi:
-        top_elaborate = "cva6_example_axi"
-    else:
-        print_error("Unknown cva6_hier", quiet=quiet)
-        raise typer.Exit(code=1)
+    top_elaborate = get_top_elaborate(cva6_hier)
+
+    report.add_context({"top_elaborate": top_elaborate})
 
     # Create files and folder paths
-    build_root = repo_dir / "build" / target
-    spyglass_dir = build_root / "spyglass"
     sg_setup_dir = spyglass_dir / "sg_setup" / top_elaborate
     tmp_dir = spyglass_dir / "tmp"
 
@@ -103,20 +87,19 @@ def spyglass_design_read(
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if spyglass_dir.exists():
             shutil.rmtree(spyglass_dir)
-            print_info(f"remove {spyglass_dir}", quiet=quiet)
+            report.info(f"remove {spyglass_dir}")
     except Exception as e:
-        print_error(f"Clean error : {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error : {e}", env=True)
 
     sg_setup_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {sg_setup_dir}", quiet=quiet)
+    report.info(f"create {sg_setup_dir}")
 
     tmp_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {tmp_dir}", quiet=quiet)
+    report.info(f"create {tmp_dir}")
 
     # ==========================================================
     # ENV VARIABLES (passed to run_cmd only)
@@ -126,9 +109,6 @@ def spyglass_design_read(
         "CVA6_REPO_DIR": str(repo_dir),
         "TARGET_CFG": target,
         "HPDCACHE_DIR": str(repo_dir / "core" / "cache_subsystem" / "hpdcache"),
-        "HPDCACHE_TARGET_CFG": str(
-            repo_dir / "core" / "include" / "cva6_hpdcache_default_config_pkg.sv"
-        ),
         "SPYGLASS_TMPDIR": str(tmp_dir),
     }
 
@@ -142,7 +122,7 @@ def spyglass_design_read(
     # ==========================================================
     # GENERATE OPTIONS FILE
     # ==========================================================
-    print_step("Generate options file", quiet=quiet)
+    report.step("Generate options file")
 
     options_content = """## File Name : Option File
 set_option enableSV no
@@ -151,13 +131,13 @@ set_option enableSV09 yes
 
     options_file.write_text(options_content)
 
-    print_info(f"File generated at {options_file}", quiet=quiet)
-    print_code(options_content, "tcl", quiet=quiet)
+    report.info(f"File generated at {options_file}")
+    report.code(options_content, "tcl")
 
     # ==========================================================
     # GENERATE GOALS SETUP
     # ==========================================================
-    print_step("Generate goals setup file", quiet=quiet)
+    report.step("Generate goals setup file")
 
     goals_content = """## File Name : SpyGlass Goal Setup File
 set_parameter ignore_bitwiseor_assignment yes
@@ -178,13 +158,13 @@ current_goal none
 
     goals_file.write_text(goals_content)
 
-    print_info(f"File generated at {goals_file}", quiet=quiet)
-    print_code(goals_content, "tcl", quiet=quiet)
+    report.info(f"File generated at {goals_file}")
+    report.code(goals_content, "tcl")
 
     # ==========================================================
     # GENERATE WAIVER
     # ==========================================================
-    print_step("Generate waiver file", quiet=quiet)
+    report.step("Generate waiver file")
 
     waiver_content = """## File Name : Local Waiver File(.awl)
 waive -file_line {$CVA6_REPO_DIR/common/local/util/sram_cache.sv}  {55}  -severity {  {ERROR}  }  -rule {  {ErrorAnalyzeBBox}  }
@@ -202,13 +182,13 @@ waive -rule {  {W528}  }  -comment {Remove 'Set but not read' warning as it happ
 
     waiver_file.write_text(waiver_content)
 
-    print_info(f"File generated at {waiver_file}", quiet=quiet)
-    print_code(waiver_content, "tcl", quiet=quiet)
+    report.info(f"File generated at {waiver_file}")
+    report.code(waiver_content, "tcl")
 
     # ==========================================================
     # GENERATE CONSTRAINTS FILE
     # ==========================================================
-    print_step("Generate onstraints file", quiet=quiet)
+    report.step("Generate onstraints file")
 
     sgdc_content = f"""## File Name : SpyGlass Constraints File (sgdc file)
 current_design {top_elaborate}
@@ -219,8 +199,8 @@ test_mode -scanshift -name "{top_elaborate}.rst_ni" -value 1
 
     sgdc_file.write_text(sgdc_content)
 
-    print_info(f"File generated at {sgdc_file}", quiet=quiet)
-    print_code(sgdc_content, "tcl", quiet=quiet)
+    report.info(f"File generated at {sgdc_file}")
+    report.code(sgdc_content, "tcl")
 
     # ==========================================================
     # BUILD SPYGLASS DESIGN READ COMMAND
@@ -233,12 +213,13 @@ test_mode -scanshift -name "{top_elaborate}.rst_ni" -value 1
     # ==========================================================
     # LAUNCH SPYGLASS DESIGN READ COMMAND
     # ==========================================================
-    print_step("LAUNCH SPYGLASS DESIGN READ", quiet=quiet)
+    report.step("LAUNCH SPYGLASS DESIGN READ")
 
     log_file = spyglass_dir / "design_read.log"
 
     run_cmd(
         cmd=sg_cmd,
+        report=report,
         cwd=spyglass_dir,
         env=env_vars,
         error_patterns=["error:|^AIPK_ERROR :|^ERROR:"],
@@ -248,13 +229,37 @@ test_mode -scanshift -name "{top_elaborate}.rst_ni" -value 1
         timeout=1800,
         check=False,
         capture_output=True,
-        quiet=quiet,
     )
+
+    # ==========================================================
+    # Results processing
+    # ==========================================================
+    report.step("Results processing")
+
+    if not log_file.exists():
+        report.error_exit(f"{log_file} missing", env=True)
+
+    n_err, _ = report.analyze_log(
+        log_file,
+        name="design_read.log analysis",
+        error_patterns=["error:|^AIPK_ERROR :|^ERROR:"],
+        warning_patterns=["warning:|^AIPK_WARNING :|^WARNING:"],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+            r"command not found",
+        ],
+        fail_on_error=False,
+    )
+
+    if n_err > 0:
+        report.error_exit(f"Design read failed: {n_err} error(s) in {log_file}")
+    report.success("Design read completed")
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     gen_files = [
         log_file,
         spyglass_dir
@@ -292,9 +297,11 @@ test_mode -scanshift -name "{top_elaborate}.rst_ni" -value 1
         / "goals_summary.html",
     ]
 
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
     # ==========================================================
     # BUILD MANIFEST
@@ -304,10 +311,15 @@ test_mode -scanshift -name "{top_elaborate}.rst_ni" -value 1
         "spyglass-design-read",
         {
             "target": target,
-            "testbench_hier": cva6_hier,
+            "cva6_hier": cva6_hier,
             "top_elaborate": top_elaborate,
         },
-        quiet=quiet,
+        report=report,
     )
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
+
+    report.end("Completed")

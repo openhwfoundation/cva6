@@ -9,13 +9,10 @@
 
 # Please refer to flows/README.md to add target
 
+from pathlib import Path
 import typer
-from flows.utils.utils import (
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    run_cmd,
-)
+from flows.utils.run_cmd import run_cmd
+from flows.utils.recipe_report import RecipeReport
 
 app = typer.Typer()
 
@@ -29,8 +26,14 @@ def pylint_run(
     """
     Pylint static code analyzer
     """
-    print_recipe_title("Pylint", quiet=quiet)
-    print_step("Launch Pylint", quiet=quiet)
+    report = RecipeReport(
+        "pylint-run",
+        out_dir=Path.cwd() / "build" / "pylint_run",
+        title="Pylint",
+        context={},
+        quiet=quiet,
+    )
+    report.step("Launch Pylint")
     dir_list = [".gitlab-ci", "flows"]
     get_files_cmd = [
         "git",
@@ -50,7 +53,7 @@ def pylint_run(
         timeout=300,
         check=False,
         capture_output=True,
-        quiet=quiet,
+        report=report,
     )
     pylint_options = [
         "-d=duplicate-code",
@@ -89,12 +92,24 @@ def pylint_run(
         timeout=300,
         check=False,
         capture_output=True,
-        quiet=quiet,
+        report=report,
     )
+    if not result:
+        report.error_exit("Pylint produced no output (is pylint installed?)", env=True)
     if (
         "************* Module" in result
         or "Your code has been rated at 10.00/10" not in result
     ):
-        raise typer.Exit("Pylint failed")
+        report.log(
+            "Modules with findings",
+            [
+                line
+                for line in result.splitlines()
+                if line.startswith("************* Module")
+            ],
+        )
+        report.error_exit("Pylint failed")
 
-    print_recipe_end("Completed", quiet=quiet)
+    report.success(f"Pylint passed on {len(py_files)} files")
+
+    report.end("Completed")

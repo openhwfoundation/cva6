@@ -12,22 +12,15 @@
 from pathlib import Path
 import shutil
 import typer
-import yaml
 from flows.utils.manifest import write_manifest, require_prerequisite
-from flows.utils.utils import (
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import (
     CompMode,
     TraceMode,
-    Cva6Hier,
     autocompletion_target,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_param_table,
-    run_cmd,
 )
+from flows.utils.target_config import read_config_or_exit_testbench_cfg, dut_hier
 
 app = typer.Typer()
 
@@ -57,29 +50,20 @@ def questa_uvm_comp(
     """
     Questa UVM compilation / elaboration flow
     """
-    print_recipe_title("QUESTA DESIGN ELABORATION", quiet=quiet)
-
-    # Get testbench config
-    repo_dir = Path.cwd()
-    testbench_cfg = None
-    with (repo_dir / "config" / "target" / target / "testbench_cfg.yml").open(
-        "r", encoding="utf-8"
-    ) as f:
-        testbench_cfg = yaml.safe_load(f)
-    cva6_hier = Cva6Hier(testbench_cfg["hier"])
-
-    print_param_table(
-        {
-            "Target": target,
-            "Compilation mode": comp_mode.value,
-            "Testbench hier": cva6_hier.value,
-            "Trace mode": trace_mode.value,
-            "Tandem mode enable": tandem_enabled,
-            "Perf tracer RTL enable": stats,
+    report = RecipeReport(
+        "questa-uvm-comp",
+        title="QUESTA DESIGN ELABORATION",
+        context={
+            "target": target,
+            "comp_mode": comp_mode,
+            "trace_mode": trace_mode,
+            "tandem_enabled": tandem_enabled,
+            "stats": stats,
         },
-        "Options",
         quiet=quiet,
     )
+
+    repo_dir = Path.cwd()
 
     # Mode dir
     if comp_mode == CompMode.rtl:
@@ -91,31 +75,34 @@ def questa_uvm_comp(
     elif comp_mode == CompMode.gate_wc_power:
         inout_dir = "sim_gate_wc_power"
     else:
-        print_error("Unknown comp_mode", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Unknown comp_mode", env=True)
 
     # Test tools in path
     vlog_path = shutil.which("vlog")
     vopt_path = shutil.which("vopt")
     if vlog_path is not None and vopt_path is not None:
-        print_success(f"vlog: {vlog_path}", quiet=quiet)
-        print_success(f"vopt: {vopt_path}", quiet=quiet)
+        report.success(f"vlog: {vlog_path}")
+        report.success(f"vopt: {vopt_path}")
     else:
         if vlog_path is None:
-            print_error("vlog: Not found", quiet=quiet)
+            report.error("vlog: Not found", env=True)
         if vopt_path is None:
-            print_error("vopt: Not found", quiet=quiet)
-        raise typer.Exit(code=1)
+            report.error("vopt: Not found", env=True)
+        report.error_exit("Questa tools not found in PATH", env=True)
 
     # Create files and folder paths
     build_root = repo_dir / "build" / target
     elab_dir = build_root / "elab" / inout_dir
+    report.set_out_dir(elab_dir)
     work_dir = elab_dir / "work"
+
+    # Get testbench config
+    cva6_hier = read_config_or_exit_testbench_cfg(target, report)
 
     # ==========================================================
     # CHECK PREREQUISITES
     # ==========================================================
-    print_step("Check prerequisites", quiet=quiet)
+    report.step("Check prerequisites")
 
     if comp_mode in [CompMode.gate_wc_power, CompMode.gate_wc_timing]:
         synth_dir = build_root / "synthesis"
@@ -131,23 +118,23 @@ def questa_uvm_comp(
                 artifact,
                 f"{description} (gate-level compilation needs a synthesized design)",
                 f"./cook.py dc-shell-synth -t {target} --techno <techno> --period <period>",
+                report=report,
             )
-    print_success("Prerequisites OK", quiet=quiet)
+    report.success("Prerequisites OK")
 
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if elab_dir.exists():
             shutil.rmtree(elab_dir)
-            print_info(f"remove {elab_dir}", quiet=quiet)
+            report.info(f"remove {elab_dir}")
     except Exception as e:
-        print_error(f"Clean error : {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error : {e}", env=True)
 
     elab_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {elab_dir}", quiet=quiet)
+    report.info(f"create {elab_dir}")
 
     # ==========================================================
     # ENV VARIABLES (passed to run_cmd only)
@@ -162,9 +149,6 @@ def questa_uvm_comp(
         ),
         "LD_PRELOAD": f"{repo_dir}/tools/spike/lib/libyaml-cpp.so:{repo_dir}/tools/spike/lib/libriscv.so",  # ← ADD THIS COMMA
         "HPDCACHE_DIR": str(repo_dir / "core" / "cache_subsystem" / "hpdcache"),
-        "HPDCACHE_TARGET_CFG": str(
-            repo_dir / "core/include/cva6_hpdcache_default_config_pkg.sv"
-        ),
         "CVA6_UVMT_DIR": str(repo_dir / "verif/tb/uvmt"),
         "CVA6_CORET_DIR": str(repo_dir / "verif/tb/core"),
         "CVA6_UVMT_PATH": str(repo_dir / "verif/tb/uvmt"),
@@ -229,10 +213,9 @@ def questa_uvm_comp(
         # Get the parent directory (bin) then the parent of that
         questasim_home = Path(questasim_home).parent.parent
         env_vars["QUESTASIM_HOME"] = str(questasim_home)
-        print_info(f"QUESTASIM_HOME: {questasim_home}", quiet=quiet)
+        report.info(f"QUESTASIM_HOME: {questasim_home}")
     else:
-        print_error("Cannot determine QUESTASIM_HOME", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Cannot determine QUESTASIM_HOME", env=True)
 
     # ==========================================================
     # CUSTOMIZE WITH OPTIONS
@@ -276,7 +259,7 @@ def questa_uvm_comp(
     # ==========================================================
     # STEP 1: CREATE LIBRARY (vlib)
     # ==========================================================
-    print_step("Create Questa work library", quiet=quiet)
+    report.step("Create Questa work library")
 
     vlib_cmd = ["vlib", str(work_dir)]
 
@@ -291,19 +274,18 @@ def questa_uvm_comp(
         timeout=30,
         check=False,
         capture_output=True,
-        quiet=quiet,
+        report=report,
     )
 
     if not work_dir.exists():
-        print_error("Work library not created", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Work library not created")
 
-    print_success(f"Work library created: {work_dir}", quiet=quiet)
+    report.success(f"Work library created: {work_dir}")
 
     # ==========================================================
     # STEP 2: COMPILE (vlog)
     # ==========================================================
-    print_step("Compile with vlog", quiet=quiet)
+    report.step("Compile with vlog")
 
     vlog_cmd = ["vlog"]
 
@@ -364,12 +346,8 @@ def questa_uvm_comp(
 
     # SDF for gate-level
     if comp_mode in [CompMode.gate_wc_timing, CompMode.gate_wc_power]:
-        if cva6_hier == Cva6Hier.obi:
-            sdf_hier = (
-                "uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.cva6_only_pipeline.i_cva6"
-            )
-        else:
-            sdf_hier = "uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.cva6.i_cva6"
+        sdf_hier = dut_hier(cva6_hier)
+        report.add_context({"sdf_hier": sdf_hier})
 
         if comp_mode == CompMode.gate_wc_timing:
             sdf = (
@@ -379,9 +357,10 @@ def questa_uvm_comp(
             sdf = repo_dir / "build" / target / "synthesis" / "netlist" / "wc_power.sdf"
 
         # Create SDF file for vsim to use
+        # (.as_posix(): .do files are TCL, backslashes are escape characters)
         sdf_file = elab_dir / "sdf.do"
-        sdf_file.write_text(f'sdf load -file "{sdf}" {sdf_hier}')
-        print_info(f"Created SDF file: {sdf_file}", quiet=quiet)
+        sdf_file.write_text(f'sdf load -file "{sdf.as_posix()}" {sdf_hier}')
+        report.info(f"Created SDF file: {sdf_file}")
 
     log_file = elab_dir / "vlog.log"
 
@@ -396,13 +375,26 @@ def questa_uvm_comp(
         timeout=1800,
         check=False,
         capture_output=True,
-        quiet=quiet,
+        report=report,
+    )
+
+    report.analyze_log(
+        log_file,
+        name="vlog.log analysis",
+        error_patterns=[r"^\*\* Error"],
+        warning_patterns=[r"^\*\* Warning"],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+            r"command not found",
+        ],
+        fail_on_error=False,
     )
 
     # ==========================================================
     # STEP 3: OPTIMIZE (vopt)
     # ==========================================================
-    print_step("Optimize with vopt", quiet=quiet)
+    report.step("Optimize with vopt")
 
     vopt_cmd = [
         "vopt",
@@ -439,12 +431,30 @@ def questa_uvm_comp(
         timeout=600,
         check=False,
         capture_output=True,
-        quiet=quiet,
+        report=report,
+    )
+
+    report.analyze_log(
+        elab_dir / "vopt.log",
+        name="vopt.log analysis",
+        error_patterns=[r"^\*\* Error"],
+        warning_patterns=[r"^\*\* Warning"],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+            r"command not found",
+        ],
+        fail_on_error=False,
     )
 
     # Check if optimization succeeded
+    if not (work_dir / "uvmt_cva6_tb_opt").exists():
+        report.error_exit("Optimized design not generated")
+
+    report.success("Optimized design generated")
+
     if not log_file.exists():
-        print_error("Compilation log missing", quiet=quiet)
+        report.warning("Compilation log missing")
 
     # ==========================================================
     # BUILD MANIFEST
@@ -459,17 +469,24 @@ def questa_uvm_comp(
             "tandem_enabled": tandem_enabled,
             "stats": stats,
         },
-        quiet=quiet,
+        report=report,
     )
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     gen_files = [work_dir, log_file, elab_dir / "vopt.log"]
 
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
+
+    report.end("Completed")

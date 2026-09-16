@@ -12,7 +12,8 @@
 from pathlib import Path
 import typer
 from flows.recipes.sw_compile import sw_compile
-from flows.utils.utils import ToolchainOption, autocompletion_target
+from flows.utils.autocompletion import ToolchainOption, autocompletion_target
+from flows.utils.config_loader import is_clang_toolchain
 
 app = typer.Typer()
 
@@ -60,7 +61,19 @@ def dhrystone(
     linker_file = str(repo_dir / "config" / "target" / target / "link.ld")
 
     options = [
+        # Legacy K&R C: since GCC 15 the default standard is C23, where
+        # unprototyped declarations like `void f()` no longer compile
+        "std=gnu17",
         "O3",
+        # See coremark.py: keeps GCC from turning the memcpy/memset loops of
+        # syscalls.c into self-recursive calls. Part of the reference benchmark
+        # configuration; do not swap it for -fno-builtin, which would stop
+        # strcpy being inlined in the measured loop. Clang needs nothing.
+        *(
+            []
+            if is_clang_toolchain(toolchain)
+            else ["fno-tree-loop-distribute-patterns"]
+        ),
         "static",
         "mcmodel=medany",
         "fvisibility=hidden",
@@ -70,8 +83,16 @@ def dhrystone(
         "Wno-implicit-int",
     ]
 
+    # Iterations executed in the GLOBAL_PATTERN timing window. Single
+    # definition: compiled in the binary (-DNUMBER_OF_RUNS) and recorded
+    # in the build manifest, from which the run recipes compute the
+    # Dhrystone/MHz and DMIPS/MHz scores (iterations * 1e6 / measured
+    # cycles, the latter divided by 1757).
+    iterations = 50
+
     preprocessor_directives = [
         "NOPRINT",
+        f"NUMBER_OF_RUNS={iterations}",
     ]
 
     test_name = "dhrystone"
@@ -86,6 +107,7 @@ def dhrystone(
         march=march,
         mabi=mabi,
         preprocessor_directives=preprocessor_directives,
+        benchmark_iterations=iterations,
         test_name=test_name,
         quiet=quiet,
     )

@@ -12,7 +12,8 @@
 from pathlib import Path
 import typer
 from flows.recipes.sw_compile import sw_compile
-from flows.utils.utils import ToolchainOption, autocompletion_target
+from flows.utils.autocompletion import ToolchainOption, autocompletion_target
+from flows.utils.config_loader import is_clang_toolchain
 
 app = typer.Typer()
 
@@ -64,6 +65,14 @@ def hello_world(
         "static",
         "fvisibility=hidden",
         "nostartfiles",
+        # See coremark.py: keeps GCC from turning the memcpy/memset loops of
+        # syscalls.c into self-recursive calls. Clang does not need it. Moot at
+        # the current -O0, kept so the protection survives an optimisation bump.
+        *(
+            []
+            if is_clang_toolchain(toolchain)
+            else ["fno-tree-loop-distribute-patterns"]
+        ),
     ]
 
     preprocessor_directives = []
@@ -80,6 +89,7 @@ def hello_world(
         march=march,
         mabi=mabi,
         preprocessor_directives=preprocessor_directives,
+        benchmark_iterations=None,
         test_name=test_name,
         quiet=quiet,
     )

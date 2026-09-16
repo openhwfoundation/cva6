@@ -12,22 +12,15 @@
 from pathlib import Path
 import shutil
 import typer
-import yaml
 from flows.utils.manifest import write_manifest, require_prerequisite
-from flows.utils.utils import (
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import (
     CompMode,
     TraceMode,
-    Cva6Hier,
     autocompletion_target,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_param_table,
-    run_cmd,
 )
+from flows.utils.target_config import read_config_or_exit_testbench_cfg, dut_hier
 
 app = typer.Typer()
 
@@ -58,30 +51,23 @@ def vcs_uvm_comp(
     """
     VCS UVM compilation / elaboration flow
     """
-    print_recipe_title("VCS DESIGN ELABORATION", quiet=quiet)
-
-    # Get testbench config
-    repo_dir = Path.cwd()
-    testbench_cfg = None
-    with (repo_dir / "config" / "target" / target / "testbench_cfg.yml").open(
-        "r", encoding="utf-8"
-    ) as f:
-        testbench_cfg = yaml.safe_load(f)
-    cva6_hier = Cva6Hier(testbench_cfg["hier"])
-
-    print_param_table(
-        {
-            "Target": target,
-            "Compilation mode": comp_mode.value,
-            "Testbench hier": cva6_hier.value,
-            "Trace mode": trace_mode.value,
-            "Tandem mode enable": tandem_enabled,
-            "Perf tracer RTL enable": stats,
-            "SimProfile enable": sim_profile,
+    # Init report (written in elab_dir at the end of the recipe):
+    # prints the title banner and the "Options" table from the context
+    report = RecipeReport(
+        "vcs-uvm-comp",
+        title="VCS DESIGN ELABORATION",
+        context={
+            "target": target,
+            "comp_mode": comp_mode,
+            "trace_mode": trace_mode,
+            "tandem_enabled": tandem_enabled,
+            "stats": stats,
+            "sim_profile": sim_profile,
         },
-        "Options",
         quiet=quiet,
     )
+
+    repo_dir = Path.cwd()
 
     # Mode dir
     if comp_mode == CompMode.rtl:
@@ -93,32 +79,33 @@ def vcs_uvm_comp(
     elif comp_mode == CompMode.gate_wc_power:
         inout_dir = "sim_gate_wc_power"
     else:
-        print_error("Unknown comp_mode")
-        raise typer.Exit(code=1)
+        report.error_exit("Unknown comp_mode", env=True)
 
     # Test tools in path
     vcs_path = shutil.which("vcs")
     if vcs_path is not None:
-        print_success(f"VCS: {vcs_path}", quiet=quiet)
+        report.success(f"VCS: {vcs_path}")
     else:
-        print_error("vcs: Not found")
-        raise typer.Exit(code=1)
+        report.error_exit("vcs: Not found", env=True)
     if trace_mode != TraceMode.notrace:
         verdi_path = shutil.which("verdi")
         if verdi_path is not None:
-            print_success(f"verdi: {verdi_path}", quiet=quiet)
+            report.success(f"verdi: {verdi_path}")
         else:
-            print_error("VERDI: Not found")
-            raise typer.Exit(code=1)
+            report.error_exit("VERDI: Not found", env=True)
     # Create files and folder paths
     build_root = repo_dir / "build" / target
     elab_dir = build_root / "elab" / inout_dir
+    report.set_out_dir(elab_dir)
     cov_exclude_list = repo_dir / "verif" / "sim" / "cov-exclude-mod.lst"
+
+    # Get testbench config
+    cva6_hier = read_config_or_exit_testbench_cfg(target, report)
 
     # ==========================================================
     # CHECK PREREQUISITES
     # ==========================================================
-    print_step("Check prerequisites", quiet=quiet)
+    report.step("Check prerequisites")
 
     if comp_mode in [CompMode.gate_wc_power, CompMode.gate_wc_timing]:
         synth_dir = build_root / "synthesis"
@@ -134,23 +121,23 @@ def vcs_uvm_comp(
                 artifact,
                 f"{description} (gate-level compilation needs a synthesized design)",
                 f"./cook.py dc-shell-synth -t {target} --techno <techno> --period <period>",
+                report=report,
             )
-    print_success("Prerequisites OK", quiet=quiet)
+    report.success("Prerequisites OK")
 
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if elab_dir.exists():
             shutil.rmtree(elab_dir)
-            print_info(f"remove {elab_dir}", quiet=quiet)
+            report.info(f"remove {elab_dir}")
     except Exception as e:
-        print_error(f"Clean error : {e}")
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error : {e}", env=True)
 
     elab_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {elab_dir}", quiet=quiet)
+    report.info(f"create {elab_dir}")
 
     # ==========================================================
     # ENV VARIABLES (passed to run_cmd only)
@@ -164,9 +151,6 @@ def vcs_uvm_comp(
             repo_dir / "verif" / "core-v-verif" / "vendor" / "riscv" / "riscv-isa-sim"
         ),
         "HPDCACHE_DIR": str(repo_dir / "core" / "cache_subsystem" / "hpdcache"),
-        "HPDCACHE_TARGET_CFG": str(
-            repo_dir / "core/include/cva6_hpdcache_default_config_pkg.sv"
-        ),
         "CVA6_UVMT_DIR": str(repo_dir / "verif/tb/uvmt"),
         "CVA6_CORET_DIR": str(repo_dir / "verif/tb/core"),
         "CVA6_UVMT_PATH": str(repo_dir / "verif/tb/uvmt"),
@@ -228,14 +212,6 @@ def vcs_uvm_comp(
     # ==========================================================
     # CUSTOMIZE WITH OPTIONS
     # ==========================================================
-
-    # SDF HIERARCHY (Gate only)
-    if cva6_hier == Cva6Hier.obi:
-        sdf_hier = (
-            "uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.cva6_only_pipeline.i_cva6"
-        )
-    else:
-        sdf_hier = "uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.cva6.i_cva6"
 
     # FILELIST
     flist = []
@@ -306,6 +282,9 @@ def vcs_uvm_comp(
         ]
     elif comp_mode == CompMode.gate_wc_timing:
         sdf = repo_dir / "build" / target / "synthesis" / "netlist" / "wc_timing.sdf"
+        # SDF annotation is scoped to the core instance inside the testbench
+        sdf_hier = dut_hier(cva6_hier)
+        report.add_context({"sdf_hier": sdf_hier})
         options += [
             "-sdf",
             f"Max:{sdf_hier}:{sdf}",
@@ -313,6 +292,8 @@ def vcs_uvm_comp(
         ]
     elif comp_mode == CompMode.gate_wc_power:
         sdf = repo_dir / "build" / target / "synthesis" / "netlist" / "wc_power.sdf"
+        sdf_hier = dut_hier(cva6_hier)
+        report.add_context({"sdf_hier": sdf_hier})
         options += [
             "-sdf",
             f"Max:{sdf_hier}:{sdf}",
@@ -344,12 +325,13 @@ def vcs_uvm_comp(
     # ==========================================================
     # LAUNCH VCS COMMAND
     # ==========================================================
-    print_step("LAUNCH VCS", quiet=quiet)
+    report.step("LAUNCH VCS")
 
     log_file = elab_dir / "compilation.log"
 
     run_cmd(
         cmd=vcs_cmd,
+        report=report,
         cwd=elab_dir,
         env=env_vars,
         error_patterns=["^Error-"],
@@ -359,17 +341,30 @@ def vcs_uvm_comp(
         timeout=1800,
         check=False,
         capture_output=True,
-        quiet=quiet,
     )
 
     simv = elab_dir / "simv"
 
+    report.analyze_log(
+        log_file,
+        name="compilation.log analysis",
+        error_patterns=["^Error-"],
+        warning_patterns=["^Warning-"],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+            r"command not found",
+        ],
+        fail_on_error=False,
+    )
+
     if not simv.exists():
-        print_error("SIMV not generated")
-        raise typer.Exit(code=1)
+        report.error_exit("SIMV not generated")
+
+    report.success("SIMV generated")
 
     if not log_file.exists():
-        print_error("Compilation log missing")
+        report.warning("Compilation log missing")
 
     # ==========================================================
     # BUILD MANIFEST
@@ -385,17 +380,24 @@ def vcs_uvm_comp(
             "stats": stats,
             "sim_profile": sim_profile,
         },
-        quiet=quiet,
+        report=report,
     )
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     gen_files = [simv, log_file]
 
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
+
+    report.end("Completed")

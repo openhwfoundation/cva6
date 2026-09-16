@@ -9,13 +9,10 @@
 
 # Please refer to flows/README.md to add target
 
+from pathlib import Path
 import typer
-from flows.utils.utils import (
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    run_cmd,
-)
+from flows.utils.run_cmd import run_cmd
+from flows.utils.recipe_report import RecipeReport
 
 app = typer.Typer()
 
@@ -29,8 +26,14 @@ def black_python_formating(
     """
     Format Python files with black
     """
-    print_recipe_title("Black Python formating", quiet=quiet)
-    print_step("Launch Black", quiet=quiet)
+    report = RecipeReport(
+        "black-python-formating",
+        out_dir=Path.cwd() / "build" / "black_python_formating",
+        title="Black Python formating",
+        context={},
+        quiet=quiet,
+    )
+    report.step("Launch Black")
     dir_list = [".gitlab-ci", "docs/scripts", "flows", "pd", "perf-model"]
     get_files_cmd = [
         "git",
@@ -50,7 +53,7 @@ def black_python_formating(
         timeout=300,
         check=False,
         capture_output=True,
-        quiet=quiet,
+        report=report,
     )
     py_files = ["cook.py"]
     for f in files.split():
@@ -69,7 +72,12 @@ def black_python_formating(
         timeout=300,
         check=True,
         capture_output=False,
-        quiet=quiet,
+        report=report,
     )
 
-    print_recipe_end("Completed", quiet=quiet)
+    if report.failed:
+        report.error("Black formatting check failed")
+    else:
+        report.success(f"All {len(py_files)} Python files properly formatted")
+
+    report.end("Completed")

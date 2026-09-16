@@ -12,22 +12,12 @@
 from pathlib import Path
 import shutil
 import typer
-import yaml
 from flows.utils.config_loader import load_compiler_config
 from flows.utils.manifest import write_manifest
-from flows.utils.utils import (
-    ToolchainOption,
-    autocompletion_target,
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_warning,
-    print_param_table,
-    run_cmd,
-)
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.target_config import read_config_or_exit_isa, target_dir
+from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import ToolchainOption, autocompletion_target
 
 app = typer.Typer()
 
@@ -62,6 +52,12 @@ def sw_compile(
     preprocessor_directives: list[str] = typer.Option(
         [], "--define", help="Preprocessor directives"
     ),
+    benchmark_iterations: int = typer.Option(
+        None,
+        "--benchmark-iterations",
+        help="Benchmark iterations compiled in the binary (recorded in the "
+        "manifest, used by the run recipes to compute the score)",
+    ),
     test_name: str = typer.Option(
         ..., "--out", help="Test name (used in rest of flow)"
     ),
@@ -75,41 +71,34 @@ def sw_compile(
 
     COMPILER_DATA = load_compiler_config()
 
-    print_recipe_title("Software compilation", quiet=quiet)
-
-    print_param_table(
-        {
-            "Target": target,
-            "Toolchain": toolchain,
-            "Sources": src_files,
-            "Includes": inc_dirs,
-            "Linker": linker_file,
+    report = RecipeReport(
+        "sw-compile",
+        title="Software compilation",
+        context={
+            "target": target,
+            "toolchain": toolchain,
+            "test_name": test_name,
+            "src_files": src_files,
+            "inc_dirs": inc_dirs,
+            "linker_file": linker_file,
             "options": options,
             "march": march,
             "mabi": mabi,
-            "Defines": preprocessor_directives,
-            "test_name": test_name,
+            "preprocessor_directives": preprocessor_directives,
         },
-        "Options",
         quiet=quiet,
     )
 
     repo_dir = Path.cwd()
 
-    # Get config
     compiler_data = COMPILER_DATA[toolchain.value]
-
-    print_param_table(
-        compiler_data,
-        "Compiler parameters",
-        quiet=quiet,
-    )
+    report.add_context(compiler_data, table="Compiler parameters")
 
     if compiler_data["CLANG"] is not None:
-        print_info("LLVM mode", quiet=quiet)
+        report.info("LLVM mode")
         compiler = compiler_data["CLANG"]
     else:
-        print_info("GCC mode", quiet=quiet)
+        report.info("GCC mode")
         compiler = compiler_data["GCC"]
 
     tools_path = compiler_data["TOOLS_PATH"]
@@ -120,76 +109,82 @@ def sw_compile(
     # Create files and folder paths
     build_root = repo_dir / "build" / target
     compile_dir = build_root / "compile" / test_name
+    report.set_out_dir(compile_dir)
     elf_file = compile_dir / f"{test_name}.elf"
     objdump_file = compile_dir / f"{test_name}.dump"
     size_file = compile_dir / f"{test_name}.size"
-    add_tohost_file = compile_dir / f"{test_name}.add_tohost"
-    add_GLOBAL_PATTERN_start_file = (
-        compile_dir / f"{test_name}.add_GLOBAL_PATTERN_start"
-    )
-    add_GLOBAL_PATTERN_end_file = compile_dir / f"{test_name}.add_GLOBAL_PATTERN_end"
-    isa_config_file = repo_dir / "config" / "target" / target / "isa.yml"
-    isa_string_file = compile_dir / "isa_string"
 
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if compile_dir.exists():
             shutil.rmtree(compile_dir)
-            print_info(f"remove {compile_dir}", quiet=quiet)
+            report.info(f"remove {compile_dir}")
     except Exception as e:
-        print_error(f"Clean error : {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error : {e}", env=True)
 
     compile_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {compile_dir}", quiet=quiet)
+    report.info(f"create {compile_dir}")
+
+    # ==========================================================
+    # COMPILER SELECTION
+    # ==========================================================
+    # The `toolchain` option is only a label from compiler.yml: resolve what
+    # the binary reports about itself, so a report tells which compiler
+    # produced the ELF and not merely which entry was selected. `--version`
+    # rather than `-dumpversion`: it names the compiler (GCC / clang) too.
+    # Own log file: run_cmd truncates, and compile.log belongs to the build.
+    report.step("Compiler selection")
+    compiler_version = run_cmd(
+        cmd=[f"{tools_path}/bin/{compiler}", "--version"],
+        report=report,
+        cwd=None,
+        env=None,
+        error_patterns=None,
+        warning_patterns=None,
+        highlight_patterns=None,
+        log_file=compile_dir / "compiler_version.log",
+        timeout=30,
+        check=False,
+        capture_output=True,
+    )
+    # First line only: "riscv-none-elf-gcc (GCC) 15.2.0" or
+    # "clang version 22.1.1 (git@...)" — drop the trailing repo/commit.
+    compiler_version = (compiler_version or "").strip().splitlines()
+    compiler_version = compiler_version[0].strip() if compiler_version else "unknown"
+    compiler_version = compiler_version.split(" (git")[0].strip()
+    report.add_context({"compiler_version": compiler_version})
+    # Summary row: what actually built the ELF, readable in the expanded job
+    # next to the Compilation/Objdump verdicts (the context is not displayed).
+    report.success(compiler_version)
 
     # ==========================================================
     # ISA STRING SELECTION
     # ==========================================================
 
-    print_step("ISA string selection", quiet=quiet)
+    report.step("ISA string selection")
 
-    if mabi is None or march is None:
-        # If not provided (standard case), take ISA string in target config directory
-        if isa_config_file.exists():
-            with isa_config_file.open("r", encoding="utf-8") as f:
-                isa_config = yaml.safe_load(f)
-
-            try:
-                if mabi is None:
-                    mabi = isa_config["mabi"]
-                if march is None:
-                    march = isa_config["march"]
-            except KeyError as e:
-                print_error(
-                    f"Error: Keys '{mabi}' or '{march}' missing in {isa_config_file}",
-                    quiet=quiet,
-                )
-                raise typer.Exit(code=1) from e
-        else:
-            print_error(f"Missing {isa_config_file}", quiet=quiet)
-            raise typer.Exit(code=1)
+    # Not provided (standard case): taken from the isa.yml of the target
+    march, mabi = read_config_or_exit_isa(target, report, march=march, mabi=mabi)
 
     if linker_file is None:
-        linker_file = str(repo_dir / "config" / "target" / target / "link.ld")
+        linker_file = str(target_dir(target) / "link.ld")
 
-    print_param_table(
-        {
-            "mabi": mabi,
-            "march": march,
-            "linker_file": linker_file,
-        },
-        "ISA and Linker file",
-        quiet=quiet,
+    report.add_context(
+        {"march": march, "mabi": mabi, "linker_file": linker_file},
+        table="ISA and Linker file",
     )
+
+    # Summary rows: the ISA actually compiled for.
+    report.success(f"march: {march}")
+    report.success(f"mabi: {mabi}")
 
     # ==========================================================
     # LAUNCH COMPILER COMMAND
     # ==========================================================
-    print_step("Compilation", quiet=quiet)
+    report.step("Compilation")
 
     compile_cmd = [
         f"{tools_path}/bin/{compiler}",
@@ -222,6 +217,7 @@ def sw_compile(
         ]
         rtlib_path = run_cmd(
             cmd=rtlib_query_cmd,
+            report=report,
             cwd=None,
             env=None,
             error_patterns=None,
@@ -231,20 +227,19 @@ def sw_compile(
             timeout=30,
             check=False,
             capture_output=True,
-            quiet=True,
         ).strip()
         if rtlib_path and Path(rtlib_path).exists():
-            print_info(f"Link compiler-rt builtins: {rtlib_path}", quiet=quiet)
+            report.info(f"Link compiler-rt builtins: {rtlib_path}")
             compile_cmd += [rtlib_path]
         else:
-            print_warning(
+            report.warning(
                 f"compiler-rt builtins not found ({rtlib_path}), "
                 "link may fail on missing builtins (e.g. __umoddi3)",
-                quiet=quiet,
             )
 
     run_cmd(
         cmd=compile_cmd,
+        report=report,
         cwd=None,
         env=None,
         error_patterns=["error"],
@@ -254,26 +249,34 @@ def sw_compile(
         timeout=90,
         check=False,
         capture_output=False,
-        quiet=quiet,
     )
 
     if elf_file.exists():
-        print_success("Compilation successful", quiet=quiet)
+        report.success("Compilation successful")
     else:
-        print_error("Compilation failed", quiet=quiet)
-        raise typer.Exit(code=1)
-
-    isa_string_file.write_text(march)
+        report.analyze_log(
+            compile_dir / "compile.log",
+            error_patterns=["error"],
+            warning_patterns=["warning"],
+            env_patterns=[
+                r"no such file or directory",
+                r"command not found",
+                r"cannot execute",
+            ],
+            fail_on_error=False,
+        )
+        report.error_exit("Compilation failed")
 
     # ==========================================================
     # Objdump
     # ==========================================================
-    print_step("Objdump", quiet=quiet)
+    report.step("Objdump")
 
     compile_cmd = [f"{tools_path}/bin/{objdump}", "-D", str(elf_file)]
 
     run_cmd(
         cmd=compile_cmd,
+        report=report,
         cwd=None,
         env=None,
         error_patterns=None,
@@ -283,24 +286,23 @@ def sw_compile(
         timeout=90,
         check=False,
         capture_output=False,
-        quiet=quiet,
     )
 
     if objdump_file.exists():
-        print_success("Objdump generated", quiet=quiet)
+        report.success("Objdump generated")
     else:
-        print_error("Objdump failed", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Objdump failed", env=True)
 
     # ==========================================================
     # Section size report
     # ==========================================================
-    print_step("Sections size reporting", quiet=quiet)
+    report.step("Sections size reporting")
 
     compile_cmd = ["size", "-A", str(elf_file)]
 
     run_cmd(
         cmd=compile_cmd,
+        report=report,
         cwd=None,
         env=None,
         error_patterns=None,
@@ -310,58 +312,51 @@ def sw_compile(
         timeout=90,
         check=False,
         capture_output=False,
-        quiet=quiet,
     )
 
     if size_file.exists():
-        print_success("Size report generated", quiet=quiet)
+        report.success("Size report generated")
     else:
-        print_error("Size report failed", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("Size report failed", env=True)
 
     # ==========================================================
     # Symbols extraction
     # ==========================================================
-    print_step("Symbols extraction", quiet=quiet)
+    report.step("Symbols extraction")
 
-    def extract_symbol(symbol_name: str, output_file: Path):
+    # One `nm` invocation for all symbols. Addresses are recorded in the
+    # build manifest (raw hex, consumed by the *_uvm_run and spike-run
+    # recipes) and in the report as `0x...`.
+    wanted_symbols = ["tohost", "GLOBAL_PATTERN_start", "GLOBAL_PATTERN_end"]
 
-        compile_cmd = [f"{tools_path}/bin/{nm}", str(elf_file)]
+    nm_output = run_cmd(
+        cmd=[f"{tools_path}/bin/{nm}", str(elf_file)],
+        report=report,
+        cwd=None,
+        env=None,
+        error_patterns=None,
+        warning_patterns=None,
+        highlight_patterns=None,
+        log_file=None,
+        timeout=90,
+        check=False,
+        capture_output=True,
+    )
 
-        result = run_cmd(
-            cmd=compile_cmd,
-            cwd=None,
-            env=None,
-            error_patterns=None,
-            warning_patterns=None,
-            highlight_patterns=None,
-            log_file=None,
-            timeout=90,
-            check=False,
-            capture_output=True,
-            quiet=quiet,
-        )
+    symbols = {}
+    for line in nm_output.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[2] in wanted_symbols:
+            symbols[parts[2]] = parts[0]
 
-        for line in result.splitlines():
-            parts = line.split()
-            if len(parts) >= 3 and parts[2] == symbol_name:
-                addr = parts[0]
-                output_path = output_file
-                output_path.write_text(addr)
-                if output_file.exists():
-                    print_success(f"{symbol_name}: {addr}", quiet=quiet)
-                else:
-                    print_error(
-                        f"Write file failed; {symbol_name}: {addr}", quiet=quiet
-                    )
-                return
+    for symbol_name in wanted_symbols:
+        if symbol_name in symbols:
+            report.success(f"{symbol_name}: 0x{symbols[symbol_name]}")
+        else:
+            report.warning(f"{symbol_name} not found")
 
-        print_error(f"{symbol_name} not found", quiet=quiet)
-        return
-
-    extract_symbol("tohost", add_tohost_file)
-    extract_symbol("GLOBAL_PATTERN_start", add_GLOBAL_PATTERN_start_file)
-    extract_symbol("GLOBAL_PATTERN_end", add_GLOBAL_PATTERN_end_file)
+    if symbols:
+        report.metric("Symbols", {k: f"0x{v}" for k, v in symbols.items()})
 
     # ==========================================================
     # BUILD MANIFEST
@@ -372,6 +367,9 @@ def sw_compile(
         {
             "target": target,
             "toolchain": toolchain,
+            # Version of the binary behind the `toolchain` label, so an ELF
+            # can be traced back to the compiler that produced it.
+            "compiler_version": compiler_version,
             "test_name": test_name,
             "src_files": src_files,
             "inc_dirs": inc_dirs,
@@ -380,25 +378,48 @@ def sw_compile(
             "march": march,
             "mabi": mabi,
             "preprocessor_directives": preprocessor_directives,
+            # Iterations compiled in the benchmark binary: the run recipes
+            # read it back to compute the per-MHz score. Single source of
+            # truth so the score cannot diverge from the executed binary.
+            "benchmark_iterations": benchmark_iterations,
+            # Symbol addresses (raw hex, no 0x prefix) consumed by the
+            # simulation recipes (*_uvm_run plusargs, spike-run check)
+            "symbols": symbols,
         },
-        quiet=quiet,
+        report=report,
     )
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     gen_files = [
-        add_tohost_file,
+        elf_file,
         objdump_file,
         size_file,
-        add_tohost_file,
-        add_GLOBAL_PATTERN_start_file,
-        add_GLOBAL_PATTERN_end_file,
-        isa_string_file,
     ]
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    # Section sizes are a useful PASS metric (check what was built)
+    if size_file.exists():
+        size_rows = {}
+        for line in size_file.read_text().splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and (parts[0].startswith(".") or parts[0] == "Total"):
+                try:
+                    size_rows[parts[0]] = int(parts[1])
+                except ValueError:
+                    size_rows[parts[0]] = parts[1]
+        if size_rows:
+            report.metric("Section sizes (bytes)", size_rows)
+
+    report.log("Generated files", generated)
+
+    report.end("Completed")

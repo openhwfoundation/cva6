@@ -16,16 +16,8 @@ from pathlib import Path
 import typer
 import yaml
 
-from flows.utils.utils import (
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    print_warning,
-    run_cmd,
-)
+from flows.utils.run_cmd import run_cmd
+from flows.utils.recipe_report import RecipeReport
 
 app = typer.Typer()
 
@@ -68,36 +60,35 @@ def git_dependencies(
         ./cook.py git-dependencies --repo riscv-tests --repo riscv-compliance
     """
 
-    # Title
-    print_recipe_title("Git Dependencies", quiet=quiet)
+    report = RecipeReport(
+        "git-dependencies",
+        out_dir=Path.cwd() / "build" / "git_dependencies",
+        title="Git Dependencies",
+        context={"repo": repo, "force": force},
+        quiet=quiet,
+    )
 
     # ==========================================================
     # Load dependencies configuration
     # ==========================================================
-    print_step("Loading dependencies configuration", quiet=quiet)
+    report.step("Loading dependencies configuration")
 
     repo_dir = Path.cwd()
     config_dir = Path(os.getenv("CONFIG_DIR", repo_dir / "flows" / "config"))
     config_file = config_dir / "dependencies.yml"
     if not config_file.exists():
-        print_error(f"Configuration file not found: {config_file}", quiet=quiet)
-        print_recipe_end("Failed", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Configuration file not found: {config_file}", env=True)
 
     try:
         with config_file.open("r") as f:
             dependencies = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        print_error(f"Failed to parse YAML configuration: {e}", quiet=quiet)
-        print_recipe_end("Failed", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Failed to parse YAML configuration: {e}", env=True)
 
     if not dependencies:
-        print_error("No dependencies found in configuration file", quiet=quiet)
-        print_recipe_end("Failed", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("No dependencies found in configuration file", env=True)
 
-    print_success(f"Loaded {len(dependencies)} dependency definitions", quiet=quiet)
+    report.success(f"Loaded {len(dependencies)} dependency definitions")
     # ==========================================================
     # Select dependencies to install
     # ==========================================================
@@ -106,36 +97,34 @@ def git_dependencies(
         deps_to_install = {}
         for dep_name in repo:
             if dep_name not in dependencies:
-                print_error(f"Unknown dependency: {dep_name}", quiet=quiet)
-                print_error(
-                    f"Available dependencies: {', '.join(dependencies.keys())}",
-                    quiet=quiet,
+                report.warning(
+                    f"Available dependencies: {', '.join(dependencies.keys())}"
                 )
-                print_recipe_end("Failed", quiet=quiet)
-                raise typer.Exit(code=1)
+                report.error_exit(f"Unknown dependency: {dep_name}", env=True)
             deps_to_install[dep_name] = dependencies[dep_name]
-        print_info(
-            f"Installing {len(deps_to_install)} specific dependency(ies): {', '.join(deps_to_install.keys())}",
-            quiet=quiet,
+        report.info(
+            f"Installing {len(deps_to_install)} specific dependency(ies): {', '.join(deps_to_install.keys())}"
         )
     else:
         # Install all dependencies
         deps_to_install = dependencies
-        print_info(f"Installing all {len(deps_to_install)} dependencies", quiet=quiet)
+        report.info(f"Installing all {len(deps_to_install)} dependencies")
 
     # ==========================================================
     # Install each dependency
     # ==========================================================
     all_success = True
+    results = report.metric("Dependencies installation")
 
     for dep_name, dep_config in deps_to_install.items():
-        print_step(f"Processing dependency: {dep_name}", quiet=quiet)
+        report.step(f"Processing dependency: {dep_name}")
+        dep_ok = True
         # Validate dependency configuration
         if not isinstance(dep_config, dict):
-            print_error(
-                f"Invalid configuration for {dep_name}: expected dict, got {type(dep_config)}",
-                quiet=quiet,
+            report.error(
+                f"Invalid configuration for {dep_name}: expected dict, got {type(dep_config)}"
             )
+            results.add_row(status="fail", dependency=dep_name)
             all_success = False
             continue
 
@@ -149,14 +138,14 @@ def git_dependencies(
 
         # Validate required fields
         if not repo_url:
-            print_error(f"Missing 'repo' field for dependency: {dep_name}", quiet=quiet)
+            report.error(f"Missing 'repo' field for dependency: {dep_name}")
+            results.add_row(status="fail", dependency=dep_name)
             all_success = False
             continue
 
         if not destination:
-            print_error(
-                f"Missing 'destination' field for dependency: {dep_name}", quiet=quiet
-            )
+            report.error(f"Missing 'destination' field for dependency: {dep_name}")
+            results.add_row(status="fail", dependency=dep_name)
             all_success = False
             continue
 
@@ -164,30 +153,26 @@ def git_dependencies(
         # Check if destination exists
         if dest_path.exists():
             if force:
-                print_warning(
-                    f"Destination exists, forcing re-clone: {dest_path}", quiet=quiet
-                )
+                report.warning(f"Destination exists, forcing re-clone: {dest_path}")
                 try:
                     shutil.rmtree(dest_path)
-                    print_info(f"Removed existing directory: {dest_path}", quiet=quiet)
+                    report.info(f"Removed existing directory: {dest_path}")
                 except Exception as e:
-                    print_error(
-                        f"Failed to remove directory {dest_path}: {e}", quiet=quiet
-                    )
+                    report.error(f"Failed to remove directory {dest_path}: {e}")
+                    results.add_row(status="fail", dependency=dep_name)
                     all_success = False
                     continue
             else:
-                print_warning(
-                    f"Destination already exists, skipping: {dest_path}", quiet=quiet
-                )
-                print_info("Use --force to re-clone", quiet=quiet)
+                report.warning(f"Destination already exists, skipping: {dest_path}")
+                report.info("Use --force to re-clone")
+                results.add_row(status="pass", dependency=dep_name)
                 continue
 
         # Create parent directories if needed
         dest_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Clone repository
-        print_info(f"Cloning {repo_url} to {destination}", quiet=quiet)
+        report.info(f"Cloning {repo_url} to {destination}")
         clone_cmd = ["git", "clone", "--branch", branch, repo_url, str(dest_path)]
 
         try:
@@ -202,7 +187,7 @@ def git_dependencies(
                 timeout=300,  # 5 minutes timeout
                 check=False,
                 capture_output=True,
-                quiet=quiet,
+                report=report,
             )
 
             if (
@@ -210,19 +195,21 @@ def git_dependencies(
                 or "fatal:" in result.lower()
                 or "error:" in result.lower()
             ):
-                print_error(f"Failed to clone {dep_name}", quiet=quiet)
+                report.error(f"Failed to clone {dep_name}")
+                results.add_row(status="fail", dependency=dep_name)
                 all_success = False
                 continue
 
-            print_success(f"Successfully cloned {dep_name}", quiet=quiet)
+            report.success(f"Successfully cloned {dep_name}")
         except Exception as e:
-            print_error(f"Exception during clone: {e}", quiet=quiet)
+            report.error(f"Exception during clone: {e}", env=True)
+            results.add_row(status="fail", dependency=dep_name)
             all_success = False
             continue
 
         # Checkout specific commit if specified
         if commit:
-            print_info(f"Checking out commit: {commit}", quiet=quiet)
+            report.info(f"Checking out commit: {commit}")
             checkout_cmd = ["git", "checkout", commit]
 
             try:
@@ -237,7 +224,7 @@ def git_dependencies(
                     timeout=60,
                     check=False,
                     capture_output=True,
-                    quiet=quiet,
+                    report=report,
                 )
 
                 if (
@@ -245,19 +232,21 @@ def git_dependencies(
                     or "fatal:" in result.lower()
                     or "error:" in result.lower()
                 ):
-                    print_error(f"Failed to checkout commit {commit}", quiet=quiet)
+                    report.error(f"Failed to checkout commit {commit}")
+                    results.add_row(status="fail", dependency=dep_name)
                     all_success = False
                     continue
 
-                print_success(f"Checked out commit: {commit}", quiet=quiet)
+                report.success(f"Checked out commit: {commit}")
             except Exception as e:
-                print_error(f"Exception during checkout: {e}", quiet=quiet)
+                report.error(f"Exception during checkout: {e}", env=True)
+                results.add_row(status="fail", dependency=dep_name)
                 all_success = False
                 continue
 
         # Initialize submodules if needed
         if submodules:
-            print_info("Initializing submodules recursively", quiet=quiet)
+            report.info("Initializing submodules recursively")
             submodule_cmd = ["git", "submodule", "update", "--init", "--recursive"]
 
             try:
@@ -272,7 +261,7 @@ def git_dependencies(
                     timeout=300,
                     check=False,
                     capture_output=True,
-                    quiet=quiet,
+                    report=report,
                 )
 
                 if (
@@ -280,19 +269,15 @@ def git_dependencies(
                     or "fatal:" in result.lower()
                     or "error:" in result.lower()
                 ):
-                    print_warning(
-                        f"Failed to initialize submodules for {dep_name}", quiet=quiet
-                    )
+                    report.warning(f"Failed to initialize submodules for {dep_name}")
                 else:
-                    print_success("Submodules initialized", quiet=quiet)
+                    report.success("Submodules initialized")
             except Exception as e:
-                print_warning(
-                    f"Exception during submodule initialization: {e}", quiet=quiet
-                )
+                report.warning(f"Exception during submodule initialization: {e}")
 
         # Apply patches if any
         if patches:
-            print_info(f"Applying {len(patches)} patch(es)", quiet=quiet)
+            report.info(f"Applying {len(patches)} patch(es)")
 
             for patch_spec in patches:
                 # Parse patch specification
@@ -306,20 +291,19 @@ def git_dependencies(
 
                 patch_file = repo_dir / patch_file_rel
                 if not patch_file.exists():
-                    print_error(f"Patch file not found: {patch_file}", quiet=quiet)
+                    report.error(f"Patch file not found: {patch_file}", env=True)
                     all_success = False
+                    dep_ok = False
                     continue
 
                 if not patch_cwd.exists():
-                    print_error(
-                        f"Patch subdirectory not found: {patch_cwd}", quiet=quiet
-                    )
+                    report.error(f"Patch subdirectory not found: {patch_cwd}")
                     all_success = False
+                    dep_ok = False
                     continue
 
-                print_info(
-                    f"Applying patch: {patch_file.name} in {patch_cwd.relative_to(repo_dir)}",
-                    quiet=quiet,
+                report.info(
+                    f"Applying patch: {patch_file.name} in {patch_cwd.relative_to(repo_dir)}"
                 )
 
                 # Apply patch using git apply
@@ -336,7 +320,7 @@ def git_dependencies(
                         timeout=60,
                         check=False,
                         capture_output=True,
-                        quiet=quiet,
+                        report=report,
                     )
 
                     if (
@@ -344,33 +328,32 @@ def git_dependencies(
                         or "fatal:" in result.lower()
                         or "error:" in result.lower()
                     ):
-                        print_error(
-                            f"Failed to apply patch: {patch_file.name}", quiet=quiet
-                        )
+                        report.error(f"Failed to apply patch: {patch_file.name}")
                         all_success = False
+                        dep_ok = False
                         continue
 
-                    print_success(f"Applied patch: {patch_file.name}", quiet=quiet)
+                    report.success(f"Applied patch: {patch_file.name}")
                 except Exception as e:
-                    print_error(f"Exception during patch apply: {e}", quiet=quiet)
+                    report.error(f"Exception during patch apply: {e}", env=True)
                     all_success = False
+                    dep_ok = False
                     continue
 
         # Handle post-install steps
         if post_install:
-            print_info("Running post-install steps", quiet=quiet)
+            report.info("Running post-install steps")
 
             # Special handling for Spike target copy (riscv-arch-test)
             if post_install.get("copy_spike_target", False):
-                print_info("Copying Spike target definitions", quiet=quiet)
+                report.info("Copying Spike target definitions")
 
                 # Get SPIKE_PATH from environment (defined in setenv.sh)
                 spike_path = os.getenv("SPIKE_PATH")
                 if not spike_path:
-                    print_warning(
+                    report.warning(
                         f"SPIKE_PATH not set - cannot copy arch_test_target for {dep_name}. "
-                        "Please set SPIKE_PATH in flows/config/setenv.sh and source it.",
-                        quiet=quiet,
+                        "Please set SPIKE_PATH in flows/config/setenv.sh and source it."
                     )
                 else:
                     # SPIKE_SRC_DIR = SPIKE_PATH/riscv-isa-sim
@@ -380,9 +363,8 @@ def git_dependencies(
                     spike_target_dst = dest_path / "riscv-target"
 
                     if spike_target_src.exists():
-                        print_info(
-                            f"Copying Spike arch_test_target from {spike_target_src} to {spike_target_dst}",
-                            quiet=quiet,
+                        report.info(
+                            f"Copying Spike arch_test_target from {spike_target_src} to {spike_target_dst}"
                         )
 
                         try:
@@ -393,29 +375,25 @@ def git_dependencies(
                             # Copy the directory
                             shutil.copytree(spike_target_src, spike_target_dst)
 
-                            print_success(
-                                "Successfully copied Spike arch_test_target",
-                                quiet=quiet,
-                            )
+                            report.success("Successfully copied Spike arch_test_target")
                         except Exception as e:
-                            print_error(
-                                f"Failed to copy Spike target: {e}", quiet=quiet
-                            )
+                            report.error(f"Failed to copy Spike target: {e}", env=True)
                             all_success = False
+                            dep_ok = False
                     else:
-                        print_warning(
+                        report.warning(
                             f"Spike arch_test_target not found at {spike_target_src}. "
                             f"Expected: $SPIKE_PATH/riscv-isa-sim/arch_test_target. "
-                            "Please ensure Spike is installed correctly.",
-                            quiet=quiet,
+                            "Please ensure Spike is installed correctly."
                         )
 
-        print_success(f"Completed installation of {dep_name}", quiet=quiet)
+        if dep_ok:
+            report.success(f"Completed installation of {dep_name}")
+            results.add_row(status="pass", dependency=dep_name)
+        else:
+            report.error(f"Completed installation of {dep_name} with errors")
+            results.add_row(status="fail", dependency=dep_name)
     # ==========================================================
     # Final summary
     # ==========================================================
-    if all_success:
-        print_recipe_end("Completed successfully", quiet=quiet)
-    else:
-        print_recipe_end("Completed with errors", quiet=quiet)
-        raise typer.Exit(code=1)
+    report.end("Completed successfully" if all_success else "Completed with errors")

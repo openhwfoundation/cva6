@@ -73,3 +73,17 @@ def load_techno_config(verbose: bool = True):
 
 def load_compiler_config(verbose: bool = True):
     return _read_config("compiler.yml", verbose)
+
+
+def is_clang_toolchain(toolchain, verbose: bool = False):
+    """
+    True when `toolchain` selects a Clang/LLVM compiler.
+
+    Patterns use it to pick compiler-specific options: a flag understood by
+    one compiler is often rejected outright by the other, and an option that
+    fixes a GCC code generation issue can cost performance on Clang (or the
+    reverse). `toolchain` accepts the Enum or its string value.
+    """
+    name = getattr(toolchain, "value", toolchain)
+    entry = load_compiler_config(verbose).get(name) or {}
+    return bool(entry.get("CLANG"))

@@ -14,17 +14,12 @@ import yaml
 import typer
 from flows.recipes.sw_compile import sw_compile
 from flows.utils.config_loader import load_compiler_config
-from flows.utils.utils import (
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.autocompletion import (
     ToolchainOption,
     autocompletion_target,
     autocompletion_testlist,
     autocompletion_testname_in_testlist,
-    print_recipe_title,
-    print_recipe_end,
-    print_success,
-    print_error,
-    print_warning,
-    print_param_table,
 )
 
 app = typer.Typer()
@@ -74,11 +69,29 @@ def sw_compile_testlist(
     """
     Build Test lists.
     """
-    print_recipe_title("Software compilation of testlist", quiet=quiet)
-
-    code = 0
 
     repo_dir = Path.cwd()
+    compile_root = repo_dir / "build" / target / "compile"
+
+    # One pass/fail row per compiled test, stored in a
+    # subdirectory named after the testlist so several testlists of the
+    # same target can run in the same workdir without overwriting each
+    # other
+    report = RecipeReport(
+        "sw-compile-testlist",
+        out_dir=compile_root / Path(testlist).stem,
+        title="Software compilation of testlist",
+        context={
+            "target": target,
+            "toolchain": toolchain,
+            "testlist": testlist,
+            "test_name": test_name,
+            "march": march,
+            "mabi": mabi,
+        },
+        quiet=quiet,
+    )
+    results = report.metric("Compilation results")
 
     # Detect LLVM mode to select llvm_opts instead of gcc_opts in testlists
     # (same detection as in sw_compile)
@@ -90,15 +103,13 @@ def sw_compile_testlist(
     try:
         with testlist_file.open("r") as f:
             data = yaml.safe_load(f)
-    except FileNotFoundError as e:
-        print_error(f"testlist: File Not found in file {testlist_file}", quiet=quiet)
-        raise typer.Exit(code=1) from e
+    except FileNotFoundError:
+        report.error_exit(f"testlist: File Not found in file {testlist_file}", env=True)
 
     if "testlist" in data:
-        print_success(f"testlist: Found in file {testlist}", quiet=quiet)
+        report.success(f"testlist: Found in file {testlist}")
     else:
-        print_error(f"testlist: Not found in file {testlist}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"testlist: Not found in file {testlist}", env=True)
 
     for test in data["testlist"]:
         # Single test mode
@@ -120,7 +131,7 @@ def sw_compile_testlist(
             elif test["path_var"] == "TESTS_GEN_PATH":
                 test["path_var"] = f"build/{target}/dv_generated"
             else:
-                print_warning(f"Check {test['path_var']} is a valid path", quiet=quiet)
+                report.warning(f"Check {test['path_var']} is a valid path")
             test["asm_tests"] = test["asm_tests"].replace(
                 "<path_var>", test["path_var"]
             )
@@ -135,7 +146,7 @@ def sw_compile_testlist(
         test[opts_key] = test[opts_key].split()
         test["asm_tests"] = test["asm_tests"].split()
 
-        print_param_table(
+        report.param_table(
             {
                 "Test": test["test"],
                 opts_key: test[opts_key],
@@ -145,7 +156,6 @@ def sw_compile_testlist(
                 "mabi": test["mabi"],
             },
             "Test parameters",
-            quiet=quiet,
         )
         linker_file = None
         inc_dirs = []
@@ -169,6 +179,7 @@ def sw_compile_testlist(
                 src.replace("<iterations>", str(i)) for src in test["asm_tests"]
             ]
             test_file_name = f"{test['test']}_{i}"
+            child_report = compile_root / test_file_name / "cook_report.yml"
             try:
                 sw_compile(
                     target=target,
@@ -180,14 +191,29 @@ def sw_compile_testlist(
                     march=test["march"],
                     mabi=test["mabi"],
                     preprocessor_directives=preprocessor_directives,
+                    benchmark_iterations=None,
                     test_name=test_file_name,
                     quiet=quiet,
                 )
+                results.add_row(
+                    status="pass", test=test_file_name, report=str(child_report)
+                )
             except typer.Exit:
-                print_error(f"{test['test']}: Return Error", quiet=quiet)
-                code = 1
+                report.error(f"{test['test']}: Return Error")
+                results.add_row(
+                    status="fail", test=test_file_name, report=str(child_report)
+                )
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.print_metric(results)
+    n_total = len(results.values)
+    n_pass = sum(1 for row in results.values if row["status"] == "pass")
+    report.set_label(f"{n_pass}/{n_total} PASS")
+    if n_pass != n_total:
+        report.error(f"{n_total - n_pass} compilation(s) failed")
+    else:
+        report.success(f"All {n_total} compilation(s) passed")
 
-    if code != 0:
-        raise typer.Exit(code=1)
+    report.end("Completed")

@@ -11,15 +11,8 @@ from pathlib import Path
 import shutil
 import typer
 from flows.utils.manifest import write_manifest
-from flows.utils.utils import (
-    print_recipe_title,
-    print_recipe_end,
-    print_step,
-    print_info,
-    print_success,
-    print_error,
-    run_cmd,
-)
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
 
 app = typer.Typer()
 
@@ -38,35 +31,36 @@ def vcs_generator_comp(
     """
     VCS UVM compilation / elaboration flow
     """
-    print_recipe_title("VCS DESIGN ELABORATION", quiet=quiet)
+    report = RecipeReport(
+        "vcs-generator-comp", title="VCS DESIGN ELABORATION", context={}, quiet=quiet
+    )
 
     # Test tools in path
     vcs_path = shutil.which("vcs")
     if vcs_path is not None:
-        print_success(f"VCS: {vcs_path}", quiet=quiet)
+        report.success(f"VCS: {vcs_path}")
     else:
-        print_error("vcs: Not found", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("vcs: Not found", env=True)
 
     # Create files and folder paths
     repo_dir = Path.cwd()
     build_root = repo_dir / "build"
     elab_dir = build_root / "dv"
+    report.set_out_dir(elab_dir)
 
     # ==========================================================
     # CLEAN
     # ==========================================================
-    print_step("Clean", quiet=quiet)
+    report.step("Clean")
     try:
         if elab_dir.exists():
             shutil.rmtree(elab_dir)
-            print_info(f"remove {elab_dir}", quiet=quiet)
+            report.info(f"remove {elab_dir}")
     except Exception as e:
-        print_error(f"Clean error : {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Clean error : {e}", env=True)
 
     elab_dir.mkdir(parents=True, exist_ok=True)
-    print_info(f"create {elab_dir}", quiet=quiet)
+    report.info(f"create {elab_dir}")
 
     # ==========================================================
     # ENV VARIABLES
@@ -135,7 +129,7 @@ def vcs_generator_comp(
     # ==============================================================================
     # COPY CUSTOM INSTRUCTIONS
     # ==============================================================================
-    print_step("Copy custom instructions", quiet=quiet)
+    report.step("Copy custom instructions")
     try:
         src_file = (
             repo_dir
@@ -151,21 +145,21 @@ def vcs_generator_comp(
 
         # cp verif/env/corev-dv/custom/riscv_custom_instr_enum.sv ./verif/sim/dv/src/isa/custom/ :
         shutil.copy2(src_file, dest_dir)
-        print_info(f"copy {src_file.name} to {dest_dir}", quiet=quiet)
+        report.info(f"copy {src_file.name} to {dest_dir}")
 
     except Exception as e:
-        print_error(f"Copy error : {e}", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit(f"Copy error : {e}", env=True)
 
     # ==========================================================
     # LAUNCH VCS COMMAND
     # ==========================================================
-    print_step("LAUNCH VCS", quiet=quiet)
+    report.step("LAUNCH VCS")
 
     log_file = elab_dir / "compilation.log"
 
     run_cmd(
         cmd=vcs_cmd,
+        report=report,
         cwd=elab_dir,
         env=env_vars,
         error_patterns=["^Error-"],
@@ -175,27 +169,42 @@ def vcs_generator_comp(
         timeout=1800,
         check=False,
         capture_output=True,
-        quiet=quiet,
     )
 
     simv = elab_dir / "simv"
 
+    report.analyze_log(
+        log_file,
+        name="compilation.log analysis",
+        error_patterns=["^Error-"],
+        warning_patterns=["^Warning-"],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+            r"command not found",
+        ],
+        fail_on_error=False,
+    )
+
     if not simv.exists():
-        print_error("SIMV not generated", quiet=quiet)
-        raise typer.Exit(code=1)
+        report.error_exit("SIMV not generated")
+
+    report.success("SIMV generated")
 
     if not log_file.exists():
-        print_error("Compilation log missing", quiet=quiet)
+        report.warning("Compilation log missing")
 
     # ==========================================================
     # List
     # ==========================================================
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     gen_files = [simv, log_file]
 
+    generated = []
     for genfile in gen_files:
         if genfile.exists():
-            print_info(f"> {genfile}", quiet=quiet)
+            report.info(f"> {genfile}")
+            generated.append(str(genfile.relative_to(repo_dir)))
 
     # ==========================================================
     # BUILD MANIFEST
@@ -207,7 +216,12 @@ def vcs_generator_comp(
             "top": "cva6_instr_gen_tb_top",
             "defines": defines,
         },
-        quiet=quiet,
+        report=report,
     )
 
-    print_recipe_end("Completed", quiet=quiet)
+    # ==========================================================
+    # BUILD REPORT
+    # ==========================================================
+    report.log("Generated files", generated)
+
+    report.end("Completed")

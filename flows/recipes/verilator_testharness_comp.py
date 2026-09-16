@@ -7,33 +7,28 @@
 #
 # Original Author: Junchao Chen (junchao.chen@eclipse-foundation.org)
 
-from __future__ import annotations
+# Please refer to flows/README.md to add target
+
+"""
+Elaborate the TestHarness testbench with Verilator.
+
+The other simulators drive the UVM testbench; this one elaborates
+`ariane_testharness`, the SystemVerilog harness of `corev_apu/tb`, into a
+native binary. Only the AXI targets are wired for it today.
+"""
 
 import os
 from pathlib import Path
 import shlex
 import shutil
-import subprocess
 
 import typer
-import yaml
 
-from flows.utils.logged_process import run_logged_process
-from flows.utils.manifest import MANIFEST_NAME, read_manifest, write_manifest
-from flows.utils.utils import (
-    CompMode,
-    TraceMode,
-    autocompletion_target,
-    print_error,
-    print_file_regex,
-    print_info,
-    print_param_table,
-    print_recipe_end,
-    print_recipe_title,
-    print_step,
-    print_success,
-    tail_file,
-)
+from flows.utils.autocompletion import CompMode, TraceMode, autocompletion_target
+from flows.utils.manifest import MANIFEST_NAME, write_manifest
+from flows.utils.recipe_report import RecipeReport
+from flows.utils.run_cmd import run_cmd
+from flows.utils.target_config import read_config_or_exit_testbench_cfg, target_dir
 
 app = typer.Typer()
 
@@ -72,26 +67,32 @@ CXX_SOURCES = (
 )
 
 
-def validate_options(comp_mode: CompMode, trace_mode: TraceMode, stats: bool) -> None:
+def check_options(
+    comp_mode: CompMode, trace_mode: TraceMode, stats: bool, report
+) -> None:
+    "Stop on an option the Verilator harness does not implement"
     if comp_mode != CompMode.rtl:
-        raise ValueError(
-            "Verilator TestHarness currently supports only rtl compilation mode; "
-            f"requested {comp_mode.value}"
+        report.error_exit(
+            f"Verilator TestHarness supports only the rtl compilation mode, "
+            f"got {comp_mode.value}",
+            env=True,
         )
     if trace_mode == TraceMode.gui:
-        raise ValueError("Verilator TestHarness does not support interactive GUI mode")
+        report.error_exit("Verilator TestHarness has no interactive GUI mode", env=True)
     if stats:
-        raise ValueError(
-            "RTL perf tracer statistics are not supported by the Verilator "
-            "TestHarness recipe"
+        report.error_exit(
+            "The RTL perf tracer is not wired to the Verilator TestHarness", env=True
         )
 
 
-def target_directory(repo_dir: Path, target: str) -> Path:
-    if target in {"", ".", ".."} or Path(target).name != target:
-        raise ValueError(f"Invalid target name: {target}")
+def check_target(target: str, report) -> Path:
+    """
+    Return the configuration directory of an AXI target.
 
-    directory = repo_dir / "config" / "target" / target
+    The harness instantiates `ariane_testharness`, which drives the core
+    over AXI: an OBI target elaborates but has nothing on the bus.
+    """
+    directory = target_dir(target)
     required = (
         directory / "Flist.cva6",
         directory / "rtl_cfg_pkg.sv",
@@ -99,19 +100,21 @@ def target_directory(repo_dir: Path, target: str) -> Path:
     )
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
-        raise ValueError("Missing target file(s): " + ", ".join(missing))
-    config = yaml.safe_load(
-        (directory / "testbench_cfg.yml").read_text(encoding="utf-8")
-    )
-    if not isinstance(config, dict) or config.get("hier") != "axi":
-        raise ValueError(
-            f"The current Verilator TestHarness requires an AXI target (hier: axi); "
-            f"requested {target}. Use a matching AXI configuration such as cv32a60x_axi."
+        report.error_exit("Missing target file(s): " + ", ".join(missing), env=True)
+
+    hier = read_config_or_exit_testbench_cfg(target, report, record=False)
+    if hier.value != "axi":
+        report.error_exit(
+            f"The Verilator TestHarness requires an AXI target, {target} is "
+            f"{hier.value}. Use a matching AXI configuration such as "
+            f"cv32a60x_axi.",
+            env=True,
         )
     return directory
 
 
 def build_directory(repo_dir: Path, *parts: str) -> Path:
+    "Return build/<parts>, refusing a component that escapes the tree"
     repo_dir = repo_dir.resolve()
     directory = repo_dir / "build"
     for part in parts:
@@ -138,49 +141,69 @@ def testharness_binary(repo_dir: Path, target: str, comp_mode: CompMode) -> Path
     return elaboration_directory(repo_dir, target, comp_mode) / "Variane_testharness"
 
 
-def _verilator_from_install(install_dir: Path) -> tuple[str, Path]:
-    binary = install_dir / "bin" / "verilator"
-    if not binary.is_file() or not os.access(binary, os.X_OK):
-        raise ValueError(f"Missing Verilator executable: {binary}")
-    return str(binary), _verilator_root(str(binary))
+def _verilator_root(binary: str, report) -> Path:
+    """
+    Return the VERILATOR_ROOT of an installation.
 
-
-def _verilator_from_path() -> tuple[str, Path]:
-    binary = shutil.which("verilator")
-    if binary is None:
-        raise ValueError("verilator is not available in PATH")
-
-    return binary, _verilator_root(binary)
-
-
-def _verilator_root(binary: str) -> Path:
+    Asked to the binary rather than derived from its path: Verilator 5
+    keeps its headers beside the sources, not under the install prefix, so
+    the two differ on a build tree.
+    """
     env = os.environ.copy()
     env.pop("VERILATOR_ROOT", None)
-    try:
-        output = subprocess.run(
-            [binary, "--getenv", "VERILATOR_ROOT"],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=10,
-        ).stdout
-    except (OSError, subprocess.SubprocessError) as error:
-        raise ValueError(f"Cannot query Verilator installation: {error}") from error
+    output = run_cmd(
+        cmd=[binary, "--getenv", "VERILATOR_ROOT"],
+        report=report,
+        env=env,
+        log_file=None,
+        timeout=60,
+    )
     if not output.strip():
-        raise ValueError("Verilator returned an empty VERILATOR_ROOT")
+        report.error_exit("Verilator returned an empty VERILATOR_ROOT", env=True)
     root = Path(output.strip()).resolve()
     if not (root / "include" / "vltstd").is_dir():
-        raise ValueError(f"Missing Verilator include directory: {root / 'include'}")
+        report.error_exit(
+            f"Missing Verilator include directory: {root / 'include'}", env=True
+        )
     return root
 
 
-def tool_paths(repo_dir: Path) -> tuple[Path, Path, str, Path]:
-    try:
-        riscv = Path(os.environ["RISCV"]).resolve()
-    except KeyError as error:
-        raise ValueError("RISCV is not set") from error
+def _verilator(report) -> tuple[str, Path]:
+    "Return the Verilator binary and its root, from VERILATOR_INSTALL_DIR or PATH"
+    configured = os.environ.get("VERILATOR_INSTALL_DIR")
+    if configured:
+        binary = Path(configured).resolve() / "bin" / "verilator"
+        if not binary.is_file() or not os.access(binary, os.X_OK):
+            report.error_exit(f"Missing Verilator executable: {binary}", env=True)
+        return str(binary), _verilator_root(str(binary), report)
 
+    binary = shutil.which("verilator")
+    if binary is None:
+        report.error_exit(
+            "verilator: Not found\n"
+            "  Install it and put it in the path, or point "
+            "VERILATOR_INSTALL_DIR at it (see setenv.sh).",
+            env=True,
+        )
+    return binary, _verilator_root(binary, report)
+
+
+def tool_paths(repo_dir: Path, report) -> tuple[Path, Path, str, Path]:
+    """
+    Return the RISC-V toolchain, Spike, and the Verilator of this machine.
+
+    The harness links against the Spike libraries: the disassembler and the
+    front-end server are what the testbench calls at run time, so headers
+    and libraries must both be there.
+    """
+    riscv_env = os.environ.get("RISCV")
+    if not riscv_env:
+        report.error_exit(
+            "RISCV is not set: it names the RISC-V toolchain the harness "
+            "links against (see setenv.sh).",
+            env=True,
+        )
+    riscv = Path(riscv_env).resolve()
     spike = Path(
         os.environ.get("SPIKE_INSTALL_DIR", repo_dir / "tools" / "spike")
     ).resolve()
@@ -191,13 +214,9 @@ def tool_paths(repo_dir: Path) -> tuple[Path, Path, str, Path]:
         (spike / "lib", "Spike library directory"),
     ):
         if not directory.is_dir():
-            raise ValueError(f"Missing {description}: {directory}")
+            report.error_exit(f"Missing {description}: {directory}", env=True)
 
-    configured = os.environ.get("VERILATOR_INSTALL_DIR")
-    if configured:
-        verilator, verilator_root = _verilator_from_install(Path(configured).resolve())
-    else:
-        verilator, verilator_root = _verilator_from_path()
+    verilator, verilator_root = _verilator(report)
     return riscv, spike, verilator, verilator_root
 
 
@@ -216,14 +235,12 @@ def build_command(
     target: str,
     comp_mode: CompMode,
     trace_mode: TraceMode,
-    stats: bool,
     jobs: int,
     verilator: str,
     verilator_root: Path,
     riscv: Path,
     spike: Path,
 ) -> list[str]:
-    validate_options(comp_mode, trace_mode, stats)
     elab_dir = elaboration_directory(repo_dir, target, comp_mode)
 
     cflags = [
@@ -334,115 +351,98 @@ def verilator_testharness_comp(
         help="notrace, fast (VCD), or compact (FST); gui is unsupported",
     ),
     stats: bool = typer.Option(False, help="RTL perf tracer; currently unsupported"),
+    jobs: int = typer.Option(8, "--jobs", "-j", help="Verilator parallel jobs"),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
     ),
 ) -> None:
-    """Verilator TestHarness compilation flow."""
-    print_recipe_title("VERILATOR TESTHARNESS COMPILATION", quiet=quiet)
+    """
+    Elaborate the TestHarness testbench with Verilator
+    """
     repo_dir = Path.cwd().resolve()
-
-    try:
-        validate_options(comp_mode, trace_mode, stats)
-        target_directory(repo_dir, target)
-        riscv, spike, verilator, verilator_root = tool_paths(repo_dir)
-        env = {**os.environ, **compile_environment(repo_dir, target, spike)}
-        env["VERILATOR_ROOT"] = str(verilator_root)
-        version = subprocess.run(
-            [verilator, "--version"],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=10,
-        ).stdout.strip()
-        jobs = int(os.environ.get("NUM_JOBS", "1"))
-        if jobs < 1:
-            raise ValueError("NUM_JOBS must be at least 1")
-        command = build_command(
-            repo_dir=repo_dir,
-            target=target,
-            comp_mode=comp_mode,
-            trace_mode=trace_mode,
-            stats=stats,
-            jobs=jobs,
-            verilator=verilator,
-            verilator_root=verilator_root,
-            riscv=riscv,
-            spike=spike,
-        )
-    except (
-        OSError,
-        TypeError,
-        ValueError,
-        yaml.YAMLError,
-        subprocess.SubprocessError,
-    ) as error:
-        print_error(str(error))
-        raise typer.Exit(code=1) from error
-
     elab_dir = elaboration_directory(repo_dir, target, comp_mode)
-    binary = testharness_binary(repo_dir, target, comp_mode)
-    log_file = elab_dir / "compilation.log"
-    print_param_table(
-        {
-            "Target": target,
-            "Compilation mode": comp_mode.value,
-            "Trace mode": trace_mode.value,
-            "RTL perf tracer": stats,
-            "Build directory": elab_dir,
-            "Jobs": jobs,
-            "Verilator": version,
+    report = RecipeReport(
+        "verilator-testharness-comp",
+        out_dir=elab_dir,
+        title="VERILATOR TESTHARNESS COMPILATION",
+        context={
+            "target": target,
+            "comp_mode": comp_mode.value,
+            "trace_mode": trace_mode.value,
+            "stats": stats,
+            "jobs": jobs,
         },
-        "Options",
         quiet=quiet,
     )
 
-    print_step("Clean", quiet=quiet)
+    report.step("Check prerequisites")
+    check_options(comp_mode, trace_mode, stats, report)
+    check_target(target, report)
+    riscv, spike, verilator, verilator_root = tool_paths(repo_dir, report)
+
+    env = {
+        **compile_environment(repo_dir, target, spike),
+        "VERILATOR_ROOT": str(verilator_root),
+    }
+    version = run_cmd(
+        cmd=[verilator, "--version"],
+        report=report,
+        env=env,
+        log_file=None,
+        timeout=60,
+    ).strip()
+    report.success(f"verilator: {version}")
+
+    command = build_command(
+        repo_dir=repo_dir,
+        target=target,
+        comp_mode=comp_mode,
+        trace_mode=trace_mode,
+        jobs=jobs,
+        verilator=verilator,
+        verilator_root=verilator_root,
+        riscv=riscv,
+        spike=spike,
+    )
+    report.add_context({"verilator": version}, table="Options")
+
+    report.step("Clean")
     try:
         if elab_dir.exists():
             shutil.rmtree(elab_dir)
-            print_info(f"remove {elab_dir}", quiet=quiet)
         elab_dir.mkdir(parents=True, exist_ok=True)
+        report.info(f"create {elab_dir}")
+        # Kept next to the objects they produced: the version and the
+        # command line are what a build directory cannot be reproduced
+        # without.
         (elab_dir / "verilator.version").write_text(version + "\n", encoding="utf-8")
         (elab_dir / "compilation.command").write_text(
             shlex.join(command) + "\n", encoding="utf-8"
         )
-        print_info(f"create {elab_dir}", quiet=quiet)
-    except OSError as error:
-        print_error(f"Clean error: {error}")
-        raise typer.Exit(code=1) from error
+    except OSError as e:
+        report.error_exit(f"Clean error: {e}", env=True)
 
-    print_step("Compile TestHarness", quiet=quiet)
-    try:
-        return_code, timed_out = run_logged_process(
-            command,
-            cwd=repo_dir,
-            env=env,
-            log=log_file,
-            timeout=1800,
-        )
-        if timed_out:
-            raise RuntimeError("exceeded the 1800-second compilation timeout")
-        if return_code != 0:
-            raise RuntimeError(f"Verilator returned {return_code}")
-    except (OSError, RuntimeError) as error:
-        print_error(f"Verilator compilation failed: {error}; log: {log_file}")
-        if log_file.is_file():
-            tail_file(log_file, n=30)
-        raise typer.Exit(code=1) from error
+    report.step("Compile TestHarness")
+    log_file = elab_dir / "compilation.log"
+    run_cmd(
+        cmd=command,
+        report=report,
+        cwd=repo_dir,
+        env=env,
+        error_patterns=[r"^%Error"],
+        warning_patterns=[r"^%Warning"],
+        log_file=log_file,
+        timeout=1800,
+    )
 
+    binary = testharness_binary(repo_dir, target, comp_mode)
     if not binary.is_file() or not os.access(binary, os.X_OK):
-        print_error(f"Missing or non-executable Verilator output: {binary}")
-        raise typer.Exit(code=1)
-    if not log_file.is_file():
-        print_error(f"Missing compilation log: {log_file}")
-        raise typer.Exit(code=1)
-    print_file_regex(
+        report.error(f"Missing or non-executable Verilator output: {binary}")
+    report.analyze_log(
         log_file,
         error_patterns=[r"^%Error"],
         warning_patterns=[r"^%Warning"],
-        quiet=quiet,
+        fail_on_error=True,
     )
 
     write_manifest(
@@ -454,29 +454,12 @@ def verilator_testharness_comp(
             "trace_mode": trace_mode,
             "stats": stats,
         },
-        quiet=quiet,
+        report,
     )
-    manifest = read_manifest(elab_dir)
-    expected = {
-        "target": target,
-        "comp_mode": comp_mode.value,
-        "trace_mode": trace_mode.value,
-        "stats": stats,
-    }
-    if (
-        not isinstance(manifest, dict)
-        or manifest.get("recipe") != "verilator-testharness-comp"
-        or manifest.get("options") != expected
-    ):
-        print_error(
-            f"Compilation manifest was not written correctly: {elab_dir / MANIFEST_NAME}"
-        )
-        raise typer.Exit(code=1)
 
-    print_step("Generated files", quiet=quiet)
+    report.step("Generated files")
     for path in (binary, log_file, elab_dir / MANIFEST_NAME):
         if path.exists():
-            print_info(f"> {path}", quiet=quiet)
+            report.info(f"> {path}")
 
-    print_success(f"Verilator TestHarness: {binary}", quiet=quiet)
-    print_recipe_end("Completed", quiet=quiet)
+    report.end()

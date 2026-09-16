@@ -12,7 +12,8 @@
 from pathlib import Path
 import typer
 from flows.recipes.sw_compile import sw_compile
-from flows.utils.utils import ToolchainOption, autocompletion_target
+from flows.utils.autocompletion import ToolchainOption, autocompletion_target
+from flows.utils.config_loader import is_clang_toolchain
 
 app = typer.Typer()
 
@@ -64,7 +65,25 @@ def coremark(
     linker_file = str(repo_dir / "config" / "target" / target / "link.ld")
 
     options = [
+        # Legacy K&R C: since GCC 15 the default standard is C23, where
+        # unprototyped declarations like `void f()` no longer compile
+        "std=gnu17",
         "O3",
+        # syscalls.c defines memcpy/memset with plain byte-wise loops. From -O2
+        # on, GCC recognises those loops as memcpy/memset idioms and rewrites
+        # them into calls to the very function being defined, making it
+        # infinitely self-recursive, and bare-metal there is no stack guard.
+        #
+        # This is the flag of the reference benchmark configuration. Do not
+        # swap it for the portable -fno-builtin, which would also bar the
+        # inlining of the other string functions and change what the benchmark
+        # measures. Clang never emits that recursion and rejects the flag, so a
+        # clang score is not comparable to a GCC one.
+        *(
+            []
+            if is_clang_toolchain(toolchain)
+            else ["fno-tree-loop-distribute-patterns"]
+        ),
         "g",
         "static",
         "mcmodel=medany",
@@ -79,11 +98,17 @@ def coremark(
         "Wno-implicit-int",
     ]
 
+    # Iterations executed in the GLOBAL_PATTERN timing window. Single
+    # definition: compiled in the binary (-DITERATIONS) and recorded in
+    # the build manifest, from which the run recipes compute the
+    # CM/MHz score (iterations * 1e6 / measured cycles).
+    iterations = 1
+
     preprocessor_directives = [
         "_LITTLE_ENDIAN_",
         "NOPRINT",
         "HAS_PRINTF=0",
-        "ITERATIONS=1",
+        f"ITERATIONS={iterations}",
         "PERFORMANCE_RUN",
         "SKIP_TIME_CHECK",
     ]
@@ -100,6 +125,7 @@ def coremark(
         march=march,
         mabi=mabi,
         preprocessor_directives=preprocessor_directives,
+        benchmark_iterations=iterations,
         test_name=test_name,
         quiet=quiet,
     )
