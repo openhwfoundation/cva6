@@ -1,2 +1,2 @@
-march: rv32imc_zicsr_zba_zbb_zbs_zbc
+march: rv32imc_zicsr_zba_zbb_zbs_zbc_zifencei
 mabi: ilp32

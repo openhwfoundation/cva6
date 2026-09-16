@@ -50,7 +50,7 @@ package cva6_config_pkg;
       CoproType: config_pkg::COPRO_EXAMPLE,
       RVZiCond: bit'(0),
       RVZicntr: bit'(0),
-      RVZifencei: bit'(0),
+      RVZifencei: bit'(1),
       RVZihpm: bit'(0),
       NrScoreboardEntries: unsigned'(4),
       PerfCounterEn: bit'(0),
