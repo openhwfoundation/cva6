@@ -324,7 +324,10 @@ module load_unit
   //default ypb state registred
   assign ypb_load_req_o.paddr = ypb_a_state_q == TRANSPARENT ? paddr : paddr_q;
   assign ypb_load_req_o.we = '0;
-  assign ypb_load_req_o.be = (ypb_a_state_q == TRANSPARENT) && valid_i ? lsu_ctrl_i.be : be_q;
+  // With an MMU paddr comes from s1 while lsu_ctrl_i already presents the next
+  // request, so the registered byte enable is the one belonging to it.
+  assign ypb_load_req_o.be = (ypb_a_state_q == TRANSPARENT) && valid_i && !CVA6Cfg.MmuPresent
+                             ? lsu_ctrl_i.be : be_q;
   assign ypb_load_req_o.size = (CVA6Cfg.XLEN == 64) ? ariane_pkg::size_gen(
       ypb_load_req_o.be
   ) : ariane_pkg::size_gen_32(
