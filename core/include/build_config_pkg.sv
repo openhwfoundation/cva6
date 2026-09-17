@@ -299,6 +299,7 @@ package build_config_pkg;
     cfg.ObiZcmtbusCfg.OptionalCfg.RChkWidth = 1;
 
     cfg.PipelineOnly = CVA6Cfg.PipelineOnly;
+    cfg.NrStoreInFlight = CVA6Cfg.NrStoreInFlight;
 
     cfg.DclsEn = CVA6Cfg.DclsEn;
     cfg.DclsDelay = CVA6Cfg.DclsDelay;

@@ -78,6 +78,25 @@ module store_buffer
   logic [$clog2(DEPTH_COMMIT)-1:0] commit_read_pointer_n, commit_read_pointer_q;
   logic [$clog2(DEPTH_COMMIT)-1:0] commit_write_pointer_n, commit_write_pointer_q;
 
+  // ------------------------------------
+  // In-flight store tracking (optional)
+  // ------------------------------------
+  // Between its grant and its acknowledge a store is held by neither queue, so
+  // page_offset_matches_o would not report it and a colliding load could read
+  // stale data. The page offsets of those stores are kept here and reported,
+  // the page offset being what the load unit compares and what address
+  // translation leaves unchanged. A depth of 0 generates none of this and
+  // leaves a store done on its grant.
+  localparam int unsigned DEPTH_INFLIGHT =
+      CVA6Cfg.NrStoreInFlight > 0 ? CVA6Cfg.NrStoreInFlight : 1;
+  localparam int unsigned INFLIGHT_CNT_W = $clog2(DEPTH_INFLIGHT + 1);
+
+  logic [11:3] inflight_offset_q[DEPTH_INFLIGHT-1:0];
+  logic inflight_valid_q[DEPTH_INFLIGHT-1:0];
+  logic [INFLIGHT_CNT_W-1:0] inflight_cnt_q;
+  logic inflight_matches;
+  logic inflight_full;
+
   logic pending_rvalid_n, pending_rvalid_q;
 
   assign store_buffer_empty_o = (speculative_status_cnt_q == 0) & !valid_i & no_st_pending_o;
@@ -165,7 +184,8 @@ module store_buffer
 
     commit_ready_o              = (commit_status_cnt_q < DEPTH_COMMIT);
     // no store is pending if we don't have any element in the commit queue e.g.: it is empty
-    no_st_pending_o             = (commit_status_cnt_q == 0);
+    // A granted but unacknowledged store is still pending for a fence.
+    no_st_pending_o             = (commit_status_cnt_q == 0) && (inflight_cnt_q == 0);
     // default assignments
     commit_read_pointer_n       = commit_read_pointer_q;
     commit_write_pointer_n      = commit_write_pointer_q;
@@ -180,7 +200,9 @@ module store_buffer
 
     // there should be no commit when we are flushing
     // if the entry in the commit queue is valid and not speculative anymore we can issue this instruction
-    if (commit_queue_q[commit_read_pointer_q].valid && !stall_st_pending_i) begin
+    // A full in-flight tracking holds the request back: its address could no
+    // longer be reported to the load unit.
+    if (commit_queue_q[commit_read_pointer_q].valid && !stall_st_pending_i && !inflight_full) begin
       ypb_store_req_o.preq = (!CVA6Cfg.PipelineOnly && pending_rvalid_q) ? 1'b0 : 1'b1;
       if (ypb_store_rsp_i.pgnt) pending_rvalid_n = 1'b1;
 
@@ -193,7 +215,8 @@ module store_buffer
         commit_status_cnt--;
       end
     end else if (speculative_queue_q[speculative_read_pointer_q].valid) begin
-      if (commit_i && (commit_write_pointer_q == speculative_read_pointer_q) && !stall_st_pending_i) begin
+      if (commit_i && (commit_write_pointer_q == speculative_read_pointer_q) &&
+          !stall_st_pending_i && !inflight_full) begin
         ypb_store_req_o.preq = (!CVA6Cfg.PipelineOnly && pending_rvalid_q) ? '0 : 1'b1;
         direct_req_from_speculative = 1'b1;
         if (ypb_store_rsp_i.pgnt) pending_rvalid_n = 1'b1;
@@ -250,6 +273,70 @@ module store_buffer
     // or it matches with the entry we are currently putting into the queue
     if ((page_offset_i[11:3] == paddr_i[11:3]) && valid_without_flush_i) begin
       page_offset_matches_o = 1'b1;
+    end
+    // or with a store that was granted but not acknowledged yet
+    if (inflight_matches) begin
+      page_offset_matches_o = 1'b1;
+    end
+
+  end
+
+  // ------------------------------------
+  // In-flight store FIFO
+  // ------------------------------------
+  if (CVA6Cfg.NrStoreInFlight > 0) begin : gen_store_inflight
+    logic push, pop;
+
+    // Grant and rvalid can land on the same cycle for a zero-latency bus, and
+    // an acknowledge is only counted when something is tracked so that the
+    // counter cannot underflow.
+    assign push = ypb_store_req_o.preq && ypb_store_rsp_i.pgnt;
+    assign pop = ypb_store_rsp_i.rvalid && (inflight_cnt_q != '0);
+    assign inflight_full = (inflight_cnt_q == INFLIGHT_CNT_W'(DEPTH_INFLIGHT));
+
+    always_comb begin : inflight_checker
+      inflight_matches = 1'b0;
+      for (int unsigned i = 0; i < DEPTH_INFLIGHT; i++) begin
+        if (inflight_valid_q[i] && (inflight_offset_q[i] == page_offset_i[11:3])) begin
+          inflight_matches = 1'b1;
+        end
+      end
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : p_inflight
+      if (~rst_ni) begin
+        inflight_offset_q <= '{default: 0};
+        inflight_valid_q  <= '{default: 0};
+        inflight_cnt_q    <= '0;
+      end else begin
+        if (pop) begin
+          // oldest entry acknowledged: shift the queue down
+          for (int unsigned i = 0; i < DEPTH_INFLIGHT - 1; i++) begin
+            inflight_offset_q[i] <= inflight_offset_q[i+1];
+            inflight_valid_q[i]  <= inflight_valid_q[i+1];
+          end
+          inflight_valid_q[DEPTH_INFLIGHT-1] <= 1'b0;
+        end
+        if (push) begin
+          // append after the shift so a same-cycle push/pop keeps the order
+          for (int unsigned i = 0; i < DEPTH_INFLIGHT; i++) begin
+            if (INFLIGHT_CNT_W'(i) == (pop ? inflight_cnt_q - 1 : inflight_cnt_q)) begin
+              // the address handed to the bus, not the one being enqueued
+              inflight_offset_q[i] <= ypb_store_req_o.paddr[11:3];
+              inflight_valid_q[i]  <= 1'b1;
+            end
+          end
+        end
+        inflight_cnt_q <= inflight_cnt_q + INFLIGHT_CNT_W'(push) - INFLIGHT_CNT_W'(pop);
+      end
+    end
+  end else begin : gen_no_store_inflight
+    assign inflight_matches = 1'b0;
+    assign inflight_full = 1'b0;
+    always_comb begin
+      inflight_offset_q = '{default: 0};
+      inflight_valid_q  = '{default: 0};
+      inflight_cnt_q    = '0;
     end
   end
 
