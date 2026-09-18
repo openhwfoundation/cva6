@@ -29,7 +29,14 @@ main:
     # As per: https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/PMP.html
     # Which states: The PMP grain is 2**G+2. Only a PMP granularity of 8 bytes (G=1) is supported in CVA6.
     # And from the RISC-V Spec: G is the index of the least-significant bit set, the PMP granularity is 2^(G+2) bytes.
+    #
+    # pmpaddr holds PLEN-2 bits, so the value read back spans 32 bits on RV32
+    # and 54 on RV64.
+#if __riscv_xlen == 64
+    li t3, 0x003FFFFFFFFFFFFE
+#else
     li t3, 0xFFFFFFFE
+#endif
     bne t2, t3, fail
 
 

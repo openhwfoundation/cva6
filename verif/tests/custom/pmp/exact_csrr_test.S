@@ -74,18 +74,28 @@ main:
     # Write in configurations and check what is written, except for the reserved combinations with R=0 and W=1.
 
     # Checking PMP CFG 0
+    # A pmpcfg register covers 4 entries on RV32 and 8 on RV64, so the value
+    # written has to span the whole register to check every entry it holds.
+#if __riscv_xlen == 64
+    li t0, 0x0405050701030304
+#else
     li t0, 0x01030304
+#endif
     csrw pmpcfg0, t0
     csrr t1, pmpcfg0
     bne t0, t1, fail
     csrw pmpcfg0, zero
 
     # Checking PMP CFG 1
+    # RV32 only: entries 4-7 live in pmpcfg1 there, while on RV64 they are in
+    # the upper half of pmpcfg0 checked above and pmpcfg1 does not exist.
+#if __riscv_xlen == 32
     li t0, 0x04050507
     csrw pmpcfg1, t0
     csrr t1, pmpcfg1
     bne t0, t1, fail
     csrw pmpcfg1, zero
+#endif
 
 
 pass:
