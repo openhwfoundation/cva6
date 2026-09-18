@@ -22,6 +22,116 @@ from flows.utils.recipe_report import RecipeReport
 app = typer.Typer()
 
 
+def _apply_patch(patch_file, patch_cwd, report, repo_dir):
+    """
+    Apply a patch, doing nothing if it is already applied.
+
+    A submodule is checked out once and patched on every call, so the operation
+    has to be idempotent: `git apply --reverse --check` reverts nothing and
+    stays silent when the patch is already in place, and complains otherwise.
+    Returns True when the tree ends up patched.
+    """
+    already = run_cmd(
+        cmd=["git", "apply", "--reverse", "--check", str(patch_file)],
+        cwd=patch_cwd,
+        env=None,
+        error_patterns=None,
+        warning_patterns=None,
+        highlight_patterns=None,
+        log_file=None,
+        timeout=60,
+        check=False,
+        capture_output=True,
+        report=report,
+    )
+    if not (already or "").strip():
+        report.info(f"Patch already applied, skipping: {patch_file.name}")
+        return True
+
+    result = run_cmd(
+        cmd=["git", "apply", str(patch_file)],
+        cwd=patch_cwd,
+        env=None,
+        error_patterns=None,
+        warning_patterns=None,
+        highlight_patterns=None,
+        log_file=None,
+        timeout=60,
+        check=False,
+        capture_output=True,
+        report=report,
+    )
+    if result is None or "fatal:" in result.lower() or "error:" in result.lower():
+        report.error(f"Failed to apply patch: {patch_file.name}")
+        return False
+
+    report.success(
+        f"Applied patch: {patch_file.name} in {patch_cwd.relative_to(repo_dir)}"
+    )
+    return True
+
+
+def _patch_submodules(dependencies, report, repo_dir):
+    """
+    Apply the patches declared for the Git submodules.
+
+    Submodules are not cloned by this recipe: they are checked out by
+    `git submodule update`. Patches that are not merged upstream yet are kept
+    out of the submodule history so its pointer keeps tracking upstream.
+    """
+    submodule_patches = dependencies.get("submodule_patches") or {}
+    if not submodule_patches:
+        return True
+
+    report.step("Patching Git submodules")
+    results = report.metric("Submodule patches")
+    all_success = True
+
+    for sub_path, sub_config in submodule_patches.items():
+        sub_dir = repo_dir / sub_path
+        patches = (sub_config or {}).get("patches", [])
+        if not patches:
+            continue
+
+        if not sub_dir.exists() or not any(sub_dir.iterdir()):
+            report.error(
+                f"Submodule not initialised: {sub_path}. "
+                "Run: git submodule update --init --recursive",
+                env=True,
+            )
+            results.add_row(status="fail", submodule=sub_path)
+            all_success = False
+            continue
+
+        sub_ok = True
+        for patch_spec in patches:
+            if ":" in patch_spec:
+                patch_file_rel, patch_subdir = patch_spec.split(":", 1)
+                patch_cwd = sub_dir / patch_subdir
+            else:
+                patch_file_rel = patch_spec
+                patch_cwd = sub_dir
+
+            patch_file = repo_dir / patch_file_rel
+            if not patch_file.exists():
+                report.error(f"Patch file not found: {patch_file}", env=True)
+                sub_ok = False
+                continue
+            if not patch_cwd.exists():
+                report.error(f"Patch subdirectory not found: {patch_cwd}")
+                sub_ok = False
+                continue
+
+            if not _apply_patch(patch_file, patch_cwd, report, repo_dir):
+                sub_ok = False
+
+        results.add_row(status="pass" if sub_ok else "fail", submodule=sub_path)
+        if not sub_ok:
+            all_success = False
+
+    return all_success
+
+
 # ==========================================================
 # RECIPE - Git dependencies
 # ==========================================================
@@ -45,6 +155,12 @@ def git_dependencies(
 
     This recipe clones external test repositories (riscv-tests, riscv-compliance, riscv-arch-test)
     as defined in flows/config/dependencies.yml. These are NOT Git submodules.
+
+    It also applies the patches declared under submodule_patches on the Git
+    submodules, which are checked out by `git submodule update`. Those patches
+    carry fixes that are not merged upstream yet, so the submodule pointer keeps
+    tracking upstream. Applying them is idempotent: a patch already in place is
+    skipped, so the recipe can be run repeatedly.
 
     Examples:
         # Install all external dependencies
@@ -88,7 +204,11 @@ def git_dependencies(
     if not dependencies:
         report.error_exit("No dependencies found in configuration file", env=True)
 
-    report.success(f"Loaded {len(dependencies)} dependency definitions")
+    # submodule_patches is not a repository to clone, it is handled separately
+    # at the end of the recipe
+    clonable = {k: v for k, v in dependencies.items() if k != "submodule_patches"}
+
+    report.success(f"Loaded {len(clonable)} dependency definitions")
     # ==========================================================
     # Select dependencies to install
     # ==========================================================
@@ -96,18 +216,16 @@ def git_dependencies(
         # Install specific dependencies
         deps_to_install = {}
         for dep_name in repo:
-            if dep_name not in dependencies:
-                report.warning(
-                    f"Available dependencies: {', '.join(dependencies.keys())}"
-                )
+            if dep_name not in clonable:
+                report.warning(f"Available dependencies: {', '.join(clonable.keys())}")
                 report.error_exit(f"Unknown dependency: {dep_name}", env=True)
-            deps_to_install[dep_name] = dependencies[dep_name]
+            deps_to_install[dep_name] = clonable[dep_name]
         report.info(
             f"Installing {len(deps_to_install)} specific dependency(ies): {', '.join(deps_to_install.keys())}"
         )
     else:
         # Install all dependencies
-        deps_to_install = dependencies
+        deps_to_install = clonable
         report.info(f"Installing all {len(deps_to_install)} dependencies")
 
     # ==========================================================
@@ -302,38 +420,11 @@ def git_dependencies(
                     dep_ok = False
                     continue
 
-                report.info(
-                    f"Applying patch: {patch_file.name} in {patch_cwd.relative_to(repo_dir)}"
-                )
-
-                # Apply patch using git apply
-                patch_cmd = ["git", "apply", str(patch_file)]
                 try:
-                    result = run_cmd(
-                        cmd=patch_cmd,
-                        cwd=patch_cwd,
-                        env=None,
-                        error_patterns=None,
-                        warning_patterns=None,
-                        highlight_patterns=None,
-                        log_file=None,
-                        timeout=60,
-                        check=False,
-                        capture_output=True,
-                        report=report,
-                    )
-
-                    if (
-                        result is None
-                        or "fatal:" in result.lower()
-                        or "error:" in result.lower()
-                    ):
-                        report.error(f"Failed to apply patch: {patch_file.name}")
+                    if not _apply_patch(patch_file, patch_cwd, report, repo_dir):
                         all_success = False
                         dep_ok = False
                         continue
-
-                    report.success(f"Applied patch: {patch_file.name}")
                 except Exception as e:
                     report.error(f"Exception during patch apply: {e}", env=True)
                     all_success = False
@@ -393,6 +484,13 @@ def git_dependencies(
         else:
             report.error(f"Completed installation of {dep_name} with errors")
             results.add_row(status="fail", dependency=dep_name)
+
+    # ==========================================================
+    # Patch the Git submodules
+    # ==========================================================
+    if not _patch_submodules(dependencies, report, repo_dir):
+        all_success = False
+
     # ==========================================================
     # Final summary
     # ==========================================================

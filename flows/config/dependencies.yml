@@ -20,6 +20,33 @@
 #   - commit: Specific commit hash to checkout
 #   - destination: Local path where to clone
 #   - patches: List of patch files to apply (optional)
+#
+# Patches can also be applied on the Git submodules, which are not cloned here
+# but checked out by `git submodule update`. They are declared under a
+# submodule_patches section, keyed by submodule path:
+#
+#   submodule_patches:
+#     path/to/submodule:
+#       patches:
+#         - "verif/patches/some-fix.patch"
+#         - "verif/patches/other-fix.patch:subdir"  # applied in subdir/
+#       reason: >
+#         Why the patch is needed, and what to watch for upstream so it can be
+#         dropped once the fix lands there.
+#
+# This keeps a fix that is not merged upstream yet out of the submodule history,
+# so its pointer keeps tracking upstream.
+
+submodule_patches:
+  verif/core-v-verif:
+    patches:
+      - "verif/patches/core-v-verif-axi-amo-synchronizer.patch"
+    reason: >
+      uvma_axi_amo_synchronizer passes the memory value between the read and the
+      write halves of an atomic through a non persistent SystemVerilog event.
+      When the read half runs first the notification is lost, the write half
+      blocks and the AXI slave never sends the B response, which hangs the core.
+      Still present on core-v-verif master: drop this patch once fixed upstream.
 
 riscv-tests:
   repo: "https://github.com/riscv/riscv-tests.git"

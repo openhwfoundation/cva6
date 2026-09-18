@@ -1,0 +1,61 @@
+diff --git a/lib/uvm_agents/uvma_axi5/src/comps/uvma_axi_amo_synchronizer.sv b/lib/uvm_agents/uvma_axi5/src/comps/uvma_axi_amo_synchronizer.sv
+index 3de1891c..45a466b4 100644
+--- a/lib/uvm_agents/uvma_axi5/src/comps/uvma_axi_amo_synchronizer.sv
++++ b/lib/uvm_agents/uvma_axi5/src/comps/uvma_axi_amo_synchronizer.sv
+@@ -16,8 +16,16 @@
+  */
+ class uvma_axi_amo_synchronizer_c extends uvma_axi_synchronizer_c;
+ 
+-   local event atomic_read;
+-   local longint init_data = -1;
++   // An atomic transaction is split in two halves handled by independent entry
++   // points: write_data() waits for the value read from memory, read_data()
++   // provides it. A SystemVerilog event is not persistent, so if read_data()
++   // triggered it before write_data() reached the wait, the notification was
++   // lost and write_data() blocked forever, leaving the write without its B
++   // response. The data is therefore kept in a persistent store, indexed by
++   // AXI ID so that several atomics can be in flight, and the waiting side
++   // polls that store instead of an event.
++   local longint atomic_read_data[int];
++   local bit     atomic_read_valid[int];
+ 
+    `uvm_component_utils(uvma_axi_amo_synchronizer_c)
+ 
+@@ -88,7 +96,13 @@ task uvma_axi_amo_synchronizer_c::write_data();
+             if(exclusive_addr[w_trs_queue[i][j].m_addr] == 1) exclusive_addr[w_trs_queue[i][j].m_addr] = -1;
+ 
+             if(w_trs_queue[i][j].m_atop!=0)begin   // Atomic transaction
+-               @atomic_read;
++               longint init_data;
++               int     atomic_id = w_trs_queue[i][j].m_id;
++               //  wait until the read half has provided the value held in
++               //  memory for that ID, whether it arrived before or after
++               wait (atomic_read_valid.exists(atomic_id) && atomic_read_valid[atomic_id]);
++               init_data = atomic_read_data[atomic_id];
++               atomic_read_valid[atomic_id] = 1'b0;
+                if(init_data == -1) return;
+ 
+                for(int k = w_trs_queue[i][j].lower_byte_lane; k <= w_trs_queue[i][j].upper_byte_lane; k++) begin
+@@ -151,7 +165,6 @@ task uvma_axi_amo_synchronizer_c::write_data();
+ 
+                w_trs_queue[i][j].m_data[0] = data;
+                checkexclusive = 1;
+-               init_data = -1;
+             end
+             else if(w_trs_queue[i][j].m_lock == 1 && cfg.axi_lock_enabled) begin
+                `uvm_info(get_type_name(), $sformatf("EXCLUSIVE ACCESS"), UVM_HIGH)
+@@ -270,9 +283,12 @@ task uvma_axi_amo_synchronizer_c::read_data(int selected_id);
+                end
+             end
+             if(r_trs_queue[selected_id][i].m_atop != 0) begin
+-               init_data = r_trs_queue[selected_id][i].m_data[0];
+-               ->atomic_read;
++               //  publish the value for the matching write half; it stays
++               //  available until consumed, so the order no longer matters
++               atomic_read_data[r_trs_queue[selected_id][i].m_id]  = r_trs_queue[selected_id][i].m_data[0];
++               atomic_read_valid[r_trs_queue[selected_id][i].m_id] = 1'b1;
+             end
++
+          end else begin
+             `uvm_error(get_full_name(), "YOU CAN NOT WRITE DATA IN THIS ADDRESS LOCATION")
+          end
