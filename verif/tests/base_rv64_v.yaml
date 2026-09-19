@@ -35,27 +35,27 @@ common_test_config: &common_test_config
   llvm_opts: "-DENTROPY=0x1 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ <path_var>/riscv-tests/env/v/entry.S <path_var>/riscv-tests/env/v/vm.c <path_var>/riscv-tests/env/v/string.c -I<path_var>/riscv-tests/env/v/ -I<path_var>/riscv-tests/riscv-target/spike/"
 
 testlist:
-  - test: rv64ui-p-add
+  - test: rv64ui-v-add
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv64ui/add.S
 
-  - test: rv64ui-p-lw
+  - test: rv64ui-v-lw
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv64ui/lw.S
 
-  - test: rv64ui-p-sw
+  - test: rv64ui-v-sw
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv64ui/sw.S
 
-  - test: rv64ui-p-beq
+  - test: rv64ui-v-beq
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv64ui/beq.S
 
-  - test: rv64ui-p-jal
+  - test: rv64ui-v-jal
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv64ui/jal.S
