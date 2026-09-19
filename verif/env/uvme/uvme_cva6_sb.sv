@@ -53,6 +53,11 @@ class uvme_cva6_sb_c extends uvm_scoreboard;
 
    // Store trap pc value
    bit [XLEN-1:0]  trap_pc;
+   // epc CSR written by the trap and vector the handler starts at: a trap
+   // delegated below machine mode uses SEPC and STVEC instead of MEPC and MTVEC
+   bit [XLEN-1:0]  trap_epc;
+   bit [XLEN-1:0]  trap_vector;
+   bit             trap_delegated;
    bit [XLEN:0]  mcycle_update;
 
    // Flag to see if mtvec/mepc has been changed
@@ -119,6 +124,14 @@ class uvme_cva6_sb_c extends uvm_scoreboard;
     * Creates sub-scoreboard components.
     */
    extern virtual function void create_sbs();
+
+   /**
+    * Tell whether a trap was delegated below machine mode. medeleg holds that
+    * decision per cause, so it is read rather than inferred from the privilege
+    * the trapping instruction ran at: a trap taken in S-mode with its cause not
+    * delegated still vectors to MTVEC and writes MEPC.
+    */
+   extern virtual function bit is_trap_delegated(uvma_isacov_instr_c trapping, uvma_isacov_instr_c handler);
 
    /**
     * Check after a trap the CVA6 jump to the value in mtvec
@@ -201,6 +214,39 @@ function void uvme_cva6_sb_c::create_sbs();
 
 endfunction : create_sbs
 
+function bit uvme_cva6_sb_c::is_trap_delegated(uvma_isacov_instr_c trapping,
+                                               uvma_isacov_instr_c handler);
+
+  bit [XLEN-1:0] medeleg_value;
+  bit [XLEN-1:0] cause;
+
+  // A trap taken in machine mode is never delegated, whatever medeleg says.
+  if (trapping.rvfi.mode == uvma_rvfi_pkg::UVMA_RVFI_M_MODE)
+    return 1'b0;
+
+  // The cause is read from whichever register the trap wrote: a delegated trap
+  // writes scause and leaves mcause untouched, so taking mcause alone would
+  // read a stale value and misclassify the trap.
+  if (handler.rvfi.name_csrs["scause"].wmask != 0)
+    cause = handler.rvfi.name_csrs["scause"].wdata;
+  else
+    cause = handler.rvfi.name_csrs["mcause"].wdata;
+
+  // Interrupts are delegated through mideleg, which this check does not cover;
+  // medeleg is indexed by exception cause only.
+  if (cause[XLEN-1])
+    return 1'b0;
+
+  medeleg_value = handler.rvfi.name_csrs["medeleg"].rdata;
+
+  // Causes above the width of medeleg cannot be delegated.
+  if (cause >= XLEN)
+    return 1'b0;
+
+  return medeleg_value[cause[5:0]];
+
+endfunction : is_trap_delegated
+
 function void uvme_cva6_sb_c::check_pc_trap(uvma_isacov_instr_c instr,
                                             uvma_isacov_instr_c instr_prev);
 
@@ -239,14 +285,20 @@ function void uvme_cva6_sb_c::check_pc_trap(uvma_isacov_instr_c instr,
 
   if (instr_prev != null) begin
      if (instr_prev.trap) begin
-        if (mtvec_change) begin
-           if(cfg.xlen == 32) begin
-              if (instr.rvfi.pc_rdata[RTLCVA6Cfg.VLEN-1:2] == mtvec_value[RTLCVA6Cfg.VLEN-1:2]) begin
-                 //we only support MTVEC Direct mode
-                 `uvm_info(get_type_name(), $sformatf("After a trap, PC matches MTVEC value"), UVM_DEBUG)
+        // A trap delegated through medeleg vectors to STVEC (see is_trap_delegated)
+        trap_delegated = is_trap_delegated(instr_prev, instr);
+        trap_vector    = trap_delegated ? instr.rvfi.name_csrs["stvec"].rdata
+                                        : mtvec_value;
+        if (mtvec_change || trap_delegated) begin
+           if (cfg.xlen == 32 || trap_delegated) begin
+              if (instr.rvfi.pc_rdata[RTLCVA6Cfg.VLEN-1:2] == trap_vector[RTLCVA6Cfg.VLEN-1:2]) begin
+                 //we only support MTVEC/STVEC Direct mode
+                 `uvm_info(get_type_name(), $sformatf("After a trap, PC matches the trap vector"), UVM_DEBUG)
               end
               else begin
-                 `uvm_fatal(get_type_name(), "ERROR -> Doesn't jump to MTVEC")
+                 `uvm_fatal(get_type_name(), $sformatf("ERROR -> Doesn't jump to %s | pc = 0x%h, vector = 0x%h",
+                            trap_delegated ? "STVEC" : "MTVEC",
+                            instr.rvfi.pc_rdata, trap_vector))
               end
            end
            else begin
@@ -267,7 +319,8 @@ endfunction : check_pc_trap
 function void uvme_cva6_sb_c::check_mepc(uvma_isacov_instr_c instr);
 
   if (instr.trap) begin
-     trap_pc = instr.rvfi.pc_rdata[31:0];
+     // Full width, it is compared against an XLEN wide CSR.
+     trap_pc = instr.rvfi.pc_rdata;
      `uvm_info(get_type_name(), $sformatf("Trap PC : 0x%h ", trap_pc), UVM_DEBUG)
      if (instr.rvfi.insn[1:0] == 2'h3) begin
         trap_is_compressed = 1'h0;
@@ -275,11 +328,16 @@ function void uvme_cva6_sb_c::check_mepc(uvma_isacov_instr_c instr);
      else begin
         trap_is_compressed = 1'h1;
      end
-     if (trap_pc == instr.rvfi.name_csrs["mepc"].wdata) begin
+     // A trap delegated through medeleg writes SEPC and leaves MEPC untouched.
+     trap_delegated = is_trap_delegated(instr, instr);
+     trap_epc = trap_delegated ? instr.rvfi.name_csrs["sepc"].wdata
+                               : instr.rvfi.name_csrs["mepc"].wdata;
+     if (trap_pc == trap_epc) begin
          `uvm_info(get_type_name(), $sformatf("Trap PC has been written successfully "), UVM_DEBUG)
      end
      else begin
-         `uvm_error(get_type_name(), "ERROR -> Trap PC != MEPC")
+         `uvm_error(get_type_name(), $sformatf("ERROR -> Trap PC != %s | pc = 0x%h, epc = 0x%h",
+                    trap_delegated ? "SEPC" : "MEPC", trap_pc, trap_epc))
      end
      has_trap = 1'h1;
   end
