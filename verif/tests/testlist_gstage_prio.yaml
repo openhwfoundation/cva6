@@ -1,0 +1,8 @@
+# Testlist for the DTLB-hit vs DTLB-miss fault-priority reproducer (cv64a6_imafdch_sv39).
+
+testlist:
+  - test: rv64h-p-gstage-prio
+    iterations: 1
+    path_var: TESTS_PATH
+    gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
+    asm_tests: <path_var>/custom/gstage_prio/gstage_prio_repro.S

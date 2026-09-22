@@ -624,7 +624,10 @@ module cva6_mmu
         if (lsu_is_store_q) begin
           // check if the page is write-able and we are not violating privileges
           // also check if the dirty flag is set
-          if(CVA6Cfg.RVH && en_ld_st_g_translation_i && (!dtlb_gpte_q.w || d_g_st_access_err || !dtlb_gpte_q.d)) begin
+          if (CVA6Cfg.RVH && en_ld_st_g_translation_i &&
+              !(en_ld_st_translation_i &&
+                (!dtlb_pte_q.w || daccess_err || canonical_addr_check || !dtlb_pte_q.d)) &&
+              (!dtlb_gpte_q.w || d_g_st_access_err || !dtlb_gpte_q.d)) begin
             lsu_exception_o.cause = riscv::STORE_GUEST_PAGE_FAULT;
             lsu_exception_o.valid = 1'b1;
             if (CVA6Cfg.TvalEn)
@@ -651,7 +654,7 @@ module cva6_mmu
           end
           // this is a load
         end else begin
-          if (CVA6Cfg.RVH && d_g_st_access_err) begin
+          if (CVA6Cfg.RVH && !(daccess_err || canonical_addr_check) && d_g_st_access_err) begin
             lsu_exception_o.cause = riscv::LOAD_GUEST_PAGE_FAULT;
             lsu_exception_o.valid = 1'b1;
             if (CVA6Cfg.TvalEn)
