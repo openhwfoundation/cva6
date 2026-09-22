@@ -238,3 +238,22 @@ testlist:
       when MRET or SRET returns below M-mode.
     iterations: 1
     asm_tests: <path_var>/custom/issues/xret-mprv-clear-rv64.S
+
+  - test: instr-guest-page-fault-rvc0-rv64
+    description: >
+      Check that an instruction guest-page fault remains mcause 20 when
+      the hypervisor extension is enabled and RVC is disabled.
+    iterations: 1
+    path_var: TESTS_PATH
+    asm_tests: <path_var>/custom/issues/instr-guest-page-fault-rvc0-rv64.S
+    gcc_opts: >-
+      -static
+      -mcmodel=medany
+      -fvisibility=hidden
+      -nostdlib
+      -nostartfiles
+      -I<path_var>/riscv-tests/isa/macros/scalar/
+      -I<path_var>/riscv-tests/env/p/
+      -I<path_var>/riscv-tests/riscv-target/spike/
+      -march=rv64gh
+      -mabi=lp64d
