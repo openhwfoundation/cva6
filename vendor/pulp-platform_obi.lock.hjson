@@ -8,6 +8,6 @@
   upstream:
   {
     url: https://github.com/pulp-platform/obi.git
-    rev: c2141a653c755461ff44f61d12aeb5d99fc8e760
+    rev: 0155fc34e900c7c884e081c0a1114a247937ff69
   }
 }

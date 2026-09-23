@@ -28,13 +28,13 @@ module obi_err_sbr #(
   logic fifo_full, fifo_empty, fifo_pop;
 
   always_comb begin
+    obi_rsp_o         = '0;
     obi_rsp_o.r.rdata = '0;
     obi_rsp_o.r.rdata = RspData;
     obi_rsp_o.r.rid   = rid;
     obi_rsp_o.r.err   = 1'b1;
-    obi_rsp_o.r.r_optional = '0;
-    obi_rsp_o.gnt = ~fifo_full;
-    obi_rsp_o.rvalid = ~fifo_empty;
+    obi_rsp_o.gnt     = ~fifo_full;
+    obi_rsp_o.rvalid  = ~fifo_empty;
   end
 
   if (ObiCfg.UseRReady) begin : gen_pop_rready

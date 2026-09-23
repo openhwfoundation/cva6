@@ -8,7 +8,7 @@ package:
     - "Michael Rogenmoser <michaero@iis.ee.ethz.ch>"
 
 dependencies:
-  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.37.0 }
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.38.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification.git", version: 0.2.3 }
 
 export_include_dirs:
@@ -20,8 +20,10 @@ sources:
   # Level 2
   - src/obi_intf.sv
   - src/obi_rready_converter.sv
+  - src/apb_to_obi.sv
   # Level 3
   - src/obi_atop_resolver.sv
+  - src/obi_cut.sv
   - src/obi_demux.sv
   - src/obi_err_sbr.sv
   - src/obi_mux.sv

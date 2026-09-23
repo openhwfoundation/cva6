@@ -88,17 +88,22 @@ package obi_pkg;
     obi_optional_cfg_t OptionalCfg;
   } obi_cfg_t;
 
+  function automatic obi_cfg_t obi_default_cfg(int unsigned AddrWidth, int unsigned DataWidth,
+    int unsigned IdWidth, obi_optional_cfg_t OptionalCfg);
+    obi_default_cfg = '{
+      UseRReady:          1'b0,
+      CombGnt:            1'b0,
+      AddrWidth:     AddrWidth,
+      DataWidth:     DataWidth,
+      IdWidth:         IdWidth,
+      Integrity:          1'b0,
+      BeFull:             1'b1,
+      OptionalCfg: OptionalCfg
+    };
+  endfunction
+
   /// The default OBI bus config.
-  localparam obi_cfg_t ObiDefaultConfig = '{
-      UseRReady: 1'b0,
-      CombGnt: 1'b0,
-      AddrWidth: 32,
-      DataWidth: 32,
-      IdWidth: 1,
-      Integrity: 1'b0,
-      BeFull: 1'b1,
-      OptionalCfg: ObiMinimalOptionalConfig
-  };
+  localparam obi_cfg_t ObiDefaultConfig = obi_default_cfg(32, 32, 1, ObiMinimalOptionalConfig);
 
   function automatic obi_cfg_t mux_grow_cfg(obi_cfg_t ObiCfgIn, int unsigned NumManagers);
     mux_grow_cfg = '{
