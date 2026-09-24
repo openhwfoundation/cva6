@@ -1,0 +1,106 @@
+// Copyright 2026 OpenHW Foundation
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Author: Junchao Chen (junchao.chen@eclipse-foundation.org)
+
+// Keep this ordered manifest aligned with the root Makefile TestHarness sources.
+
+// SoC and peripheral RTL
+${CVA6_REPO_DIR}/corev_apu/src/ariane.sv
+${CVA6_REPO_DIR}/corev_apu/bootrom/bootrom.sv
+${CVA6_REPO_DIR}/corev_apu/clint/axi_lite_interface.sv
+${CVA6_REPO_DIR}/corev_apu/clint/clint.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi2apb/src/axi2apb.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi2apb/src/axi2apb_64_32.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi2apb/src/axi2apb_wrap.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_timer/apb_timer.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_timer/timer.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_ar_buffer.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_aw_buffer.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_b_buffer.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_r_buffer.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_single_slice.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_slice.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_slice_wrap.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/axi_slice/src/axi_w_buffer.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_res_tbl.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_riscv_amos.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_riscv_amos_alu.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_riscv_atomics.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_riscv_atomics_wrap.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_riscv_lrsc.sv
+${CVA6_REPO_DIR}/corev_apu/src/axi_riscv_atomics/src/axi_riscv_lrsc_wrap.sv
+${CVA6_REPO_DIR}/corev_apu/axi_mem_if/src/axi2mem.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dm_csrs.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dm_mem.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dm_sba.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dm_top.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dmi_cdc.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dmi_jtag.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dmi_jtag_tap.sv
+${CVA6_REPO_DIR}/corev_apu/rv_plic/rtl/rv_plic_target.sv
+${CVA6_REPO_DIR}/corev_apu/rv_plic/rtl/rv_plic_gateway.sv
+${CVA6_REPO_DIR}/corev_apu/rv_plic/rtl/plic_regmap.sv
+${CVA6_REPO_DIR}/corev_apu/rv_plic/rtl/plic_top.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/debug_rom/debug_rom.sv
+${CVA6_REPO_DIR}/corev_apu/register_interface/src/apb_to_reg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_multicut.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/rstgen_bypass.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/rstgen.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/addr_decode.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_register.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_cut.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_join.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_delayer.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_to_axi_lite.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_id_prepend.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_atop_filter.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_err_slv.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_mux.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_demux.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_xbar.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cdc_2phase.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/spill_register_flushable.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/spill_register.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/deprecated/fifo_v1.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/deprecated/fifo_v2.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_delay.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/lfsr_16bit.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/tech_cells_generic/src/deprecated/cluster_clk_cells.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/tech_cells_generic/src/deprecated/pulp_clk_cells.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/tech_cells_generic/src/rtl/tc_clk.sv
+
+// TestHarness and instruction trace components
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/include/iti_pkg.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/include/te_pkg.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_encapsulator-main/src/include/encap_pkg.sv
+${CVA6_REPO_DIR}/corev_apu/tb/ariane_testharness.sv
+${CVA6_REPO_DIR}/corev_apu/tb/ariane_peripherals.sv
+${CVA6_REPO_DIR}/corev_apu/tb/rvfi_tracer.sv
+${CVA6_REPO_DIR}/corev_apu/tb/common/uart.sv
+${CVA6_REPO_DIR}/corev_apu/tb/common/SimDTM.sv
+${CVA6_REPO_DIR}/corev_apu/tb/common/SimJTAG.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/iti.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/block_retirement.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/single_retirement.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/itype_detector.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/counter.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/sync.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/sync_wedge.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/edge_detect.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/lzc.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_branch_map.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_filter.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_packet_emitter.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_priority.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_reg.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_resync_counter.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/rv_tracer.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/fifo_v3.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/DPTI/slicer_DPTI.sv
+${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_encapsulator-main/src/rtl/encapsulator.sv
+${CVA6_REPO_DIR}/corev_apu/tb/common/mock_uart.sv
