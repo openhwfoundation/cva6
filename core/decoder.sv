@@ -197,6 +197,7 @@ module decoder
     instruction_o.bp                       = branch_predict_i;
     instruction_o.vfp                      = 1'b0;
     instruction_o.is_zcmt                  = is_zcmt_i;
+    instruction_o.is_cbo_mgmt              = 1'b0;
     ecall                                  = 1'b0;
     ebreak                                 = 1'b0;
     check_fprm                             = 1'b0;
@@ -474,6 +475,7 @@ module decoder
             3'b010: begin
               if (CVA6Cfg.RVZiCbom) begin
                 instruction_o.fu = STORE;
+                instruction_o.is_cbo_mgmt = 1'b1;
                 instruction_o.rs1[4:0] = instr.itype.rs1;
                 // not used - zero
                 instruction_o.rs2[4:0] = '0;

@@ -50,7 +50,7 @@ module cva6_ptw
     input logic hlvx_inst_i,  // is a HLVX load/store instruction
 
     input logic lsu_is_store_i,  // this translation was triggered by a store
-    // PTW memory interface
+    input logic lsu_is_cbo_mgmt_i,
     input dcache_req_o_t req_port_i,
     output dcache_req_i_t req_port_o,
 
@@ -507,13 +507,20 @@ module cva6_ptw
                 // we can directly raise an error. This doesn't put a useless
                 // entry into the TLB.
                 if (
-                  (pte.a && ((pte.r && !hlvx_eff) || (pte.x && (mxr_i || hlvx_eff || (ptw_stage_q == S_STAGE && vmxr_i && ld_st_v_i && CVA6Cfg.RVH)))))
-                    // Request is a store: perform some additional checks
-                    // If the request was a store and the page is not write-able, raise an error
-                    // the same applies if the dirty flag is not set
-                    // g-intermediate nodes however never need write-permission
-                    && (!lsu_is_store_i || (pte.w && pte.d) || (ptw_stage_q == G_INTERMED_STAGE && CVA6Cfg.RVH))
-                ) begin
+                  pte.a &&
+                  (
+                    (pte.r && !hlvx_eff) ||
+                    (pte.x && (mxr_i || hlvx_eff ||
+                               (ptw_stage_q == S_STAGE && vmxr_i && ld_st_v_i && CVA6Cfg.RVH))) ||
+                    (lsu_is_cbo_mgmt_i && pte.w)
+                  ) &&
+                  (
+                    lsu_is_cbo_mgmt_i ||
+                    !lsu_is_store_i ||
+                    (pte.w && pte.d) ||
+                    (ptw_stage_q == G_INTERMED_STAGE && CVA6Cfg.RVH)
+                  )
+                 ) begin
                   if ((CVA6Cfg.RVH && ((ptw_stage_q == G_FINAL_STAGE) || !en_ld_st_g_translation_i)) || !CVA6Cfg.RVH)
                     shared_tlb_update_valid = 1'b1;
                 end else begin

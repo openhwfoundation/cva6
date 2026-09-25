@@ -49,6 +49,8 @@ module load_store_unit
     input logic [31:0] tinst_i,
     // FU data needed to execute instruction - ISSUE_STAGE
     input fu_data_t fu_data_i,
+    // CBO management instruction - ISSUE_STAGE
+    input logic is_cbo_mgmt,
     // Load Store Unit is ready - ISSUE_STAGE
     output logic lsu_ready_o,
     // Load Store Unit instruction is valid - ISSUE_STAGE
@@ -229,6 +231,7 @@ module load_store_unit
   logic [CVA6Cfg.PLEN-1:0] mmu_paddr, cva6_mmu_paddr, acc_mmu_paddr, lsu_paddr;
   logic [CVA6Cfg.VLEN-1:0] pmp_vaddr_q;
   logic                    pmp_is_store_q;
+  logic                    pmp_is_cbo_mgmt_q;
   logic                    pmp_hlvx_inst_q;
   logic [            31:0] mmu_tinst;
   logic                    mmu_hs_ld_st_inst;
@@ -294,6 +297,7 @@ module load_store_unit
         .lsu_vaddr_i(mmu_vaddr),
         .lsu_tinst_i(mmu_tinst),
         .lsu_is_store_i(st_translation_req),
+        .lsu_is_cbo_mgmt_i(is_cbo_mgmt),
         .csr_hs_ld_st_inst_o(csr_hs_ld_st_inst_o),
         .lsu_dtlb_hit_o(dtlb_hit),  // send in the same cycle as the request
         .lsu_dtlb_ppn_o(dtlb_ppn),  // send in the same cycle as the request
@@ -301,8 +305,9 @@ module load_store_unit
         .lsu_valid_o    (pmp_translation_valid),
         .lsu_paddr_o    (lsu_paddr),
         .lsu_vaddr_o    (pmp_vaddr_q),
-        .lsu_is_store_o (pmp_is_store_q),
-        .lsu_hlvx_inst_o(pmp_hlvx_inst_q),
+        .lsu_is_store_o    (pmp_is_store_q),
+        .lsu_is_cbo_mgmt_o (pmp_is_cbo_mgmt_q),
+        .lsu_hlvx_inst_o   (pmp_hlvx_inst_q),
         .lsu_exception_o(pmp_exception),
 
         .priv_lvl_i      (priv_lvl_i),
@@ -358,6 +363,7 @@ module load_store_unit
         lsu_paddr <= '0;
         pmp_vaddr_q <= '0;
         pmp_is_store_q <= 1'b0;
+        pmp_is_cbo_mgmt_q <= 1'b0;
         pmp_hlvx_inst_q <= 1'b0;
         pmp_exception <= '0;
         pmp_translation_valid <= 1'b0;
@@ -369,6 +375,7 @@ module load_store_unit
         end
         pmp_vaddr_q <= mmu_vaddr;
         pmp_is_store_q <= st_translation_req;
+        pmp_is_cbo_mgmt_q <= is_cbo_mgmt;
         pmp_hlvx_inst_q <= mmu_hlvx_inst;
         pmp_exception <= misaligned_exception;
         pmp_translation_valid <= translation_req;
@@ -413,6 +420,7 @@ module load_store_unit
       .lsu_vaddr_i         (pmp_vaddr_q),
       .lsu_exception_i     (pmp_exception),
       .lsu_is_store_i      (pmp_is_store_q),
+      .lsu_is_cbo_mgmt_i   (pmp_is_cbo_mgmt_q),
       .lsu_hlvx_inst_i     (pmp_hlvx_inst_q),
       .lsu_valid_o         (translation_valid),
       .lsu_paddr_o         (mmu_paddr),
