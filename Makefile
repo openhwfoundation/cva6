@@ -398,7 +398,7 @@ flist ?= core/Flist.cva6
 vcs_build: $(dpi-library)/ariane_dpi.so
 	mkdir -p $(vcs-library)
 	cd $(vcs-library) &&\
-	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog +define+$(defines) -assert svaext -f $(flist) $(list_incdir) ../corev_apu/tb/common/mock_uart.sv -timescale=1ns/1ns &&\
+	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog +define+$(defines) -assert svaext -f $(abspath $(flist)) $(list_incdir) ../corev_apu/tb/common/mock_uart.sv -timescale=1ns/1ns &&\
 	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog +define+$(defines) $(filter %.sv,$(ariane_pkg)) +incdir+core/include/+$(VCS_HOME)/etc/uvm-1.2/dpi &&\
 	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog $(uart_src_sv) &&\
 	vlogan $(if $(VERDI), -kdb,) -full64 -nc -sverilog -assert svaext +define+$(defines) +incdir+$(VCS_HOME)/etc/uvm/src $(VCS_HOME)/etc/uvm/src/uvm_pkg.sv  $(filter %.sv,$(src)) $(list_incdir) &&\
