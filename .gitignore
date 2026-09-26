@@ -52,3 +52,4 @@ Bender.lock
 !/vendor/riscv/riscv-isa-manual/build/*
 hwconfig_gen_*
 verdiRestore.tcl
+.venv/

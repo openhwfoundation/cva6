@@ -11,10 +11,16 @@
 
 from pathlib import Path
 import shutil
+import tempfile
 import typer
 from flows.utils.config_loader import load_techno_config, load_compiler_config
 from flows.utils.run_cmd import run_cmd
 from flows.utils.recipe_report import RecipeReport
+from flows.utils.docs_manual import (
+    ASCIIDOCTOR_REQUIRES,
+    asciidoctor_cmd,
+    asciidoctor_found,
+)
 
 app = typer.Typer()
 
@@ -69,6 +75,10 @@ def self_check(
         ("qsys-script", "Platform Designer - Intel/Altera IP generation"),
         ("quartus_pgm", "Quartus Programmer - Intel/Altera board programming"),
         ("dtc", "Device tree compiler - FPGA bootloader"),
+        ("asciidoctor", "AsciiDoctor - documentation specifications"),
+        ("wavedrom-cli", "WaveDrom - register diagrams of the RISC-V manuals"),
+        ("bytefield-svg", "Bytefield - bit field diagrams of the RISC-V manuals"),
+        ("sphinx-build", "Sphinx - documentation user manual"),
         ("verible-verilog-format", "Verible - RTL formatter"),
         ("black", "Black - Python formatter"),
         ("pylint", "Pylint - Python linter"),
@@ -97,6 +107,49 @@ def self_check(
             f"No simulator in path (one of {', '.join(simulators)} is required)",
             env=True,
         )
+
+    report.step("AsciiDoctor extensions")
+
+    # The only check that is not a lookup: the extensions are loaded by
+    # asciidoctor at startup, from where Ruby looks rather than from the
+    # path, so one installed under a GEM_PATH the site overrides is found
+    # by neither `which` nor the renderer. Rendering a probe document is
+    # what tells them apart; `--version` answers before loading anything.
+    #
+    # A warning, like the tools above: only the RISC-V specifications need
+    # them, the CVA6 design manual and the user manual do not.
+    if asciidoctor_found("asciidoctor") is None:
+        report.warning("asciidoctor: Not found, the specifications cannot be rendered")
+    else:
+        gem_results = report.metric("AsciiDoctor extensions")
+        with tempfile.TemporaryDirectory() as tmp:
+            probe = Path(tmp) / "probe.adoc"
+            probe.write_text("= Probe\n\ncontent\n", encoding="utf-8")
+            for gem in ASCIIDOCTOR_REQUIRES:
+                output = run_cmd(
+                    cmd=asciidoctor_cmd("asciidoctor")
+                    + [
+                        "--require",
+                        gem,
+                        "-o",
+                        str(Path(tmp) / "probe.html"),
+                        str(probe),
+                    ],
+                    report=report,
+                    check=False,
+                    capture_output=True,
+                    log_file=None,
+                    timeout=120,
+                )
+                loaded = "could not be loaded" not in output
+                if loaded:
+                    report.success(f"{gem}: loads")
+                else:
+                    report.warning(
+                        f"{gem}: not loadable by asciidoctor "
+                        f"(installed where Ruby does not look?)"
+                    )
+                gem_results.add_row(extension=gem, status="loads" if loaded else "")
 
     report.step("Spike installation (mandatory for tandem verification)")
 

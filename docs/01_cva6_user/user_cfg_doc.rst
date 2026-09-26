@@ -34,7 +34,7 @@
 
    * - ``ZKN``
      - ``bit``
-     - Scalar Cryptography RISC-V entension
+     - Scalar Cryptography RISC-V extension
 
    * - ``RVV``
      - ``bit``
@@ -63,6 +63,10 @@
    * - ``RVZiCond``
      - ``bit``
      - Zicond RISC-V extension
+
+   * - ``RVZiCbom``
+     - ``bit``
+     - Zicbom RISC-V extension (cache management / CBO)
 
    * - ``RVZicntr``
      - ``bit``
@@ -266,11 +270,15 @@
 
    * - ``DcacheFlushOnFence``
      - ``bit``
-     - Data cache flush on fence
+     - DcacheInvalidateOnFlush causes dcache to also be invalidated when flushed
+
+   * - ``DcacheFlushOnFenceI``
+     - ``bit``
+     - TO_BE_COMPLETED
 
    * - ``DcacheInvalidateOnFlush``
      - ``bit``
-     - Data cache invalidate on flush
+     - TO_BE_COMPLETED
 
    * - ``DataUserEn``
      - ``bit``
@@ -298,11 +306,15 @@
 
    * - ``TechnoCut``
      - ``bit``
-     - Is Techno Cut instanciated
+     - Is Techno Cut instantiated
 
    * - ``SuperscalarEn``
      - ``bit``
      - Enable superscalar* with 2 issue ports and 2 commit ports.
+
+   * - ``ALUBypass``
+     - ``bit``
+     - Enable ALU-ALU bypass (superscalar mode only)
 
    * - ``NrCommitPorts``
      - ``int unsigned``
@@ -356,6 +368,10 @@
      - ``int unsigned``
      - MMU depth of shared TLB
 
+   * - ``SvnapotEn``
+     - ``bit``
+     - Option to enable Svnapot extension
+
    * - ``ObiVersion``
      - ``int unsigned``
      - OBI version compliance, 0 means not compliant -> best performance
@@ -363,3 +379,23 @@
    * - ``PipelineOnly``
      - ``bit``
      - Configuration defines cva6_pipeline module as top instead of cva6 (no cache and OBI instead of AXI)
+
+   * - ``NrStoreInFlight``
+     - ``int unsigned``
+     - the store bus and the memory.
+
+   * - ``DclsEn``
+     - ``bit``
+     - DCLS parameters
+
+   * - ``DclsDelay``
+     - ``int unsigned``
+     - Number of cycles o
+
+   * - ``DclsCommonRegfile``
+     - ``bit``
+     - TO_BE_COMPLETED
+
+   * - ``DclsCommonBHT``
+     - ``bit``
+     - TO_BE_COMPLETED

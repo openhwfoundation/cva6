@@ -35,8 +35,29 @@ export QUARTUS_SETUP=/altera_path/quartus/version/setup/bashrc.example
 #export JTAG_CABLE="AGF FPGA Development Kit [1-3]"
 #Generic tool
 export VERIBLE_PATH=/verible_path/verible-v0.0-3922-g26d4b0e0/bin
-#Python Black/pylint
+#Python
+# The interpreter the recipes run with, and the one pip installs their
+# entry points next to: black, pylint and sphinx-build are found through
+# it. A virtual environment keeps them out of the system packages:
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip3 install -r flows/requirements.txt
+# This file is shared by every checkout, so the environment is looked for
+# in the current directory rather than named here: source it from the root
+# of the CVA6 repository. Leave VENV_PATH unset to use no virtual
+# environment and put the entry points in PATH yourself (PYTHON_PATH).
+export VENV_PATH=$PWD/.venv
 export PYTHON_PATH=~/.local/bin
+#Documentation (docs-build)
+# The RISC-V manuals are rendered by AsciiDoctor with four Ruby
+# extensions, and the two npm diagram generators it shells out to. Both
+# package managers put their binaries where the shell already looks, so
+# nothing has to be added to PATH:
+#   gem install --user-install -g docs/riscv-isa/riscv-isa-manual/dependencies/Gemfile
+#   npm install -g wavedrom-cli bytefield-svg
+# Uncomment GEM_HOME only when a GEM_PATH set by the site hides the gems
+# installed with `--user-install`, which asciidoctor then reports as
+# `cannot load such file`. The CVA6 design manual needs none of them.
+#export GEM_HOME=$(ruby -e 'puts Gem.user_dir')
 #Report to dashboard CI
 export DASHBOARD_USER_EMAIL=gituser@example.com
 export DASHBOARD_USER_NAME="gituser"
@@ -44,6 +65,11 @@ export DASHBOARD_URL="git@exemple.com:group/dashboard.git"
 #Update Path
 export PATH=$PATH:$VERIBLE_PATH
 export PATH=$PATH:$PYTHON_PATH
+# Activating the virtual environment last puts its interpreter first, so
+# `./cook.py` runs with it whatever the shell had before.
+if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
+  . "$VENV_PATH/bin/activate"
+fi
 
 #source $SYN_VERDI_BASHRC
 #source $SYN_VCS_BASHRC

@@ -1,0 +1,7 @@
+# Header of the documentation generated for this target by
+# `./cook.py docs-build`. See flows/README.md.
+#
+# `authors` lists who is responsible for it, one entry per line of
+# the header: an organisation, the people it delegates to, or both.
+authors:
+  - "Original Author: Jean-Roch COULON - Thales"

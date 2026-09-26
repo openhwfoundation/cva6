@@ -34,7 +34,7 @@ def black_python_formating(
         quiet=quiet,
     )
     report.step("Launch Black")
-    dir_list = [".gitlab-ci", "docs/scripts", "flows", "pd", "perf-model"]
+    dir_list = [".gitlab-ci", "flows", "pd", "perf-model"]
     get_files_cmd = [
         "git",
         "ls-tree",

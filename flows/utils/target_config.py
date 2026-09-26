@@ -345,3 +345,38 @@ def read_config_or_exit_rtl_cfg(target, report, repo_dir=None):
     if not config:
         report.error_exit(f"No parameter found in {path}", env=True)
     return config
+
+
+def read_config_or_exit_doc(target, report):
+    """
+    Return the documentation header fields of `config/target/<target>/doc.yml`.
+
+    Who is responsible for the documentation of a target, and under which
+    licence it is published. The generated `.adoc` and `.rst` carry it, so
+    a reader of a generated file knows who to address.
+
+    Keys, all optional but for `authors`:
+
+        copyright  the copyright line
+        license    the licence name
+        spdx       the SPDX identifier
+        url        where to obtain the licence
+        authors    who is responsible, one entry per line of the header
+
+    A missing file stops the recipe rather than falling back to a default:
+    the header names an owner, and a wrong owner is worse than an absent
+    document.
+    """
+    path = target_dir(target) / "doc.yml"
+    cfg = _load_target_yaml(target, "doc.yml", report, or_exit=True)
+    authors = cfg.get("authors")
+    if not authors:
+        report.error_exit(
+            f"No 'authors' key in {path}\n"
+            f"  The generated documentation names who is responsible for "
+            f"it: list at least one person or organisation.",
+            env=True,
+        )
+    if isinstance(authors, str):
+        report.error_exit(f"'authors' of {path} must be a list, not a string", env=True)
+    return cfg

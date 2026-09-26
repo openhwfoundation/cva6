@@ -56,6 +56,10 @@ def pylint_run(
         report=report,
     )
     pylint_options = [
+        # A recipe holds the whole of one flow, data tables included, and
+        # the largest ones sit just under this: splitting them would put
+        # private code in flows/utils/, which is what recipes share.
+        "--max-module-lines=1200",
         "-d=duplicate-code",
         "-d=fixme",
         "-d=broad-exception-caught",

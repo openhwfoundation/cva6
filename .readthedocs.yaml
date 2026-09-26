@@ -27,13 +27,18 @@ build:
       - npm install docs/riscv-isa/riscv-isa-manual/dependencies
       - gem install -g docs/riscv-isa/riscv-isa-manual/dependencies/Gemfile
     pre_build:
-      - PATH=$PWD/node_modules/.bin:$PATH make -C docs prepare
+      # Prepare in place: each rendered
+      # manual is placed next to its page and `user_cfg_doc.rst` is
+      # regenerated. This recipe does not run Sphinx: ReadTheDocs runs
+      # sphinx-build itself, from the `sphinx:` section below.
+      - PATH=$PWD/node_modules/.bin:$PATH ./cook.py docs-build --readthedoc
 
 # Build from the docs directory with Sphinx
 sphinx:
   configuration: docs/conf.py
 
-# Explicitly set the Python requirements
+# cook.py loads every recipe at startup, not only docs-build, so the
+# whole flow set (plotly among it) is needed to run it
 python:
   install:
-    - requirements: docs/requirements.txt
+    - requirements: flows/requirements.txt
