@@ -7,6 +7,13 @@
 #include "sd.h"
 #include "gpt.h"
 
+#ifdef PLAT_AGILEX
+#include "bootrom_types.h"
+
+/* Block copy of the SD card through the HPS SD/MMC controller, in dw_mmc.c */
+u8_t sd_copy_mmc(void *dst, u64_t src_lba, u64_t blkcnt);
+#endif
+
 #define SECOND_CYCLES   CLOCK_FREQUENCY
 #define WAIT_SECONDS    (10)
 
