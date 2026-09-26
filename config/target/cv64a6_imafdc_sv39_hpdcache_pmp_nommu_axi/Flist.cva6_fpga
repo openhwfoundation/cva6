@@ -1,0 +1,13 @@
+// Copyright 2026 Thales France
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+//
+// RTL sources of the Xilinx FPGA top level, read by `vivado-fpga-build`.
+// Add target specific sources below the include to overload the common list.
+
+-F ${CVA6_REPO_DIR}/corev_apu/fpga/Flist.cva6_fpga

@@ -15,6 +15,24 @@ export XCELIUM_HOME=/cadence_path/xcelium/version  # Required for UVM paths
 #Siemens (Mentor)
 export SIEMENS_QUESTA_BASHRC=/siemens_path/questa/version/setup/bashrc.example
 #export QUESTASIM_HOME=/siemens_path/questa/version  # Optional: auto-detected from vsim
+#AMD/Xilinx (FPGA recipes)
+# Vivado 2018.2 is the version the CVA6 FPGA flow is tested with. Synthesis
+# and implementation need a licence covering the device of the board
+# (xc7k325t for genesys2/kc705): WebPACK does not cover it.
+export XILINX_VIVADO_BASHRC=/xilinx_path/Vivado/2018.2/settings64.sh
+#export XILINXD_LICENSE_FILE=port@your_xilinx_license_server
+# Board reached over the network, the USB cables staying on the machine it is
+# wired to (see the FPGA section of flows/README.md):
+#   hw_server <host>:3121 for the JTAG, a serial to TCP bridge for the console
+#export HW_SERVER_URL=bench-pc:3121
+#export UART_SERIAL=rfc2217://bench-pc:4001
+#Intel/Altera (FPGA recipes)
+# Quartus Prime Pro, with qsys-script and qsys-generate of its
+# sopc_builder/bin in PATH, and a licence covering the device of the board.
+export QUARTUS_SETUP=/altera_path/quartus/version/setup/bashrc.example
+# Hardware setup name of the board, as the Quartus Programmer sees it.
+# Optional: the recipe asks jtagconfig when it is unset.
+#export JTAG_CABLE="AGF FPGA Development Kit [1-3]"
 #Generic tool
 export VERIBLE_PATH=/verible_path/verible-v0.0-3922-g26d4b0e0/bin
 #Python Black/pylint
@@ -34,3 +52,5 @@ export PATH=$PATH:$PYTHON_PATH
 #source $SYN_PTSHELL_BASHRC
 #source $CADENCE_XCELIUM_BASHRC
 #source $SIEMENS_QUESTA_BASHRC
+#source $XILINX_VIVADO_BASHRC
+#source $QUARTUS_SETUP

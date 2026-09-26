@@ -21,7 +21,8 @@ is the single source of truth for it:
 - `spike.yaml`          Spike parameters of the tandem reference model
 - `Flist.cva6`          RTL filelist
 - `rtl_cfg_pkg.sv`      configuration package the RTL is built from
-- `expected_values.yml` KPI baselines (gates, <test>_cycle...)
+- `Flist.cva6_fpga`     RTL filelist of the FPGA top level
+- `expected_values.yml` KPI baselines (gates, <test>_cycle, fpga_luts...)
 
 A recipe states what it needs ("the hierarchy of this target") rather
 than where it is stored, and a missing or malformed file produces one

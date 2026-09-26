@@ -57,6 +57,28 @@ class Cva6Hier(str, Enum):
     axi = "axi"
 
 
+class FpgaBoard(str, Enum):
+    genesys2 = "genesys2"
+    kc705 = "kc705"
+    vc707 = "vc707"
+    nexys_video = "nexys_video"
+
+
+class AlteraBoard(str, Enum):
+    agilex7 = "agilex7"
+
+
+# Every board of both vendors, for what is shared between the two flows:
+# the bootloader is the same artifact whatever the FPGA family. Derived
+# from the two enums rather than listing them again, so a board added to
+# either one appears here without a second edit.
+AnyBoard = Enum(
+    "AnyBoard",
+    {b.name: b.value for b in FpgaBoard} | {b.name: b.value for b in AlteraBoard},
+    type=str,
+)
+
+
 if TECHNO_DATA is not None:
     TechnoOption = Enum(
         "TechnoOption", {key.upper(): key for key in TECHNO_DATA.keys()}

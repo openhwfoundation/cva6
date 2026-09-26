@@ -7,5 +7,6 @@ tqdm
 rich
 typer
 pyyaml
+pyserial
 black
 pylint
