@@ -25,15 +25,18 @@ import yaml
 from flows.utils.autocompletion import (
     CompMode,
     TraceMode,
+    UvmVerbosity,
     autocompletion_target,
     autocompletion_testlist,
 )
 from flows.utils.recipe_report import RecipeReport
-from flows.recipes.verilator_testharness_comp import build_directory
+from flows.recipes.questa_testharness_run import questa_testharness_run
+from flows.recipes.vcs_testharness_run import vcs_testharness_run
 from flows.recipes.verilator_testharness_run import (
     SIMULATION_TIMEOUT,
     verilator_testharness_run,
 )
+from flows.recipes.xcelium_testharness_run import xcelium_testharness_run
 
 app = typer.Typer()
 
@@ -42,6 +45,9 @@ class Simulator(str, Enum):
     "Simulators able to run the TestHarness"
 
     verilator = "verilator"
+    vcs = "vcs"
+    questa = "questa"
+    xcelium = "xcelium"
 
 
 @app.command()
@@ -50,7 +56,7 @@ def testharness_run_testlist(
         Simulator.verilator,
         "--simulator",
         "-s",
-        help="TestHarness simulator (verilator only)",
+        help="TestHarness simulator",
     ),
     target: str = typer.Option(
         ...,
@@ -76,6 +82,13 @@ def testharness_run_testlist(
     sim_timeout: int = typer.Option(
         SIMULATION_TIMEOUT, "--sim-timeout", help="Simulation timeout in seconds"
     ),
+    uvm_verbosity: UvmVerbosity = typer.Option(
+        # LOW rather than NONE: the harness reports its verdict with
+        # `uvm_info(..., UVM_LOW)`, and NONE drops the line the recipes
+        # read the result from. Ignored by Verilator.
+        UvmVerbosity.low,
+        help="UVM verbosity of the event-driven simulators",
+    ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
     ),
@@ -83,11 +96,13 @@ def testharness_run_testlist(
     """
     Run a testlist on the TestHarness testbench
     """
-    repo_dir = Path.cwd().resolve()
+    repo_dir = Path.cwd()
     testlist_file = Path(testlist)
+    build_root = repo_dir / "build" / target
     report = RecipeReport(
         "testharness-run-testlist",
-        out_dir=build_directory(repo_dir, target, "simulation")
+        out_dir=build_root
+        / "simulation"
         / f"testharness_{simulator.value}_{testlist_file.stem}",
         title="TESTHARNESS TESTLIST RUN",
         context={
@@ -128,28 +143,36 @@ def testharness_run_testlist(
 
     for name in names:
         report.step(f"Run {name}")
-        run_dir = build_directory(
-            repo_dir,
-            target,
-            "simulation",
-            f"sim_{comp_mode.value}_verilator_testharness",
-            name,
+        run_dir = (
+            build_root / "simulation" / f"sim_rtl_{simulator.value}_testharness" / name
         )
+        # Each test already has its own output directory, hence run_name.
+        # The options are passed explicitly: one left out of a recipe
+        # called as a plain function arrives as the Typer descriptor,
+        # which is truthy, not as its default.
+        arguments = {
+            "target": target,
+            "test_name": name,
+            "comp_mode": comp_mode,
+            "trace_mode": trace_mode,
+            "run_name": None,
+            "sim_timeout": sim_timeout,
+            "quiet": quiet,
+        }
         try:
-            verilator_testharness_run(
-                target=target,
-                test_name=name,
-                comp_mode=comp_mode,
-                trace_mode=trace_mode,
-                interactive_gui=False,
-                # Each test already has its own output directory. Passed
-                # explicitly: an option left out of a recipe called as a
-                # plain function arrives as the Typer descriptor, which is
-                # truthy, not as its default.
-                run_name=None,
-                sim_timeout=sim_timeout,
-                quiet=quiet,
-            )
+            if simulator == Simulator.verilator:
+                # Only Verilator opens a waveform viewer of its own.
+                verilator_testharness_run(interactive_gui=False, **arguments)
+            else:
+                # The event-driven simulators take the UVM verbosity, the
+                # harness reporting its verdict through uvm_info.
+                arguments["uvm_verbosity"] = uvm_verbosity
+                if simulator == Simulator.vcs:
+                    vcs_testharness_run(**arguments)
+                elif simulator == Simulator.questa:
+                    questa_testharness_run(**arguments)
+                else:
+                    xcelium_testharness_run(**arguments)
             results.add_row(status="pass", test=name, report=str(run_dir))
         except typer.Exit:
             report.error(f"{name}: Returned error")

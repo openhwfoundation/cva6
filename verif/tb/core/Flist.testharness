@@ -7,9 +7,44 @@
 //
 // Author: Junchao Chen (junchao.chen@eclipse-foundation.org)
 
-// Keep this ordered manifest aligned with the root Makefile TestHarness sources.
+// Sources of the TestHarness testbench, read next to the Flist.cva6 of
+// the target and shared by the four simulators driving it.
+//
+// counter.sv, fifo_v3.sv and lzc.sv are left out: the target filelist
+// declares a module of the same name, and analysing two of them is an
+// error for the event-driven simulators. Verilator accepts it, taking
+// whichever comes last.
 
 // SoC and peripheral RTL
+
+// Include directories of the harness and of the RTL it instantiates.
++incdir+${CVA6_REPO_DIR}/core/include
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/include
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/include
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/include
++incdir+${CVA6_REPO_DIR}/corev_apu/register_interface/include
++incdir+${CVA6_REPO_DIR}/corev_apu/tb/common
++incdir+${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/include
++incdir+${CVA6_REPO_DIR}/corev_apu/axi_node
++incdir+${CVA6_REPO_DIR}/verif/tb/core
++incdir+${CVA6_REPO_DIR}/verif/core-v-verif/lib/uvm_agents/uvma_rvfi
++incdir+${CVA6_REPO_DIR}/verif/core-v-verif/lib/uvm_agents/uvma_core_cntrl
++incdir+${CVA6_REPO_DIR}/verif/core-v-verif/lib/uvm_components/uvmc_rvfi_reference_model
++incdir+${CVA6_REPO_DIR}/verif/core-v-verif/lib/uvm_components/uvmc_rvfi_scoreboard
++incdir+${SPIKE_INSTALL_DIR}/include/disasm
+
+// Packages the harness ports are made of: they declare the types, so
+// they come before anything using them.
+${CVA6_REPO_DIR}/corev_apu/tb/ariane_axi_pkg.sv
+${CVA6_REPO_DIR}/corev_apu/tb/axi_intf.sv
+${CVA6_REPO_DIR}/corev_apu/register_interface/src/reg_intf.sv
+${CVA6_REPO_DIR}/corev_apu/tb/ariane_soc_pkg.sv
+${CVA6_REPO_DIR}/corev_apu/riscv-dbg/src/dm_pkg.sv
+${CVA6_REPO_DIR}/corev_apu/tb/ariane_axi_soc_pkg.sv
+
+// The RVFI tap the harness binds to.
+${CVA6_REPO_DIR}/core/cva6_rvfi.sv
+
 ${CVA6_REPO_DIR}/corev_apu/src/ariane.sv
 ${CVA6_REPO_DIR}/corev_apu/bootrom/bootrom.sv
 ${CVA6_REPO_DIR}/corev_apu/clint/axi_lite_interface.sv
@@ -88,11 +123,9 @@ ${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/iti.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/block_retirement.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/single_retirement.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/ITI/cva6_iti/itype_detector.sv
-${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/counter.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/sync.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/sync_wedge.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/edge_detect.sv
-${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/lzc.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_branch_map.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_filter.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_packet_emitter.sv
@@ -100,7 +133,6 @@ ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_priority.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_reg.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/te_resync_counter.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_tracer-main/rtl/rv_tracer.sv
-${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/fifo_v3.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/DPTI/slicer_DPTI.sv
 ${CVA6_REPO_DIR}/corev_apu/instr_tracing/rv_encapsulator-main/src/rtl/encapsulator.sv
 ${CVA6_REPO_DIR}/corev_apu/tb/common/mock_uart.sv

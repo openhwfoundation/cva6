@@ -48,7 +48,7 @@ def self_check(
     report.step("Tools in path")
 
     # A workstation is not expected to hold every CAD tool: the flows offer
-    # alternatives (three simulators) and optional steps (synthesis, STA), so
+    # alternatives (four simulators) and optional steps (synthesis, STA), so
     # a missing tool is only reported as a warning. What must fail is having
     # *no* simulator at all, checked after the loop.
     tools = [
@@ -58,6 +58,7 @@ def self_check(
         ("vsim", "Questa/ModelSim - Siemens simulator"),
         ("vlog", "Questa/ModelSim - Verilog compiler"),
         ("vopt", "Questa/ModelSim - Optimizer"),
+        ("verilator", "Verilator - open-source simulator, TestHarness only"),
         ("dc_shell", "Design Compiler - Synopsys synthesis"),
         ("pt_shell", "PrimeTime - Synopsys STA"),
         ("aipk_read", "Spyglass - Synopsys static analysis"),
@@ -67,8 +68,8 @@ def self_check(
         ("pylint", "Pylint - Python linter"),
     ]
 
-    # One of these is enough to run a simulation; none is a real problem.
-    simulators = ("vcs", "xrun", "vsim")
+    # Verilator runs the TestHarness only, but that is a simulation too.
+    simulators = ("vcs", "xrun", "vsim", "verilator")
 
     tool_results = report.metric("Tools in path")
     found = set()

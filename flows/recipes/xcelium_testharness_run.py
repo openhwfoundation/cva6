@@ -1,22 +1,24 @@
-# Copyright 2026 OpenHW Foundation
+# Copyright 2026 Thales France
 #
 # Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
 # You may obtain a copy of the License at https://solderpad.org/licenses/
 #
-# Original Author: Junchao Chen (junchao.chen@eclipse-foundation.org)
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
 
 # Please refer to flows/README.md to add target
 
 """
-Run one test on the Verilator TestHarness.
+Run one test on the TestHarness testbench with Xcelium.
 
-The harness prints its verdict rather than returning it: the simulation
-exits 0 whatever the program did, so the log is what says whether the
-test passed.
+The harness prints its verdict rather than returning it: `ariane_tb`
+reports `*** FAILED ***` through uvm_error and ends with $finish, so xrun
+exits 0 whatever the program did. The log is what says whether the test
+passed.
 """
 
+import glob
 from pathlib import Path
 import re
 import shutil
@@ -27,6 +29,7 @@ import typer
 from flows.utils.autocompletion import (
     CompMode,
     TraceMode,
+    UvmVerbosity,
     autocompletion_target,
     autocompletion_testname_compiled,
 )
@@ -53,7 +56,7 @@ SIMULATION_TIMEOUT = 500
 
 
 @app.command()
-def verilator_testharness_run(
+def xcelium_testharness_run(
     target: str = typer.Option(
         ...,
         "--target",
@@ -72,11 +75,13 @@ def verilator_testharness_run(
         CompMode.rtl, help="Compilation mode; only rtl is supported"
     ),
     trace_mode: TraceMode = typer.Option(
-        TraceMode.notrace,
-        help="notrace, fast (VCD), or compact (FST); must match the build",
+        TraceMode.notrace, help="notrace, or any other value to keep the signals"
     ),
-    interactive_gui: bool = typer.Option(
-        False, help="Interactive GUI is currently unsupported"
+    uvm_verbosity: UvmVerbosity = typer.Option(
+        # LOW rather than NONE: the harness reports its verdict with
+        # `uvm_info(..., UVM_LOW)`, and NONE drops the line it is read from.
+        UvmVerbosity.low,
+        help="UVM verbosity of the run",
     ),
     sim_timeout: int = typer.Option(
         SIMULATION_TIMEOUT, "--sim-timeout", help="Simulation timeout in seconds"
@@ -92,17 +97,17 @@ def verilator_testharness_run(
     ),
 ):
     """
-    Run one test on the Verilator TestHarness
+    Run one test on the TestHarness testbench with Xcelium
     """
     report = RecipeReport(
-        "verilator-testharness-run",
-        title="VERILATOR TESTHARNESS RUN",
+        "xcelium-testharness-run",
+        title="XCELIUM TESTHARNESS RUN",
         context={
             "target": target,
             "test_name": test_name,
             "comp_mode": comp_mode,
             "trace_mode": trace_mode,
-            "interactive_gui": interactive_gui,
+            "uvm_verbosity": uvm_verbosity,
             "sim_timeout": sim_timeout,
             "run_name": run_name,
         },
@@ -115,35 +120,40 @@ def verilator_testharness_run(
             f"{comp_mode.value}",
             env=True,
         )
-    if trace_mode == TraceMode.gui or interactive_gui:
-        report.error_exit("The Verilator TestHarness has no GUI mode", env=True)
 
-    # Create files and folder paths
+    xrun_path = shutil.which("xrun")
+    if xrun_path is not None:
+        report.success(f"XRUN: {xrun_path}")
+    else:
+        report.error_exit("xrun: Not found", env=True)
+
     repo_dir = Path.cwd()
     build_root = repo_dir / "build" / target
     compile_dir = build_root / "compile" / test_name
-    elab_dir = build_root / "elab" / "sim_rtl_verilator_testharness"
+    elab_dir = build_root / "elab" / "sim_rtl_xcelium_testharness"
     # Named after the run rather than the test, so running the same test
     # twice on one elaboration keeps both outputs and both reports.
     simulation_dir = (
         build_root
         / "simulation"
-        / "sim_rtl_verilator_testharness"
+        / "sim_rtl_xcelium_testharness"
         / (run_name or test_name)
     )
     report.set_out_dir(simulation_dir)
 
-    spike_dir = repo_dir / "tools" / "spike"
-    spike_dasm = spike_dir / "bin" / "spike-dasm"
+    spike_lib = repo_dir / "tools" / "spike" / "lib"
+    spike_dasm = repo_dir / "tools" / "spike" / "bin" / "spike-dasm"
     elf = compile_dir / f"{test_name}.elf"
-    binary = elab_dir / "Variane_testharness"
+    snapshot_dir = elab_dir / "xcelium.d"
+    # The Spike configuration of the target, the one vcs-uvm-run passes:
+    # the harness reads the ISA of the target from it
+    spike_yaml = repo_dir / "config" / "target" / target / "spike.yaml"
 
     # ==========================================================
     # CHECK PREREQUISITES
     # ==========================================================
     report.step("Check prerequisites")
 
-    # Software must be compiled first
     require_prerequisite(
         elf,
         f"compiled software for test '{test_name}'",
@@ -151,11 +161,10 @@ def verilator_testharness_run(
         report=report,
     )
 
-    # Hardware must be elaborated first
     require_prerequisite(
-        binary,
-        "Verilator TestHarness",
-        f"./cook.py verilator-testharness-comp -t {target}",
+        snapshot_dir,
+        "TestHarness elaborated with Xcelium",
+        f"./cook.py xcelium-testharness-comp -t {target}",
         report=report,
     )
 
@@ -167,12 +176,14 @@ def verilator_testharness_run(
             elab_manifest,
             "trace_mode",
             [trace_mode.value],
-            f"trace mode '{trace_mode.value}' requires a matching TestHarness build",
-            f"./cook.py verilator-testharness-comp -t {target} "
+            f"trace mode '{trace_mode.value}' requires a matching elaboration",
+            f"./cook.py xcelium-testharness-comp -t {target} "
             f"--trace-mode {trace_mode.value}",
             report=report,
             manifest_dir=elab_dir,
         )
+    if not spike_yaml.is_file():
+        report.error_exit(f"Missing {spike_yaml}", env=True)
 
     report.success("Prerequisites OK")
 
@@ -204,33 +215,49 @@ def verilator_testharness_run(
             env=True,
         )
 
-    options = []
-    if trace_mode == TraceMode.fast:
-        options += ["--vcd", "verilator.vcd"]
-    elif trace_mode == TraceMode.compact:
-        options += ["--fst", "verilator.fst"]
-
     # ==========================================================
-    # BUILD SIMULATION COMMAND
+    # BUILD XRUN COMMAND
     # ==========================================================
-    sim_cmd = [str(binary)] + options
-    sim_cmd += [
-        "--seed",
-        "1",
-        str(elf),
-        "+tb_performance_mode",
+    # -R reopens the snapshot of the elaboration: xrun runs in its
+    # directory. The plusargs of `COMMON_RUN_ARGS` in verif/sim/Makefile,
+    # bracketed by `+permissive`, the HTIF of Spike rejecting the
+    # arguments it does not know. The Spike libraries are the whole DPI of
+    # the harness, loaded in dependency order.
+    xrun_cmd = [
+        "xrun",
+        "-R",
+        "-messages",
+        "-status",
+        "-64bit",
+        "-licqueue",
+        "-noupdate",
+        "-uvmhome",
+        "CDNS-1.2",
+        "+permissive",
+        f"++{elf}",
+        f"+elf_file={elf}",
+        f"+core_name={target}",
+        f"+config_file={spike_yaml}",
+        f"+tohost_addr={add_tohost}",
+        f"+signature={elf}.signature_output",
+        "+UVM_TESTNAME=uvmt_cva6_firmware_test_c",
         # Nothing drives the debug module: left enabled, the SimDTM of the
         # harness halts a core built with DebugEn into its debug ROM
         # 500 cycles after reset, and the program crawls through it.
         "+debug_disable=1",
-        "+UVM_VERBOSITY=UVM_NONE",
-        f"++{elf}",
-        f"+elf_file={elf}",
-        f"+core_name={target}",
-        "+signature=signature_output",
-        "+UVM_TESTNAME=uvmt_cva6_firmware_test_c",
-        "+report_file=testharness.log.yaml",
-        f"+tohost_addr={add_tohost}",
+        f"+report_file={simulation_dir / 'report.yaml'}",
+        f"+UVM_VERBOSITY=UVM_{uvm_verbosity.value}",
+        "+permissive-off",
+        "+sv_lib",
+        f"{spike_lib}/libcustomext",
+        "+sv_lib",
+        f"{spike_lib}/libyaml-cpp",
+        "+sv_lib",
+        f"{spike_lib}/libriscv",
+        "+sv_lib",
+        f"{spike_lib}/libfesvr",
+        "+sv_lib",
+        f"{spike_lib}/libdisasm",
     ]
 
     # ==========================================================
@@ -242,15 +269,15 @@ def verilator_testharness_run(
     raw_trace = simulation_dir / "trace_rvfi_hart_00.dasm"
     dasm_log = simulation_dir / "spike_dasm.log"
 
-    # The driver returns the tohost value of the program: run_cmd records a
-    # non-zero exit code, like a timeout, as a failure of the run.
     failed_before = report.failed
     run_cmd(
-        cmd=sim_cmd,
+        cmd=xrun_cmd,
         report=report,
-        cwd=simulation_dir,
-        error_patterns=[r"(\*\*\* FAILED \*\*\*|^%Error|terminate called)"],
-        warning_patterns=[r"(^%Warning)"],
+        cwd=elab_dir,
+        error_patterns=[
+            r"(\*\*\* FAILED \*\*\*|ERROR:|^xm.*: \*E|UVM_ERROR|UVM_FATAL|^Fatal-)"
+        ],
+        warning_patterns=[r"(WARNING:|^xm.*: \*W|UVM_WARNING)"],
         highlight_patterns=[r"\*\*\* SUCCESS \*\*\*"],
         log_file=log_file,
         timeout=sim_timeout,
@@ -260,10 +287,8 @@ def verilator_testharness_run(
     # ==========================================================
     # VERDICT
     # ==========================================================
-    # The driver prints `*** SUCCESS ***` or `*** FAILED *** (tohost = N)`,
-    # but the log alone is not the verdict: on SIGTERM, which is how a
-    # timeout ends the run, the driver stops the DTM and prints SUCCESS
-    # with an exit code of 0. The failure recorded by run_cmd comes first.
+    # A failing program is only in the log: xrun exits 0 on $finish. A
+    # timeout or a crash is recorded by run_cmd, and leaves the log cut.
     # Named after the test: the GitHub smoke reads the verdict of this step
     report.step(f"Run {test_name}")
     passed = False
@@ -288,11 +313,26 @@ def verilator_testharness_run(
     else:
         passed = True
         report.success(f"{test_name}: TestHarness completed")
-        # The cycle count the driver prints with its verdict, the label
-        # the dashboard shows as for the UVM runs
-        cycles = re.search(r"\*\*\* SUCCESS \*\*\*.* after (\d+) cycles", text)
+        # The cycle count the rvfi_tracer prints at the end of the run, the
+        # label the dashboard shows as for the UVM runs
+        cycles = re.search(r"Simulation terminated after\s+(\d+) cycles", text)
         if cycles:
             report.set_label(f"{int(cycles.group(1)) / 1000:.2f} kCycles")
+
+    # ==========================================================
+    # MOVE FILES
+    # ==========================================================
+    # -R runs in the directory of the snapshot, which is where the harness
+    # writes its traces: into the run directory, so that the next run
+    # does not overwrite them.
+    report.step("Move files")
+    for pattern in ("trace_rvfi_hart*.dasm", "trace_hart_*.log"):
+        for file_path in glob.glob(str(elab_dir / pattern)):
+            try:
+                shutil.move(file_path, str(simulation_dir))
+                report.info(f"Moved {file_path} -> {simulation_dir}")
+            except Exception as e:
+                report.warning(f"Failed to move {file_path}: {e}")
 
     # ==========================================================
     # DISASSEMBLE RVFI TRACE
@@ -326,13 +366,13 @@ def verilator_testharness_run(
     # ==========================================================
     write_manifest(
         simulation_dir,
-        "verilator-testharness-run",
+        "xcelium-testharness-run",
         {
             "target": target,
             "test_name": test_name,
             "comp_mode": comp_mode,
             "trace_mode": trace_mode,
-            "interactive_gui": interactive_gui,
+            "uvm_verbosity": uvm_verbosity,
             "run_name": run_name,
         },
         report=report,
