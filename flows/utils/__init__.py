@@ -8,3 +8,10 @@
 # Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
 
 # Please refer to flows/README.md to add target
+
+"""
+Helpers shared by the cook.py recipes.
+
+Conventions, and what belongs here rather than in a recipe:
+flows/CONTRIBUTING.md.
+"""

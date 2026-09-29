@@ -37,8 +37,7 @@
 # booted on it. The runner therefore carries Vivado, its licence and the
 # connection to the board (see the variables of `full regression`).
 #
-# See the full-regression section of flows/README.md to add a job, a target
-# or a testlist.
+# See flows/CONTINUOUS_INTEGRATION.md to add a job, a target or a testlist.
 
 # PAGES_PREFIX is set here, next to the pipeline kind it belongs to: it
 # selects the GitLab Pages parallel deployment the dashboard is published
@@ -156,7 +155,8 @@ full regression:
   # The documentation is one of those branches, so the runner needs the
   # AsciiDoctor extensions and the two diagram generators, installed once
   # on the image like the CAD tools:
-  #   gem install -g docs/riscv-isa/riscv-isa-manual/dependencies/Gemfile
+  #   gem install --user-install -g \
+  #       docs/riscv-isa/riscv-isa-manual/dependencies/Gemfile
   #   npm install -g wavedrom-cli bytefield-svg
   #   apt install $(grep -v '^#' \
   #       docs/riscv-isa/riscv-isa-manual/dependencies/apt_packages.txt)

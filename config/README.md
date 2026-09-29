@@ -111,6 +111,7 @@ config/target/<target_name>/
 ├── rtl_cfg_pkg.sv            # RTL configuration package (SystemVerilog)
 ├── Flist.cva6                # RTL file list for simulation
 ├── Flist.cva6_gate           # RTL file list for gate-level simulation
+├── Flist.cva6_synth          # RTL file list for synthesis
 ├── expected_values.yml       # Expected metrics for CI validation
 └── expected_spyglass.rpt     # Expected Spyglass lint results (optional)
 └── testbench_cfg.yml         # Configuration for testbench (AXI/OBI, DCLS)
@@ -300,6 +301,15 @@ List of RTL files for gate-level simulation (post-synthesis).
 - May exclude certain modules replaced by gate-level netlists
 - May include technology library wrappers
 - May include additional timing models
+
+### `Flist.cva6_synth`
+
+List of RTL files for synthesis (`dc-shell-synth --gtech`).
+
+It includes `core/Flist.cva6_synth`, which is `core/Flist.cva6` with the
+HPDcache SRAMs read as their blackbox models: the behavioural ones would
+synthesise every bit of the caches into a register. A target can list only
+the files it needs instead.
 
 
 ## Configuration Files Reference

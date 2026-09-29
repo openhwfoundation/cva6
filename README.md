@@ -28,6 +28,9 @@ cd cva6
 pip3 install --user -r flows/requirements.txt
 # Note: --user installs packages to ~/.local/lib/python*/site-packages
 # Ensure ~/.local/bin is in your PATH for black and pylint commands
+# Or, to keep them out of the home directory, in a virtual environment:
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip3 install -r flows/requirements.txt
 
 # Initialize submodules
 git submodule update --init --recursive
