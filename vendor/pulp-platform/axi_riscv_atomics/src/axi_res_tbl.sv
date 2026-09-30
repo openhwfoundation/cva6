@@ -42,7 +42,8 @@ module axi_res_tbl #(
             tbl_d[i] = tbl_q[i];
             if (set && i == set_id_i) begin
                 tbl_d[i] = set_addr_i;
-            end else if (clr && tbl_q[i] == clr_addr_i) begin
+            end else if ((clr && tbl_q[i] == clr_addr_i) ||
+                       (check_req_i && i == check_id_i)) begin
                 tbl_d[i] = '0;
             end
         end

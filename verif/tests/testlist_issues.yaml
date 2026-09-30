@@ -238,3 +238,8 @@ testlist:
       when MRET or SRET returns below M-mode.
     iterations: 1
     asm_tests: <path_var>/custom/issues/xret-mprv-clear-rv64.S
+
+  - test: sc-failed-clears-reservation
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/custom/issues/sc-failed-clears-reservation.S
