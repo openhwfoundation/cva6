@@ -1,0 +1,231 @@
+// Copyright 2026 Thales France
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+// Files of the core for the synthesis: core/Flist.cva6, with the SRAMs of
+// the HPDcache read as their blackbox models instead of the behavioural
+// ones, which would synthesise every bit of the caches into a register.
+// Keep it in step with core/Flist.cva6.
+
+//FPGA memories
+${CVA6_REPO_DIR}/vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/fpga-support/rtl/AsyncDpRam.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/fpga-support/rtl/AsyncThreePortRam.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/fpga-support/rtl/SyncThreePortRam.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/fpga-support/rtl/SyncDpRam_ind_r_w.sv
+
++incdir+${CVA6_REPO_DIR}/core/include/
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/include/
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/include/
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/
++incdir+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/include/
++incdir+${CVA6_REPO_DIR}/common/local/util/
+
+// Floating point unit
+// T-Head OpenE906 vendor files (for gated_clk_cell and pa_fdsu modules)
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/clk/rtl/gated_clk_cell.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_ctrl.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_ff1.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_pack_single.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_prepare.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_round_single.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_special.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_srt_single.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fdsu/rtl/pa_fdsu_top.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fpu/rtl/pa_fpu_dp.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fpu/rtl/pa_fpu_frbus.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/opene906/E906_RTL_FACTORY/gen_rtl/fpu/rtl/pa_fpu_src_type.v
+// T-Head OpenC910 vendor files (for ct_vfdsu modules used by fpnew_divsqrt_th_64_multi)
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_ctrl.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_double.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_ff1.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_pack.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_prepare.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_round.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_scalar_dp.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_srt_radix16_bound_table.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_srt_radix16_with_sqrt.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_srt.v
+${CVA6_REPO_DIR}/core/cvfpu/vendor/openc910/C910_RTL_FACTORY/gen_rtl/vfdsu/rtl/ct_vfdsu_top.v
+// T-Head DivSqrt wrappers
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_pkg.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_cast_multi.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_classifier.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_divsqrt_multi.sv
+
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_divsqrt_th_32.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_divsqrt_th_64_multi.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_fma_multi.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_fma.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_noncomp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_opgroup_block.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_opgroup_fmt_slice.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_opgroup_multifmt_slice.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_rounding.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpnew_top.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/control_mvp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/div_sqrt_top_mvp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/iteration_div_sqrt_mvp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/norm_div_sqrt_mvp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/nrbd_nrsc_mvp.sv
+${CVA6_REPO_DIR}/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/preprocess_mvp.sv
+
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cf_math_pkg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_pkg.sv
+${CVA6_REPO_DIR}/core/include/config_pkg.sv
+${CVA6_REPO_DIR}/config/target/${TARGET_CFG}/rtl_cfg_pkg.sv
+${CVA6_REPO_DIR}/core/include/riscv_pkg.sv
+// Note: depends on fpnew_pkg, above
+${CVA6_REPO_DIR}/core/include/ariane_pkg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_pkg.sv
+
+// Packages
+${CVA6_REPO_DIR}/core/include/wt_cache_pkg.sv
+${CVA6_REPO_DIR}/core/include/std_cache_pkg.sv
+${CVA6_REPO_DIR}/core/include/instr_tracer_pkg.sv
+${CVA6_REPO_DIR}/core/include/build_config_pkg.sv
+${CVA6_REPO_DIR}/core/include/aes_pkg.sv
+
+//CVXIF
+${CVA6_REPO_DIR}/core/cvxif_compressed_if_driver.sv
+${CVA6_REPO_DIR}/core/cvxif_issue_register_commit_if_driver.sv
+${CVA6_REPO_DIR}/core/cvxif_example/include/cvxif_instr_pkg.sv
+${CVA6_REPO_DIR}/core/cvxif_fu.sv
+${CVA6_REPO_DIR}/core/cvxif_example/cvxif_example_coprocessor.sv
+${CVA6_REPO_DIR}/core/cvxif_example/instr_decoder.sv
+${CVA6_REPO_DIR}/core/cvxif_example/compressed_instr_decoder.sv
+${CVA6_REPO_DIR}/core/cvxif_example/copro_alu.sv
+
+// Common Cells
+
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/fifo_v3.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/lfsr.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/lfsr_8bit.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_arbiter.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_arbiter_flushable.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_mux.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_demux.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/lzc.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/rr_arb_tree.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/shift_reg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/popcount.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/exp_backoff.sv
+
+// Common Cells for example coprocessor
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/counter.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/delta_counter.sv
+
+//OBI
+
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_atop_resolver.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_demux.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_err_sbr.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_intf.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_mux.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_sram_shim.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/obi/src/obi_xbar.sv
+
+// Top-level source files (not necessarily instantiated at the top of the cva6).
+${CVA6_REPO_DIR}/core/cva6_example_obi.sv
+${CVA6_REPO_DIR}/core/cva6_example_axi.sv
+${CVA6_REPO_DIR}/core/cva6_top.sv
+${CVA6_REPO_DIR}/core/cva6.sv
+${CVA6_REPO_DIR}/core/cva6_pipeline.sv
+${CVA6_REPO_DIR}/core/cva6_rvfi_probes.sv
+${CVA6_REPO_DIR}/core/alu.sv
+${CVA6_REPO_DIR}/core/aes.sv
+// Note: depends on fpnew_pkg, above
+${CVA6_REPO_DIR}/core/fpu_wrap.sv
+${CVA6_REPO_DIR}/core/branch_unit.sv
+${CVA6_REPO_DIR}/core/compressed_decoder.sv
+${CVA6_REPO_DIR}/core/macro_decoder.sv
+${CVA6_REPO_DIR}/core/controller.sv
+${CVA6_REPO_DIR}/core/zcmt_decoder.sv
+${CVA6_REPO_DIR}/core/csr_buffer.sv
+${CVA6_REPO_DIR}/core/csr_regfile.sv
+${CVA6_REPO_DIR}/core/decoder.sv
+${CVA6_REPO_DIR}/core/ex_stage.sv
+${CVA6_REPO_DIR}/core/instr_realign.sv
+${CVA6_REPO_DIR}/core/id_stage.sv
+${CVA6_REPO_DIR}/core/issue_read_operands.sv
+${CVA6_REPO_DIR}/core/issue_stage.sv
+${CVA6_REPO_DIR}/core/load_unit.sv
+${CVA6_REPO_DIR}/core/load_store_unit.sv
+${CVA6_REPO_DIR}/core/lsu_bypass.sv
+${CVA6_REPO_DIR}/core/mult.sv
+${CVA6_REPO_DIR}/core/multiplier.sv
+${CVA6_REPO_DIR}/core/serdiv.sv
+${CVA6_REPO_DIR}/core/perf_counters.sv
+${CVA6_REPO_DIR}/core/ariane_regfile_ff.sv
+${CVA6_REPO_DIR}/core/ariane_regfile_fpga.sv
+// NOTE: scoreboard.sv modified for DSIM (unchanged for other simulators)
+${CVA6_REPO_DIR}/core/scoreboard.sv
+${CVA6_REPO_DIR}/core/store_buffer.sv
+${CVA6_REPO_DIR}/core/amo_buffer.sv
+${CVA6_REPO_DIR}/core/store_unit.sv
+${CVA6_REPO_DIR}/core/commit_stage.sv
+${CVA6_REPO_DIR}/core/axi_shim.sv
+${CVA6_REPO_DIR}/core/cva6_accel_first_pass_decoder_stub.sv
+${CVA6_REPO_DIR}/core/acc_dispatcher.sv
+${CVA6_REPO_DIR}/core/cva6_fifo_v3.sv
+
+// What is "frontend"?
+${CVA6_REPO_DIR}/core/frontend/btb.sv
+${CVA6_REPO_DIR}/core/frontend/bht.sv
+${CVA6_REPO_DIR}/core/frontend/ras.sv
+${CVA6_REPO_DIR}/core/frontend/instr_scan.sv
+${CVA6_REPO_DIR}/core/frontend/instr_queue.sv
+${CVA6_REPO_DIR}/core/frontend/frontend.sv
+
+// Cache subsystem
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_obi_adapter_subsystem.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_icache.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/axi_adapter.sv
+-F ${HPDCACHE_DIR}/rtl/hpdcache.Flist
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_resp_demux.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_to_axi_read.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_subsystem.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_if_adapter.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_wrapper.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpicache_if_adapter.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpicache_wrapper.sv
+${HPDCACHE_DIR}/rtl/src/common/macros/blackbox/hpdcache_sram_1rw.sv
+${HPDCACHE_DIR}/rtl/src/common/macros/blackbox/hpdcache_sram_wbyteenable_1rw.sv
+${HPDCACHE_DIR}/rtl/src/common/macros/blackbox/hpdcache_sram_wmask_1rw.sv
+
+// Physical Memory Protection
+// NOTE: pmp.sv modified for DSIM (unchanged for other simulators)
+${CVA6_REPO_DIR}/core/pmp/src/pmp.sv
+${CVA6_REPO_DIR}/core/pmp/src/pmp_entry.sv
+${CVA6_REPO_DIR}/core/pmp/src/pmp_data_if.sv
+
+// Tracer (behavioral code, not RTL)
+${CVA6_REPO_DIR}/common/local/util/instr_tracer.sv
+${CVA6_REPO_DIR}/common/local/util/tc_sram_wrapper.sv
+${CVA6_REPO_DIR}/common/local/util/tc_sram_wrapper_cache_techno.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv
+${CVA6_REPO_DIR}/common/local/util/sram.sv
+${CVA6_REPO_DIR}/common/local/util/sram_cache.sv
+
+// MMU
+${CVA6_REPO_DIR}/core/cva6_mmu/cva6_mmu.sv
+${CVA6_REPO_DIR}/core/cva6_mmu/cva6_ptw.sv
+${CVA6_REPO_DIR}/core/cva6_mmu/cva6_tlb.sv
+${CVA6_REPO_DIR}/core/cva6_mmu/cva6_shared_tlb.sv
+
+// DCLS
+${CVA6_REPO_DIR}/core/dcls_comparator.sv
+${CVA6_REPO_DIR}/core/dcls_logic.sv
+${CVA6_REPO_DIR}/core/dcls_common.sv
+${CVA6_REPO_DIR}/core/dcls_common_regfile.sv
+${CVA6_REPO_DIR}/core/dcls_common_bht.sv
+
+// end of manifest

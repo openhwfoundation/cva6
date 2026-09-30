@@ -63,6 +63,294 @@ class PreProcOption(str, Enum):
     RVFI_ENABLE = "RVFI_ENABLE"
 
 
+# Script of the GTECH synthesis, relative to the repository root
+GTECH_SCRIPT = "pd/synth/gtech_dc.tcl"
+
+# Cores given to dc_shell, the most a DC licence runs on
+GTECH_CORES = 8
+
+# Deviation tolerated on the GTECH counts, relative to
+# config/target/<target>/expected_values.yml
+GTECH_TOLERANCE = 0.01
+
+# Levels of hierarchy the per-block cell counts go down to, below the top
+# instance: enough to reach the stages of the pipeline under the DCLS
+# wrapper (cva6_top / cva6 / cva6_pipeline / ex_stage)
+GTECH_HIER_DEPTH = 4
+
+# Instance names of the DesignWare operators dc_shell inserts
+DW_OPERATOR = (
+    r"^(add|sub|addsub|mult|gte|gt|lte|lt|eq|ne|ash|sra|sll|srl|r|C)_\d+(_\w+)?$"
+)
+
+# Figures printed by the GTECH script, one "GTECH-<NAME> <value>" line each
+GTECH_COUNTS = {
+    "CELLS": "gtech_cells",
+    "REGISTERS": "gtech_registers",
+    "LATCHES": "gtech_latches",
+}
+
+
+# ==========================================================
+# GTECH SYNTHESIS
+# ==========================================================
+
+
+def _gtech_design_cells(reference_rpt):
+    """
+    Cells of every design below all its levels, from report_reference.
+
+    report_reference -hierarchy lists, per design, the leaf cells it
+    instantiates and its hierarchical sub-designs (attribute h). A design
+    counts its own leaf cells plus, for each sub-design, its count times
+    the number of instances. A reference name too long for its column is
+    printed alone on its line, its figures on the next one.
+    """
+    text = reference_rpt.read_text(encoding="utf-8", errors="replace")
+    heads = list(re.finditer(r"^Design\s*:\s*(\S+)\s*$", text, re.MULTILINE))
+    row = re.compile(r"^\s*(?:\S+\s+)?[\d.]+\s+(\d+)\s+[\d.]+\s*(.*)$")
+    own = {}
+    for i, head in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        leaf, subs, name = 0, {}, None
+        for line in text[head.end() : end].splitlines():
+            first = line.split()[0] if line.split() else ""
+            if first in ("Reference", "Total") or not first or first.startswith("-"):
+                name = None
+                continue
+            if name is None:
+                name, line = first, line[len(line) - len(line.lstrip()) + len(first) :]
+            found = row.match(line)
+            if found is None:
+                continue  # figures on the next line
+            count, attrs = int(found.group(1)), found.group(2)
+            if "h" in [a.strip() for a in attrs.split(",")]:
+                subs[name] = subs.get(name, 0) + count
+            else:
+                leaf += count
+            name = None
+        own[head.group(1)] = (leaf, subs)
+
+    cells = {}
+
+    def total(design):
+        if design not in cells:
+            leaf, subs = own.get(design, (0, {}))
+            cells[design] = leaf + sum(n * total(s) for s, n in subs.items())
+        return cells[design]
+
+    for design in own:
+        total(design)
+    return cells
+
+
+def _gtech_hierarchy(area_rpt, reference_rpt, depth):
+    """
+    Rows (hierarchy, level, cells, pct) of the blocks of the design,
+    `depth` levels below its top instance.
+
+    The instances and their designs come from the hierarchical section of
+    report_area, the cell count of each design from report_reference. The
+    DesignWare operators DC inserts (add_123, ...) are not blocks of the
+    RTL: their cells stay in the block that holds them.
+    """
+    text = area_rpt.read_text(encoding="utf-8", errors="replace")
+    instances, pending = [], None
+    lines = text[text.index("Hierarchical cell") :].splitlines()[3:]
+    for line in lines:
+        if line.startswith("---") or not line.strip():
+            break
+        found = re.match(
+            r"^(\S+)?\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+(\S+)\s*$", line
+        )
+        if found:
+            instances.append((found.group(1) or pending, found.group(2)))
+            pending = None
+        else:
+            pending = line.strip()
+
+    cells = _gtech_design_cells(reference_rpt)
+    top_cells = cells.get(instances[0][1], 0) or 1
+    rows = []
+    for path, design in instances[1:]:
+        level = path.count("/") + 1
+        if level > depth or re.search(DW_OPERATOR, path.rsplit("/", 1)[-1]):
+            continue
+        rows.append(
+            {
+                "hierarchy": path,
+                "level": level,
+                "cells": cells.get(design, 0),
+                "pct": round(cells.get(design, 0) / top_cells * 100, 2),
+            }
+        )
+    return rows
+
+
+def _gtech_synth(target, define_one_string, clean, quiet):
+    """
+    Technology independent synthesis of `target` (--gtech).
+
+    Runs GTECH_SCRIPT in plain dc_shell: the topographical mode of the
+    techno flow needs a physical library, which GTECH does not have. The
+    GTECH cells have no area either, so the figures are the cell,
+    register and latch counts the script prints, checked against
+    expected_values.yml. A latch is an error: the RTL is meant to have
+    none.
+
+    The files come from config/target/<target>/Flist.cva6_synth, which
+    reads the SRAMs of the HPDcache as their blackbox models.
+    """
+    report = RecipeReport(
+        "dc-shell-synth",
+        title="Dc shell synthesis flow (GTECH)",
+        context={
+            "target": target,
+            "techno": "gtech",
+            "script_file": GTECH_SCRIPT,
+            "preprocessor_defines": define_one_string,
+            "clean": clean,
+        },
+        quiet=quiet,
+    )
+
+    repo_dir = Path.cwd()
+    synth_dir = repo_dir / "build" / target / "synthesis_gtech"
+    report.set_out_dir(synth_dir)
+
+    top_elaborate = get_top_elaborate(read_config_or_exit_testbench_cfg(target, report))
+
+    dc_shell_path = shutil.which("dc_shell")
+    if dc_shell_path is not None:
+        report.success(f"dc_shell: {dc_shell_path}")
+    else:
+        report.error_exit("dc_shell: Not found", env=True)
+
+    report.step("Clean")
+    if clean and synth_dir.exists():
+        shutil.rmtree(synth_dir)
+        report.info(f"remove {synth_dir}")
+    synth_dir.mkdir(parents=True, exist_ok=True)
+
+    report.step("Generate Flist.cva6_synth")
+    rtl_files = read_config_or_exit_flist(target, report, filename="Flist.cva6_synth")
+    flist = synth_dir / "Flist.cva6_synth"
+    flist.write_text(
+        "".join(
+            f"analyze -f sverilog -lib ariane_lib -define {define_one_string} {f}\n"
+            for f in rtl_files
+        ),
+        encoding="utf-8",
+    )
+    report.info(f"{len(rtl_files)} RTL file(s) read from Flist.cva6_synth")
+
+    report.step("Launch dc_shell")
+    log_file = synth_dir / "synthesis.log"
+    run_cmd(
+        cmd=["dc_shell", "-no_gui", "-f", str(repo_dir / GTECH_SCRIPT)],
+        cwd=synth_dir,
+        env={
+            "CVA6_REPO_DIR": repo_dir.as_posix(),
+            "HPDCACHE_DIR": (repo_dir / "core/cache_subsystem/hpdcache").as_posix(),
+            "TOP_ELABORATE": top_elaborate,
+            "SYNTH_DIR": synth_dir.as_posix(),
+            "FLIST": flist.as_posix(),
+            "DC_CORES": str(GTECH_CORES),
+            "SNPSLMD_QUEUE": "TRUE",
+            "TERM": "vt100",
+        },
+        error_patterns=["^Error:"],
+        warning_patterns=None,
+        highlight_patterns=["^GTECH-"],
+        log_file=log_file,
+        timeout=6000,
+        check=True,
+        capture_output=False,
+        report=report,
+    )
+
+    report.analyze_log(
+        log_file,
+        name="synthesis.log analysis",
+        error_patterns=["^Error:"],
+        warning_patterns=["^Warning: "],
+        env_patterns=[
+            r"(license|licence).*(error|fail|unable|denied|expired)",
+            r"unable to checkout",
+        ],
+        fail_on_error=True,
+    )
+
+    report.step("Cell counts")
+    log = log_file.read_text(encoding="utf-8", errors="replace")
+    counts = {}
+    for key, name in GTECH_COUNTS.items():
+        found = re.search(rf"^GTECH-{key} (\d+)$", log, re.MULTILINE)
+        if found is None:
+            report.error_exit(f"GTECH-{key} missing from {log_file.name}")
+        counts[name] = int(found.group(1))
+    report.metric("Global results", dict(counts))
+    report.set_label(f"{counts['gtech_cells'] / 1000:.1f} kCells")
+
+    # Cells per block and per level, the rings of the chart of the dashboard
+    hier_metric = report.metric("Hierarchies details", fmt={"pct": "pct"})
+    for row in _gtech_hierarchy(
+        synth_dir / "reports" / "synth_area.rpt",
+        synth_dir / "reports" / "synth_reference.rpt",
+        GTECH_HIER_DEPTH,
+    ):
+        hier_metric.add_row(
+            hierarchy=row["hierarchy"],
+            level=row["level"],
+            kcells=round(row["cells"] / 1000, 2),
+            pct=row["pct"],
+        )
+    report.print_metric(hier_metric)
+
+    if counts["gtech_latches"]:
+        report.error(
+            f"{counts['gtech_latches']} latch(es) inferred: see the ELAB-974 "
+            "warnings of synthesis.log"
+        )
+
+    for name, value in counts.items():
+        if name == "gtech_latches":
+            continue
+        expected = read_config_expected_value(target, name, report)
+        report.kpi(name, value, unit="cells", expected=expected, better="lower")
+        if expected is None:
+            report.info(f"{name}: {value}, no expected value")
+        elif abs(value - expected) > expected * GTECH_TOLERANCE:
+            report.error(
+                f"{name}: {value}, expected {expected} "
+                f"(deviation over {GTECH_TOLERANCE:.0%})"
+            )
+        else:
+            report.success(f"{name}: {value}, expected {expected}")
+
+    write_manifest(
+        synth_dir,
+        "dc-shell-synth",
+        {"target": target, "techno": "gtech", "script_file": GTECH_SCRIPT},
+        report=report,
+    )
+
+    report.step("Generated files")
+    generated = [
+        str(f.relative_to(repo_dir))
+        for f in (
+            log_file,
+            synth_dir / "reports" / "synth_area.rpt",
+            synth_dir / "reports" / "synth_reference.rpt",
+            synth_dir / "reports" / "check_design_full.rpt",
+            synth_dir / "netlist" / "synth.v",
+        )
+        if f.exists()
+    ]
+    report.log("Generated files", generated)
+    report.end("Completed")
+
+
 # ==========================================================
 # RECIPE
 # ==========================================================
@@ -78,12 +366,17 @@ def dc_shell_synth(
         autocompletion=autocompletion_target,
     ),
     techno: TechnoOption = typer.Option(
-        ..., help="Techno defined in $CONFIG_DIR/techno.yml"
+        None, help="Techno defined in $CONFIG_DIR/techno.yml (not with --gtech)"
     ),
-    period: str = typer.Option(..., help="Synthesis target period"),
+    period: str = typer.Option(None, help="Synthesis target period (not with --gtech)"),
     script_file: str = typer.Option("dc.tcl", help="dc setup script"),
     preprocessor_defines: list[PreProcOption] = typer.Option(
         [PreProcOption.HPDCACHE_ASSERT_OFF], "--define", help="Preprocessor directives"
+    ),
+    gtech: bool = typer.Option(
+        False,
+        help="Technology independent synthesis on the GTECH cells of dc_shell, "
+        f"with {GTECH_SCRIPT}: needs no PDK, reports cell and register counts",
     ),
     clean: bool = typer.Option(True, help="Clean working dir before"),
     quiet: bool = typer.Option(
@@ -96,6 +389,10 @@ def dc_shell_synth(
     define_one_string = (
         "{ " + reduce(lambda a, b: f"{a}, {b}", preprocessor_defines) + " }"
     )
+
+    if gtech:
+        _gtech_synth(target, define_one_string, clean, quiet)
+        return
 
     report = RecipeReport(
         "dc-shell-synth",
@@ -119,6 +416,9 @@ def dc_shell_synth(
 
     # Get testbench config
     cva6_hier = read_config_or_exit_testbench_cfg(target, report)
+
+    if techno is None or period is None:
+        report.error_exit("--techno and --period are required without --gtech")
 
     # Get config
     #

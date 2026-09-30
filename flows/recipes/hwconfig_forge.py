@@ -96,6 +96,7 @@ def hwconfig_forge(
         "testbench_cfg.yml",
         "Flist.cva6",
         "Flist.cva6_gate",
+        "Flist.cva6_synth",
     ]
     if not config_pkg.exists():
         report.error_exit(f"{config_pkg} does not exist", env=True)
