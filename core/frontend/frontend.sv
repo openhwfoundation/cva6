@@ -241,8 +241,6 @@ module frontend
         4'b0000: ;  // regular instruction e.g.: no branch
         // unconditional jump to register, we need the BTB to resolve this
         4'b0001: begin
-          ras_pop = 1'b0;
-          ras_push = 1'b0;
           cf_type[i] = ariane_pkg::JumpR;
           if (CVA6Cfg.BTBEntries != 0 && btb_prediction_shifted[i].valid) begin
             predict_address = btb_prediction_shifted[i].target_address;
@@ -251,8 +249,6 @@ module frontend
         end
         // its an unconditional jump to an immediate
         4'b0010: begin
-          ras_pop = 1'b0;
-          ras_push = 1'b0;
           taken_rvi_cf[i] = rvi_jump[i];
           taken_rvc_cf[i] = rvc_jump[i];
           cf_type[i] = ariane_pkg::Jump;
@@ -269,8 +265,6 @@ module frontend
         end
         // branch prediction
         4'b1000: begin
-          ras_pop  = 1'b0;
-          ras_push = 1'b0;
           // if we have a valid dynamic prediction use it
           if (bht_prediction_shifted[i].valid) begin
             taken_rvi_cf[i] = rvi_branch[i] & bht_prediction_shifted[i].taken;
@@ -468,18 +462,25 @@ module frontend
   if (CVA6Cfg.RASDepth == 0) begin
     assign ras_predict = '0;
   end else begin : ras_gen
+
+    logic is_predict;
+    assign is_predict = resolved_branch_i.valid & ~resolved_branch_i.is_mispredict;
+
     ras #(
         .CVA6Cfg(CVA6Cfg),
-        .ras_t  (ras_t),
-        .DEPTH  (CVA6Cfg.RASDepth)
+        .ras_t  (ras_t)
     ) i_ras (
         .clk_i,
         .rst_ni,
         .flush_bp_i(flush_bp_i),
+        .flush_i(flush_i),
+        .speculative_i(speculative_d),
+        .predict_i(is_predict),
+        .mispredict_i(is_mispredict),
         .push_i(ras_push),
         .pop_i(ras_pop),
-        .data_i(ras_update),
-        .data_o(ras_predict)
+        .addr_i(ras_update),
+        .addr_o(ras_predict)
     );
   end
 
