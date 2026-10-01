@@ -35,14 +35,14 @@
    "CV32A60AX", "Implemented extension"
    "CV64A6_MMU", "Implemented extension"
 
-=============================
+==================================
 RVZkne: NIST Suite: AES Encryption
-=============================
+==================================
 
 The following instructions comprise the Zkne extension:
 
 Encryption instructions
---------------------
+-----------------------
 The Encryption instructions (Zkne) provide support and acceleration for AES encryption and key expansion.
 
 +-----------+-----------+----------------------------+

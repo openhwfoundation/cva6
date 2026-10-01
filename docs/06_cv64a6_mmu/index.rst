@@ -1,5 +1,5 @@
 CV64A6_MMU documentation
-======================
+========================
 
 .. toctree::
    :maxdepth: 1

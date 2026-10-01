@@ -6,14 +6,14 @@
 
 
 REGISTERS CSR CV32A6 
-===================
+====================
 Unimplemented CSR accessing generates an illegal instruction exception.
---------------------------
+-----------------------------------------------------------------------
 Read-Only CSR write access generates an illegal instruction exception.
---------------------------
+----------------------------------------------------------------------
 
 MSTATUS:Machine Status Register 
---------------------------
+-------------------------------
 AddressOffset: 'h300 
 --------------------------
 Description:
@@ -35,7 +35,7 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - State dirty
      - 0x0 
      - read-only,WARL
-     - The SD bit is a read\-only bit\.``Legal Values``:0\.  ``Enumerated Values``( "Not_Dirty" :0)( "Dirty" :1)'\n'
+     - The SD bit is a read\-only bit\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Not_Dirty" :0)( "Dirty" :1)'\n'
    * - 30:23
      - reserved_0
      - Reserved
@@ -47,31 +47,31 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - Trap sret
      - 0x0 
      - read-write,WARL
-     - The TSR bit supports intercepting the supervisor exception return instruction, SRET\.  ``Enumerated Values``( "Permitted" :0)( "Not_Permitted" :1)'\n'
+     - The TSR bit supports intercepting the supervisor exception return instruction, SRET\.  ``Enumerated Values`` ( "Permitted" :0)( "Not_Permitted" :1)'\n'
    * - 21 
      - TW
      - Timeout wait
      - 0x0 
      - read-write,WARL
-     - The TW bit supports intercepting the WFI instruction\.  ``Enumerated Values``( "Permitted" :0)( "Not_Permitted" :1)'\n'
+     - The TW bit supports intercepting the WFI instruction\.  ``Enumerated Values`` ( "Permitted" :0)( "Not_Permitted" :1)'\n'
    * - 20 
      - TVM
      - Trap virtual memory
      - 0x0 
      - read-write,WARL
-     - The TVM bit supports intercepting supervisor virtual\-memory management operations\.  ``Enumerated Values``( "Permitted" :0)( "Not_Permitted" :1)'\n'
+     - The TVM bit supports intercepting supervisor virtual\-memory management operations\.  ``Enumerated Values`` ( "Permitted" :0)( "Not_Permitted" :1)'\n'
    * - 19 
      - MXR
      - Make executable readable
      - 0x0 
      - read-write
-     - The MXR bit modifies the privilege with which loads access virtual memory\.  ``Enumerated Values``( "Not_Executable" :0)( "Executable" :1)'\n'
+     - The MXR bit modifies the privilege with which loads access virtual memory\.  ``Enumerated Values`` ( "Not_Executable" :0)( "Executable" :1)'\n'
    * - 18 
      - SUM
      - Supervisor user memory
      - 0x0 
      - read-write
-     - The SUM bit modifies the privilege with which S\-mode loads and stores access virtual memory\.  ``Enumerated Values``( "Not_Permitted" :0)( "Permitted" :1)'\n'
+     - The SUM bit modifies the privilege with which S\-mode loads and stores access virtual memory\.  ``Enumerated Values`` ( "Not_Permitted" :0)( "Permitted" :1)'\n'
    * - 17 
      - MPRV
      - Modify privilege
@@ -83,49 +83,49 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - Extension state
      - 0x0 
      - read-only,WARL
-     - The XS field encodes the status of the additional user\-mode extensions and associated state\.``Legal Values``:0\.  ``Enumerated Values``( "Off" :0)( "Initial" :1)( "Clean" :2)( "Dirty" :3)'\n'
+     - The XS field encodes the status of the additional user\-mode extensions and associated state\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Off" :0)( "Initial" :1)( "Clean" :2)( "Dirty" :3)'\n'
    * - 14:13
      - FS
      - Floating-point unit state
      - 0x0 
      - read-only,WARL
-     - FS extension is not supported\.``Legal Values``:0\.  ``Enumerated Values``( "Off" :0)( "Initial" :1)( "Clean" :2)( "Dirty" :3)'\n'
+     - FS extension is not supported\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Off" :0)( "Initial" :1)( "Clean" :2)( "Dirty" :3)'\n'
    * - 12:11
      - MPP
      - Machine mode prior privilege
      - 0x0 
      - read-write
-     - Holds the previous privilege mode for machine mode\.  ``Enumerated Values``( "U-mode" :0)( "S-mode" :1)( "Reserved" :2)( "M-mode" :3)'\n'
+     - Holds the previous privilege mode for machine mode\.  ``Enumerated Values`` ( "U-mode" :0)( "S-mode" :1)( "Reserved" :2)( "M-mode" :3)'\n'
    * - 10:9
      - VS
      - Vector extension state
      - 0x0 
      - read-only,WARL
-     - V extension is not supported\.``Legal Values``:0\.
+     - V extension is not supported\. ``Legal Values`` :0\.
    * - 8 
      - SPP
      - Supervisor mode prior privilege
      - 0x0 
      - read-write
-     - Holds the previous privilege mode for supervisor mode\.  ``Enumerated Values``( "U-mode" :0)( "Otherwise" :1)'\n'
+     - Holds the previous privilege mode for supervisor mode\.  ``Enumerated Values`` ( "U-mode" :0)( "Otherwise" :1)'\n'
    * - 7 
      - MPIE
      - Machine mode prior interrupt enable
      - 0x0 
      - read-write
-     - Indicates whether machine interrupts were enabled prior to trapping into machine mode\.  ``Enumerated Values``( "Disabled" :0)( "Enabled" :1)'\n'
+     - Indicates whether machine interrupts were enabled prior to trapping into machine mode\.  ``Enumerated Values`` ( "Disabled" :0)( "Enabled" :1)'\n'
    * - 6 
      - UBE
      - User mode bit endianess
      - 0x0 
      - read-write,WARL
-     - UBE controls whether explicit load and store memory accesses made from U\-mode are little\-endian or big\-endian\.``Legal Values``:0\.  ``Enumerated Values``( "Little-endian" :0)( "Big-endian" :1)'\n'
+     - UBE controls whether explicit load and store memory accesses made from U\-mode are little\-endian or big\-endian\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Little-endian" :0)( "Big-endian" :1)'\n'
    * - 5 
      - SPIE
      - Supervisor mode prior interrupt enable
      - 0x0 
      - read-write
-     - Indicates whether supervisor interrupts were enabled prior to trapping into supervisor mode\.  ``Enumerated Values``( "Disabled" :0)( "Enabled" :1)'\n'
+     - Indicates whether supervisor interrupts were enabled prior to trapping into supervisor mode\.  ``Enumerated Values`` ( "Disabled" :0)( "Enabled" :1)'\n'
    * - 4 
      - reserved_1
      - Reserved
@@ -137,7 +137,7 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - Machine mode interrupt enable
      - 0x0 
      - read-write
-     - Global interrupt\-enable bit for Machine mode\.  ``Enumerated Values``( "Disabled" :0)( "Enabled" :1)'\n'
+     - Global interrupt\-enable bit for Machine mode\.  ``Enumerated Values`` ( "Disabled" :0)( "Enabled" :1)'\n'
    * - 2 
      - reserved_2
      - Reserved
@@ -149,7 +149,7 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - Supervisor mode interrupt enable
      - 0x0 
      - read-write
-     - Global interrupt\-enable bit for Supervisor mode\.  ``Enumerated Values``( "Disabled" :0)( "Enabled" :1)'\n'
+     - Global interrupt\-enable bit for Supervisor mode\.  ``Enumerated Values`` ( "Disabled" :0)( "Enabled" :1)'\n'
    * - 0 
      - reserved_3
      - Reserved
@@ -180,22 +180,22 @@ The misa CSR is reporting the ISA supported by the hart.
      - Machine xlen
      - 0x0 
      - read-write,WARL
-     - The MXL field encodes the native base integer ISA width\.``Legal Values``:1\.  ``Enumerated Values``( "XLEN_32" :1)( "XLEN_64" :2)( "XLEN_128" :3)'\n'
+     - The MXL field encodes the native base integer ISA width\. ``Legal Values`` :1\.  ``Enumerated Values`` ( "XLEN_32" :1)( "XLEN_64" :2)( "XLEN_128" :3)'\n'
    * - 29:26
      - Reserved_26
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 25:0
      - Extensions
      - Extensions
      - 0x141104 
      - read-write,WARL
-     - The Extensions field encodes the presence of the standard extensions, with a single bit per letter of the alphabet\.``Legal Values``:0x141104\.  ``Enumerated Values``( "A" :1)( "B" :2)( "C" :4)( "D" :8)( "E" :16)( "F" :32)( "G" :64)( "H" :128)( "I" :256)( "J" :512)( "K" :1024)( "L" :2048)( "M" :4096)( "N" :8192)( "O" :16384)( "P" :32768)( "Q" :65536)( "R" :131072)( "S" :262144)( "T" :524288)( "U" :1048576)( "V" :2097152)( "W" :4194304)( "X" :8388608)( "Y" :16777216)( "Z" :33554432)'\n'
+     - The Extensions field encodes the presence of the standard extensions, with a single bit per letter of the alphabet\. ``Legal Values`` :0x141104\.  ``Enumerated Values`` ( "A" :1)( "B" :2)( "C" :4)( "D" :8)( "E" :16)( "F" :32)( "G" :64)( "H" :128)( "I" :256)( "J" :512)( "K" :1024)( "L" :2048)( "M" :4096)( "N" :8192)( "O" :16384)( "P" :32768)( "Q" :65536)( "R" :131072)( "S" :262144)( "T" :524288)( "U" :1048576)( "V" :2097152)( "W" :4194304)( "X" :8388608)( "Y" :16777216)( "Z" :33554432)'\n'
 
 MIE:Machine Interrupt Enable Register 
---------------------------
+-------------------------------------
 AddressOffset: 'h304 
 --------------------------
 Description:
@@ -217,7 +217,7 @@ This register contains machine interrupt enable bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 11 
      - MEIE
      - M-mode external interrupt enable
@@ -229,7 +229,7 @@ This register contains machine interrupt enable bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 9 
      - SEIE
      - S-mode external interrupt enable
@@ -241,7 +241,7 @@ This register contains machine interrupt enable bits.
      - 
      - 0x0 
      - read-write,WARL
-     - enables U\-mode external interrupts\.``Legal Values:``0\.
+     - enables U\-mode external interrupts\. ``Legal Values:`` 0\.
    * - 7 
      - MTIE
      - M-mode timer interrupt enable
@@ -253,7 +253,7 @@ This register contains machine interrupt enable bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 5 
      - STIE
      - S-mode timer interrupt enable
@@ -265,7 +265,7 @@ This register contains machine interrupt enable bits.
      - 
      - 0x0 
      - read-write,WARL
-     - timer interrupt\-enable bit for U\-mode\.``Legal Values:``0\.
+     - timer interrupt\-enable bit for U\-mode\. ``Legal Values:`` 0\.
    * - 3 
      - MSIE
      - M-mode software interrupt enable
@@ -277,7 +277,7 @@ This register contains machine interrupt enable bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 1 
      - SSIE
      - S-mode software interrupt enable
@@ -289,10 +289,10 @@ This register contains machine interrupt enable bits.
      - 
      - 0x0 
      - read-write,WARL
-     - enable U\-mode software interrrupts\.``Legal Values:``0\.
+     - enable U\-mode software interrrupts\. ``Legal Values:`` 0\.
 
 MTVEC:Machine Trap Vector Register 
---------------------------
+----------------------------------
 AddressOffset: 'h305 
 --------------------------
 Description:
@@ -320,10 +320,10 @@ This register holds trap vector configuration, consisting of a vector base addre
      - 
      - 0x0 
      - read-write,WARL
-     - Imposes additional alignment constraints on the value in the BASE field\.``Legal Values :``0,1\.  ``Enumerated Values``( "Direct" :0)( "Vectored" :1)( "Reserved_2" :2)( "Reserved_3" :3)'\n'
+     - Imposes additional alignment constraints on the value in the BASE field\. ``Legal Values :`` 0,1\.  ``Enumerated Values`` ( "Direct" :0)( "Vectored" :1)( "Reserved_2" :2)( "Reserved_3" :3)'\n'
 
 MSTATUSH:Upper 32-bits of Machine Status Register 
---------------------------
+-------------------------------------------------
 AddressOffset: 'h310 
 --------------------------
 Description:
@@ -351,13 +351,13 @@ The ``mstatush`` is the upper 32-bits of Machine status only for RV32.
      - Supervisor mode bit endianess
      - 0x0 
      - read-write,WARL
-     - SBE controls whether explicit load and store memory accesses made from S\-mode are little\-endian or big\-endian\.``Legal Values``:0\.  ``Enumerated Values``( "Little-endian" :0)( "Big-endian" :1)'\n'
+     - SBE controls whether explicit load and store memory accesses made from S\-mode are little\-endian or big\-endian\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Little-endian" :0)( "Big-endian" :1)'\n'
    * - 5 
      - MBE
      - Machine mode bit endianess
      - 0x0 
      - read-write,WARL
-     - MBE controls whether explicit load and store memory accesses made from M\-mode are little\-endian or big\-endian\.``Legal Values``:0\.  ``Enumerated Values``( "Little-endian" :0)( "Big-endian" :1)'\n'
+     - MBE controls whether explicit load and store memory accesses made from M\-mode are little\-endian or big\-endian\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Little-endian" :0)( "Big-endian" :1)'\n'
    * - 31:6
      - reserved_1
      - Reserved
@@ -366,7 +366,7 @@ The ``mstatush`` is the upper 32-bits of Machine status only for RV32.
      - Reserved
 
 MHPMEVENT3:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h323 
 --------------------------
 Description:
@@ -388,10 +388,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT4:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h324 
 --------------------------
 Description:
@@ -413,10 +413,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT5:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h325 
 --------------------------
 Description:
@@ -438,10 +438,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT6:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h326 
 --------------------------
 Description:
@@ -463,10 +463,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT7:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h327 
 --------------------------
 Description:
@@ -488,10 +488,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT8:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h328 
 --------------------------
 Description:
@@ -513,10 +513,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT9:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+--------------------------------------------------------------------------
 AddressOffset: 'h329 
 --------------------------
 Description:
@@ -538,10 +538,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT10:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h32a 
 --------------------------
 Description:
@@ -563,10 +563,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT11:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h32b 
 --------------------------
 Description:
@@ -588,10 +588,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT12:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h32c 
 --------------------------
 Description:
@@ -613,10 +613,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT13:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h32d 
 --------------------------
 Description:
@@ -638,10 +638,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT14:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h32e 
 --------------------------
 Description:
@@ -663,10 +663,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT15:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h32f 
 --------------------------
 Description:
@@ -688,10 +688,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT16:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h330 
 --------------------------
 Description:
@@ -713,10 +713,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT17:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h331 
 --------------------------
 Description:
@@ -738,10 +738,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT18:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h332 
 --------------------------
 Description:
@@ -763,10 +763,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT19:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h333 
 --------------------------
 Description:
@@ -788,10 +788,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT20:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h334 
 --------------------------
 Description:
@@ -813,10 +813,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT21:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h335 
 --------------------------
 Description:
@@ -838,10 +838,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT22:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h336 
 --------------------------
 Description:
@@ -863,10 +863,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT23:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h337 
 --------------------------
 Description:
@@ -888,10 +888,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT24:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h338 
 --------------------------
 Description:
@@ -913,10 +913,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT25:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h339 
 --------------------------
 Description:
@@ -938,10 +938,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT26:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h33a 
 --------------------------
 Description:
@@ -963,10 +963,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT27:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h33b 
 --------------------------
 Description:
@@ -988,10 +988,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT28:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h33c 
 --------------------------
 Description:
@@ -1013,10 +1013,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT29:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h33d 
 --------------------------
 Description:
@@ -1038,10 +1038,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT30:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h33e 
 --------------------------
 Description:
@@ -1063,10 +1063,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MHPMEVENT31:Machine Hardware Performance-Monitoring Event Selector Register 
---------------------------
+---------------------------------------------------------------------------
 AddressOffset: 'h33f 
 --------------------------
 Description:
@@ -1088,10 +1088,10 @@ This register controls which event causes the corresponding counter to increment
      - 
      - 0x0 
      - WARL
-     - Event selector CSRs\.``Legal Values``:0\.
+     - Event selector CSRs\. ``Legal Values`` :0\.
 
 MSCRATCH:Machine Scratch Register 
---------------------------
+---------------------------------
 AddressOffset: 'h340 
 --------------------------
 Description:
@@ -1116,7 +1116,7 @@ This register is used to hold a value dedicated to Machine mode. Attempts to acc
      - Holds a value dedicated to Machine mode\.
 
 MEPC:Machine Exception Program Counter Register 
---------------------------
+-----------------------------------------------
 AddressOffset: 'h341 
 --------------------------
 Description:
@@ -1141,7 +1141,7 @@ This register must be able to hold all valid virtual addresses.
      - When a trap is taken into M\-mode, ``mepc`` is written with the virtual address of the instruction that was interrupted or that encountered the exception\.
 
 MCAUSE:Machine Cause Register 
---------------------------
+-----------------------------
 AddressOffset: 'h342 
 --------------------------
 Description:
@@ -1266,7 +1266,7 @@ Machine cause register (``mcause``) values after trap are shown in the following
      - This field contains a code identifying the last exception or interrupt\.
 
 MTVAL:Machine Trap Value Register 
---------------------------
+---------------------------------
 AddressOffset: 'h343 
 --------------------------
 Description:
@@ -1291,7 +1291,7 @@ When a trap is taken into M-mode, mtval is either set to zero or written with ex
      - If ``mtval`` is written with a nonzero value when a breakpoint, address\-misaligned, access\-fault, or page\-fault exception occurs on an instruction fetch, load, or store, then mtval will contain the faulting virtual address\. If ``mtval`` is written with a nonzero value when a misaligned load or store causes an access\-fault or page\-fault exception, then ``mtval`` will contain the virtual address of the portion of the access that caused the fault\. If ``mtval`` is written with a nonzero value when an instruction access\-fault or page\-fault exception occurs on a system with variable\-length instructions, then ``mtval`` will contain the virtual address of the portion of the instruction that caused the fault, while ``mepc`` will point to the beginning of the instruction\.
 
 MIP:Machine Interrupt Pending Register 
---------------------------
+--------------------------------------
 AddressOffset: 'h344 
 --------------------------
 Description:
@@ -1313,7 +1313,7 @@ This register contains machine interrupt pending bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 11 
      - MEIP
      - M-mode external interrupt pending
@@ -1325,7 +1325,7 @@ This register contains machine interrupt pending bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 9 
      - SEIP
      - S-mode external interrupt pending
@@ -1337,7 +1337,7 @@ This register contains machine interrupt pending bits.
      - 
      - 0x0 
      - read-write
-     - enables external interrupts\.``Legal Values:``0\.
+     - enables external interrupts\. ``Legal Values:`` 0\.
    * - 7 
      - MTIP
      - M-mode timer interrupt pending
@@ -1349,7 +1349,7 @@ This register contains machine interrupt pending bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 5 
      - STIP
      - S-mode timer interrupt pending
@@ -1361,7 +1361,7 @@ This register contains machine interrupt pending bits.
      - 
      - 0x0 
      - read-write
-     - Correspond to timer interrupt\-pending bits for user interrupt\.``Legal Values:``0\.
+     - Correspond to timer interrupt\-pending bits for user interrupt\. ``Legal Values:`` 0\.
    * - 3 
      - MSIP
      - M-mode software interrupt pending
@@ -1373,7 +1373,7 @@ This register contains machine interrupt pending bits.
      - Reserved
      - 0x0 
      - read-write,WARL
-     - Reserved\.``Legal Values:``0\.
+     - Reserved\. ``Legal Values:`` 0\.
    * - 1 
      - SSIP
      - S-mode software interrupt pending
@@ -1385,10 +1385,10 @@ This register contains machine interrupt pending bits.
      - 
      - 0x0 
      - read-write
-     - A hart to directly write its own USIP bits when running in the appropriate mode\.``Legal Values:``0\.
+     - A hart to directly write its own USIP bits when running in the appropriate mode\. ``Legal Values:`` 0\.
 
 PMPCFG0:Physical Memory Protection Config 0 Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3a0 
 --------------------------
 Description:
@@ -1431,7 +1431,7 @@ Holds configuration 0-3.
      - Holds the configuration\.
 
 PMPCFG1:Physical Memory Protection Config 1 Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3a1 
 --------------------------
 Description:
@@ -1474,7 +1474,7 @@ Holds configuration 4-7.
      - Holds the configuration\.
 
 PMPCFG2:Physical Memory Protection Config 2 Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3a2 
 --------------------------
 Description:
@@ -1517,7 +1517,7 @@ Holds configuration 8-11.
      - Holds the configuration\.
 
 PMPCFG3:Physical Memory Protection Config 3 Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3a3 
 --------------------------
 Description:
@@ -1560,7 +1560,7 @@ Holds configuration 12-15.
      - Holds the configuration\.
 
 PMPADDR0:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b0 
 --------------------------
 Description:
@@ -1585,7 +1585,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR1:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b1 
 --------------------------
 Description:
@@ -1610,7 +1610,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR2:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b2 
 --------------------------
 Description:
@@ -1635,7 +1635,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR3:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b3 
 --------------------------
 Description:
@@ -1660,7 +1660,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR4:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b4 
 --------------------------
 Description:
@@ -1685,7 +1685,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR5:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b5 
 --------------------------
 Description:
@@ -1710,7 +1710,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR6:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b6 
 --------------------------
 Description:
@@ -1735,7 +1735,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR7:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b7 
 --------------------------
 Description:
@@ -1760,7 +1760,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR8:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b8 
 --------------------------
 Description:
@@ -1785,7 +1785,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR9:Physical Memory Protection Address Register 
---------------------------
+----------------------------------------------------
 AddressOffset: 'h3b9 
 --------------------------
 Description:
@@ -1810,7 +1810,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR10:Physical Memory Protection Address Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'h3ba 
 --------------------------
 Description:
@@ -1835,7 +1835,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR11:Physical Memory Protection Address Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'h3bb 
 --------------------------
 Description:
@@ -1860,7 +1860,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR12:Physical Memory Protection Address Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'h3bc 
 --------------------------
 Description:
@@ -1885,7 +1885,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR13:Physical Memory Protection Address Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'h3bd 
 --------------------------
 Description:
@@ -1910,7 +1910,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR14:Physical Memory Protection Address Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'h3be 
 --------------------------
 Description:
@@ -1935,7 +1935,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 PMPADDR15:Physical Memory Protection Address Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'h3bf 
 --------------------------
 Description:
@@ -1960,7 +1960,7 @@ Address register for Physical Memory Protection.
      - Encodes bits 33\-2 of a 34\-bit physical address\.
 
 ICACHE:Instruction Cache Register 
---------------------------
+---------------------------------
 AddressOffset: 'h7C0 
 --------------------------
 Description:
@@ -1991,7 +1991,7 @@ Custom Register to enable/disable for Icache [bit 0]
      - Custom Register
 
 MCYCLE:M-mode Cycle counter Register 
---------------------------
+------------------------------------
 AddressOffset: 'hB00 
 --------------------------
 Description:
@@ -2016,7 +2016,7 @@ Counts the number of clock cycles executed by the processor core on which the ha
      - Counts the number of clock cycles executed by the processor core\.
 
 MINSTRET:Machine Instruction Retired counter Register 
---------------------------
+-----------------------------------------------------
 AddressOffset: 'hB02 
 --------------------------
 Description:
@@ -2041,7 +2041,7 @@ Counts the number of instructions the hart has retired.
      - Counts the number of instructions the hart has retired\.
 
 MCYCLEH:Upper 32-bits of M-mode Cycle counter Register 
---------------------------
+------------------------------------------------------
 AddressOffset: 'hB80 
 --------------------------
 Description:
@@ -2066,7 +2066,7 @@ Counts the number of clock cycles executed by the processor core on which the ha
      - Counts the number of clock cycles executed by the processor core\.
 
 MINSTRETH:Upper 32-bits of Machine Instruction Retired counter Register 
---------------------------
+-----------------------------------------------------------------------
 AddressOffset: 'hB82 
 --------------------------
 Description:
@@ -2091,7 +2091,7 @@ Counts the number of instructions the hart has retired.
      - Counts the number of instructions the hart has retired\.
 
 MHPMCOUNTER3:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb03 
 --------------------------
 Description:
@@ -2113,10 +2113,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER4:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb04 
 --------------------------
 Description:
@@ -2138,10 +2138,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER5:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb05 
 --------------------------
 Description:
@@ -2163,10 +2163,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER6:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb06 
 --------------------------
 Description:
@@ -2188,10 +2188,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER7:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb07 
 --------------------------
 Description:
@@ -2213,10 +2213,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER8:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb08 
 --------------------------
 Description:
@@ -2238,10 +2238,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER9:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------
 AddressOffset: 'hb09 
 --------------------------
 Description:
@@ -2263,10 +2263,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER10:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb0a 
 --------------------------
 Description:
@@ -2288,10 +2288,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER11:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb0b 
 --------------------------
 Description:
@@ -2313,10 +2313,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER12:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb0c 
 --------------------------
 Description:
@@ -2338,10 +2338,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER13:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb0d 
 --------------------------
 Description:
@@ -2363,10 +2363,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER14:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb0e 
 --------------------------
 Description:
@@ -2388,10 +2388,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER15:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb0f 
 --------------------------
 Description:
@@ -2413,10 +2413,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER16:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb10 
 --------------------------
 Description:
@@ -2438,10 +2438,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER17:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb11 
 --------------------------
 Description:
@@ -2463,10 +2463,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER18:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb12 
 --------------------------
 Description:
@@ -2488,10 +2488,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER19:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb13 
 --------------------------
 Description:
@@ -2513,10 +2513,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER20:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb14 
 --------------------------
 Description:
@@ -2538,10 +2538,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER21:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb15 
 --------------------------
 Description:
@@ -2563,10 +2563,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER22:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb16 
 --------------------------
 Description:
@@ -2588,10 +2588,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER23:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb17 
 --------------------------
 Description:
@@ -2613,10 +2613,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER24:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb18 
 --------------------------
 Description:
@@ -2638,10 +2638,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER25:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb19 
 --------------------------
 Description:
@@ -2663,10 +2663,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER26:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb1a 
 --------------------------
 Description:
@@ -2688,10 +2688,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER27:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb1b 
 --------------------------
 Description:
@@ -2713,10 +2713,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER28:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb1c 
 --------------------------
 Description:
@@ -2738,10 +2738,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER29:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb1d 
 --------------------------
 Description:
@@ -2763,10 +2763,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER30:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb1e 
 --------------------------
 Description:
@@ -2788,10 +2788,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTER31:Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------
 AddressOffset: 'hb1f 
 --------------------------
 Description:
@@ -2813,10 +2813,10 @@ Hardware performance event counter.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH3:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb83 
 --------------------------
 Description:
@@ -2838,10 +2838,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH4:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb84 
 --------------------------
 Description:
@@ -2863,10 +2863,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH5:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb85 
 --------------------------
 Description:
@@ -2888,10 +2888,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH6:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb86 
 --------------------------
 Description:
@@ -2913,10 +2913,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH7:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb87 
 --------------------------
 Description:
@@ -2938,10 +2938,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH8:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb88 
 --------------------------
 Description:
@@ -2963,10 +2963,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH9:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+---------------------------------------------------------------------------------------
 AddressOffset: 'hb89 
 --------------------------
 Description:
@@ -2988,10 +2988,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH10:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb8a 
 --------------------------
 Description:
@@ -3013,10 +3013,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH11:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb8b 
 --------------------------
 Description:
@@ -3038,10 +3038,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH12:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb8c 
 --------------------------
 Description:
@@ -3063,10 +3063,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH13:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb8d 
 --------------------------
 Description:
@@ -3088,10 +3088,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH14:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb8e 
 --------------------------
 Description:
@@ -3113,10 +3113,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH15:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb8f 
 --------------------------
 Description:
@@ -3138,10 +3138,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH16:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb90 
 --------------------------
 Description:
@@ -3163,10 +3163,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH17:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb91 
 --------------------------
 Description:
@@ -3188,10 +3188,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH18:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb92 
 --------------------------
 Description:
@@ -3213,10 +3213,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH19:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb93 
 --------------------------
 Description:
@@ -3238,10 +3238,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH20:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb94 
 --------------------------
 Description:
@@ -3263,10 +3263,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH21:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb95 
 --------------------------
 Description:
@@ -3288,10 +3288,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH22:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb96 
 --------------------------
 Description:
@@ -3313,10 +3313,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH23:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb97 
 --------------------------
 Description:
@@ -3338,10 +3338,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH24:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb98 
 --------------------------
 Description:
@@ -3363,10 +3363,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH25:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb99 
 --------------------------
 Description:
@@ -3388,10 +3388,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH26:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb9a 
 --------------------------
 Description:
@@ -3413,10 +3413,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH27:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb9b 
 --------------------------
 Description:
@@ -3438,10 +3438,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH28:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb9c 
 --------------------------
 Description:
@@ -3463,10 +3463,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH29:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb9d 
 --------------------------
 Description:
@@ -3488,10 +3488,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH30:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb9e 
 --------------------------
 Description:
@@ -3513,10 +3513,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 MHPMCOUNTERH31:Upper 32 bits of Machine Hardware Performance Monitoring Counter Register 
---------------------------
+----------------------------------------------------------------------------------------
 AddressOffset: 'hb9f 
 --------------------------
 Description:
@@ -3538,10 +3538,10 @@ Hardware performance event counter only for RV32.
      - Count
      - 0x0 
      - WARL
-     - ``Legal Values``: 0\.
+     - ``Legal Values`` : 0\.
 
 CYCLE:Cycle counter Register 
---------------------------
+----------------------------
 AddressOffset: 'hC00 
 --------------------------
 Description:
@@ -3566,7 +3566,7 @@ Cycle counter for RDCYCLE instruction. Shadow of mcycle.
      - Count
 
 INSTRET:Instruction Retired counter Register 
---------------------------
+--------------------------------------------
 AddressOffset: 'hC02 
 --------------------------
 Description:
@@ -3591,7 +3591,7 @@ Instructions-retired counter for RDINSTRET instruction. Shadow of minstret.
      - Count
 
 CYCLEH:Upper 32-bits of Cycle counter Register 
---------------------------
+----------------------------------------------
 AddressOffset: 'hC80 
 --------------------------
 Description:
@@ -3616,7 +3616,7 @@ Cycle counter for RDCYCLE instruction. Shadow of mcycleh.
      - Count
 
 INSTRETH:Upper 32-bits of Instruction Retired counter Register 
---------------------------
+--------------------------------------------------------------
 AddressOffset: 'hC82 
 --------------------------
 Description:
@@ -3641,7 +3641,7 @@ Instructions-retired counter for RDINSTRET instruction. Shadow of minstreth.
      - Count
 
 MVENDORID:Machine Vendor ID Register 
---------------------------
+------------------------------------
 AddressOffset: 'hF11 
 --------------------------
 Description:
@@ -3672,7 +3672,7 @@ This register provids the JEDEC manufacturer ID of the provider of the core.
      - Contain encording for the final byte discarding the parity bit\.
 
 MARCHID:Machine Architecture ID Register 
---------------------------
+----------------------------------------
 AddressOffset: 'hF12 
 --------------------------
 Description:
@@ -3697,7 +3697,7 @@ This register encodes the base microarchitecture of the hart.
      - Provide Encoding the base microarchitecture of the hart\.
 
 MIMPID:Machine Implementation ID Register 
---------------------------
+-----------------------------------------
 AddressOffset: 'hF13 
 --------------------------
 Description:
@@ -3722,7 +3722,7 @@ Provides a unique encoding of the version of the processor implementation.
      - Provides unique encoding of the version of the processor implementation\.
 
 MHARTID:Machine Hardware Thread ID Register 
---------------------------
+-------------------------------------------
 AddressOffset: 'hF14 
 --------------------------
 Description:

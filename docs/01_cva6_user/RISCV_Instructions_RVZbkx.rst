@@ -35,9 +35,9 @@
    "CV32A60AX", "Implemented extension"
    "CV64A6_MMU", "Implemented extension"
 
-=============================
+=========================================
 RVZbkx: Crossbar permutation instructions
-=============================
+=========================================
 
 The following instructions comprise the Zbkx extension:
 

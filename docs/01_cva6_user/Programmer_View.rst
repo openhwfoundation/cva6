@@ -109,7 +109,7 @@ These extensions are available in CV32A60X:
    "RVZicond - Integer Conditional Operations(Ratification pending)",       ""
 
 CV64A6_MMU extensions
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 These extensions are available in CV64A6_MMU:
 
@@ -182,7 +182,7 @@ These privilege modes are available in CV32A60X:
    "U - User",                      ""
 
 CV64A6_MMU privilege modes
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These privilege modes are available in CV64A6_MMU:
 
@@ -246,7 +246,7 @@ CV32A60X virtual memory
 CV32A60X integrates no MMU and only supports the **Bare** addressing mode.
 
 CV64A6_MMU virtual memory
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 CV64A6_MMU integrates an MMU and supports both the **Bare** and **Sv39** addressing modes.
 

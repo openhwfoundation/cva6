@@ -28,9 +28,9 @@
    "CV32A60AX", "Implemented extension"
    "CV64A6_MMU", "Implemented extension"
 
-=============================
+==============================================
 RVZbkb: Bitmanip instructions for Cryptography
-=============================
+==============================================
 
 The following instructions comprise the Zbkb extension:
 
@@ -139,7 +139,7 @@ RV32 specific Instructions
 
 
 Bits-in-Byte-reverse
-------------
+--------------------
 brev8 reverses the bits in each byte of the source register.
 
 +-----------+-----------+-----------------------+

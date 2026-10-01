@@ -43,18 +43,20 @@ All the Zcmp instructions require at least C extension support with Zcd extensio
 
     **Description**: This instruction pushes (stores) the registers in reg_list to the memory below the stack pointer, and then creates the stack frame by decrementing the stack pointer by stack_adj, including any additional stack space requested by the value of spimm.
 
-    **Pseudocode**: if (XLEN==32) bytes=4; else bytes=8;
-                    addr=sp-bytes;
-                    for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
-                        if (xreg_list[i]) {
-                            switch(bytes) {
-                                4: asm("sw x[i], 0(addr)");
-                                8: asm("sd x[i], 0(addr)");
-                            }
-                            addr-=bytes;
-                        }
-                    }
-                    sp-=stack_adj;
+    **Pseudocode**::
+
+        if (XLEN==32) bytes=4; else bytes=8;
+        addr=sp-bytes;
+        for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
+            if (xreg_list[i]) {
+                switch(bytes) {
+                    4: asm("sw x[i], 0(addr)");
+                    8: asm("sd x[i], 0(addr)");
+                }
+                addr-=bytes;
+            }
+        }
+        sp-=stack_adj;
 
     **Invalid values**: reg_list not in [ {ra}, {ra, s0}, {ra, s0-s1}, {ra, s0-s2}, ..., {ra, s0-s8}, {ra, s0-s9}, {ra, s0-s11} ], stack_adj not in [ 16, 32, 48, 64, 80, 96, 112 ] and [ 16, 32, 48, 64, 80, 96, 112, 128, 144, 160 ] for RV32 and RV64 respectively.
 
@@ -66,18 +68,20 @@ All the Zcmp instructions require at least C extension support with Zcd extensio
 
     **Description**: Destroy stack frame: load ra and 0 to 12 saved registers from the stack frame, deallocate the stack frame.
 
-    **Pseudocode**: if (XLEN==32) bytes=4; else bytes=8;
-                    addr=sp+stack_adj-bytes;
-                    for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
-                        if (xreg_list[i]) {
-                            switch(bytes) {
-                                4: asm("lw x[i], 0(addr)");
-                                8: asm("ld x[i], 0(addr)");
-                            }
-                            addr-=bytes;
-                        }
-                    }
-                    sp+=stack_adj;
+    **Pseudocode**::
+
+        if (XLEN==32) bytes=4; else bytes=8;
+        addr=sp+stack_adj-bytes;
+        for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
+            if (xreg_list[i]) {
+                switch(bytes) {
+                    4: asm("lw x[i], 0(addr)");
+                    8: asm("ld x[i], 0(addr)");
+                }
+                addr-=bytes;
+            }
+        }
+        sp+=stack_adj;
 
     **Invalid values**: reg_list not in [ {ra}, {ra, s0}, {ra, s0-s1}, {ra, s0-s2}, ..., {ra, s0-s8}, {ra, s0-s9}, {ra, s0-s11} ], stack_adj not in [ 16, 32, 48, 64, 80, 96, 112 ] and [ 16, 32, 48, 64, 80, 96, 112, 128, 144, 160 ] for RV32 and RV64 respectively.
 
@@ -89,20 +93,22 @@ All the Zcmp instructions require at least C extension support with Zcd extensio
 
     **Description**: Destroy stack frame: load ra and 0 to 12 saved registers from the stack frame, deallocate the stack frame, move zero into a0, return to ra.
 
-    **Pseudocode**: if (XLEN==32) bytes=4; else bytes=8;
-                    addr=sp+stack_adj-bytes;
-                    for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
-                        if (xreg_list[i]) {
-                            switch(bytes) {
-                                4: asm("lw x[i], 0(addr)");
-                                8: asm("ld x[i], 0(addr)");
-                            }
-                            addr-=bytes;
-                        }
-                    }
-                    asm("li a0, 0");
-                    sp+=stack_adj;
-                    asm("ret");
+    **Pseudocode**::
+
+        if (XLEN==32) bytes=4; else bytes=8;
+        addr=sp+stack_adj-bytes;
+        for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
+            if (xreg_list[i]) {
+                switch(bytes) {
+                    4: asm("lw x[i], 0(addr)");
+                    8: asm("ld x[i], 0(addr)");
+                }
+                addr-=bytes;
+            }
+        }
+        asm("li a0, 0");
+        sp+=stack_adj;
+        asm("ret");
 
     **Invalid values**: reg_list not in [ {ra}, {ra, s0}, {ra, s0-s1}, {ra, s0-s2}, ..., {ra, s0-s8}, {ra, s0-s9}, {ra, s0-s11} ], stack_adj not in [ 16, 32, 48, 64, 80, 96, 112 ] and [ 16, 32, 48, 64, 80, 96, 112, 128, 144, 160 ] for RV32 and RV64 respectively.
 
@@ -114,19 +120,21 @@ All the Zcmp instructions require at least C extension support with Zcd extensio
 
     **Description**: Destroy stack frame: load ra and 0 to 12 saved registers from the stack frame, deallocate the stack frame, return to ra.
 
-    **Pseudocode**: if (XLEN==32) bytes=4; else bytes=8;
-                    addr=sp+stack_adj-bytes;
-                    for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
-                        if (xreg_list[i]) {
-                            switch(bytes) {
-                                4: asm("lw x[i], 0(addr)");
-                                8: asm("ld x[i], 0(addr)");
-                            }
-                            addr-=bytes;
-                        }
-                    }
-                    sp+=stack_adj;
-                    asm("ret");
+    **Pseudocode**::
+
+        if (XLEN==32) bytes=4; else bytes=8;
+        addr=sp+stack_adj-bytes;
+        for(i in 27,26,25,24,23,22,21,20,19,18,9,8,1) {
+            if (xreg_list[i]) {
+                switch(bytes) {
+                    4: asm("lw x[i], 0(addr)");
+                    8: asm("ld x[i], 0(addr)");
+                }
+                addr-=bytes;
+            }
+        }
+        sp+=stack_adj;
+        asm("ret");
 
     **Invalid values**: reg_list not in [ {ra}, {ra, s0}, {ra, s0-s1}, {ra, s0-s2}, ..., {ra, s0-s8}, {ra, s0-s9}, {ra, s0-s11} ], stack_adj not in [ 16, 32, 48, 64, 80, 96, 112 ] and [ 16, 32, 48, 64, 80, 96, 112, 128, 144, 160 ] for RV32 and RV64 respectively.
 
@@ -138,13 +146,15 @@ All the Zcmp instructions require at least C extension support with Zcd extensio
 
     **Description**: This instruction moves a0 into r1s' and a1 into r2s'. r1s' and r2s' must be different. The execution is atomic, so it is not possible to observe state where only one of r1s' or r2s' has been updated.
 
-    **Pseudocode**: if (RV32E && (r1sc>1 || r2sc>1)) {
-                        reserved();
-                    }
-                    xreg1 = {r1sc[2:1]>0,r1sc[2:1]==0,r1sc[2:0]};
-                    xreg2 = {r2sc[2:1]>0,r2sc[2:1]==0,r2sc[2:0]};
-                    X[xreg1] = X[10];
-                    X[xreg2] = X[11];
+    **Pseudocode**::
+
+        if (RV32E && (r1sc>1 || r2sc>1)) {
+            reserved();
+        }
+        xreg1 = {r1sc[2:1]>0,r1sc[2:1]==0,r1sc[2:0]};
+        xreg2 = {r2sc[2:1]>0,r2sc[2:1]==0,r2sc[2:0]};
+        X[xreg1] = X[10];
+        X[xreg2] = X[11];
 
     **Invalid values**: r1s' = r2s'
 
@@ -156,13 +166,15 @@ All the Zcmp instructions require at least C extension support with Zcd extensio
 
     **Description**: This instruction moves r1s' into a0 and r2s' into a1. The execution is atomic, so it is not possible to observe state where only one of a0 or a1 have been updated.
 
-    **Pseudocode**: if (RV32E && (r1sc>1 || r2sc>1)) {
-                        reserved();
-                    }
-                    xreg1 = {r1sc[2:1]>0,r1sc[2:1]==0,r1sc[2:0]};
-                    xreg2 = {r2sc[2:1]>0,r2sc[2:1]==0,r2sc[2:0]};
-                    X[10] = X[xreg1];
-                    X[11] = X[xreg2];
+    **Pseudocode**::
+
+        if (RV32E && (r1sc>1 || r2sc>1)) {
+            reserved();
+        }
+        xreg1 = {r1sc[2:1]>0,r1sc[2:1]==0,r1sc[2:0]};
+        xreg2 = {r2sc[2:1]>0,r2sc[2:1]==0,r2sc[2:0]};
+        X[10] = X[xreg1];
+        X[11] = X[xreg2];
 
     **Invalid values**: NONE
 
