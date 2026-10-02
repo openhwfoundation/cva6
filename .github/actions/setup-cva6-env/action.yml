@@ -1,0 +1,95 @@
+# Copyright 2026 OpenHW Group
+# SPDX-License-Identifier: Apache-2.0
+# CVA6 simulation tools and Cook dependencies.
+
+name: "Setup CVA6 Environment"
+description: "Cache/restore tools and prepare the CVA6 simulation environment"
+
+inputs:
+  install-tools:
+    description: "Run ci/setup.sh to install tools if cache miss"
+    required: false
+    default: "true"
+  install-cook-dependencies:
+    description: "Install the pinned Python environment required by cook.py"
+    required: false
+    default: "false"
+
+outputs:
+  toolchain-cache-hit:
+    description: "Whether RISC-V toolchain cache was hit"
+    value: ${{ steps.cache-toolchain.outputs.cache-hit }}
+  verilator-cache-hit:
+    description: "Whether Verilator cache was hit"
+    value: ${{ steps.cache-verilator.outputs.cache-hit }}
+  spike-cache-hit:
+    description: "Whether Spike cache was hit"
+    value: ${{ steps.cache-spike.outputs.cache-hit }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python for cook.py
+      if: inputs.install-cook-dependencies == 'true'
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+        cache: pip
+        cache-dependency-path: |
+          flows/requirements.txt
+          .github/requirements/cook-tier-ci-constraints.txt
+
+    - name: Install pinned cook.py dependencies
+      if: inputs.install-cook-dependencies == 'true'
+      shell: bash
+      run: |
+        python3 -m pip install --disable-pip-version-check \
+          --constraint .github/requirements/cook-tier-ci-constraints.txt \
+          --requirement flows/requirements.txt
+
+    - name: Get core-v-verif submodule hash
+      id: submodule-hash
+      shell: bash
+      run: |
+        cd verif/core-v-verif
+        echo "hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Cache RISC-V Toolchain
+      id: cache-toolchain
+      uses: actions/cache@v6
+      with:
+        path: tools/riscv-toolchain/
+        key: ${{ runner.os }}-toolchain-${{ hashFiles('ci/install-toolchain.sh') }}
+
+    - name: Cache Verilator
+      id: cache-verilator
+      uses: actions/cache@v6
+      with:
+        path: tools/verilator/
+        key: ${{ runner.os }}-verilator-${{ hashFiles('verif/regress/install-verilator.sh') }}
+
+    - name: Cache Spike
+      id: cache-spike
+      uses: actions/cache@v6
+      with:
+        path: tools/spike/
+        key: ${{ runner.os }}-spike-${{ hashFiles('verif/regress/install-spike.sh') }}-${{ steps.submodule-hash.outputs.hash }}
+
+    - name: Setup tools (if cache miss)
+      if: |
+        inputs.install-tools == 'true' && (
+          steps.cache-toolchain.outputs.cache-hit != 'true' ||
+          steps.cache-verilator.outputs.cache-hit != 'true' ||
+          steps.cache-spike.outputs.cache-hit != 'true'
+        )
+      shell: bash
+      run: |
+        set -x
+        ci/setup.sh
+
+    - name: Setup environment variables
+      shell: bash
+      run: |
+        echo "RISCV=$(pwd)/tools/riscv-toolchain" >> $GITHUB_ENV
+        echo "$(pwd)/tools/verilator/bin" >> $GITHUB_PATH
+        echo "$(pwd)/tools/spike/bin" >> $GITHUB_PATH

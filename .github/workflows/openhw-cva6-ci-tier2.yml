@@ -1,0 +1,111 @@
+# Copyright 2026 OpenHW Group
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+# Cook and Verilator tandem regression for master_candidate AXI targets.
+# Zcmt is deferred until the project LLVM version is agreed.
+
+name: openhw-cva6-ci-tier2
+
+on:
+  push:
+    branches:
+      - master_candidate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openhw-cva6-ci-tier2-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SPIKE_TANDEM: 1
+  NUM_JOBS: 8
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  setup-tools:
+    name: Setup Tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup CVA6 Environment
+        uses: ./.github/actions/setup-cva6-env
+        with:
+          install-tools: "true"
+          install-cook-dependencies: "true"
+
+      - name: Test Verilator TestHarness result handling
+        run: python3 .github/tests/test_verilator_testharness_safety.py -v
+
+  execute-rv32-tier2:
+    name: RV32 Tier2 ${{ matrix.config }} / ${{ matrix.testcase }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    needs: setup-tools
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - config: cv32a60x_axi
+            testcase: base-rv32-p
+            install_script: install-riscv-tests
+            testlist: verif/tests/base_rv32_p.yaml
+            compiler_march: rv32imc_zicsr_zba_zbb_zbs_zbc
+
+          - config: cv32a65x_axi
+            testcase: base-rv32-p
+            install_script: install-riscv-tests
+            testlist: verif/tests/base_rv32_p.yaml
+            compiler_march: rv32imc_zicsr_zba_zbb_zbs_zbc_zifencei
+
+          - config: cv32a65x_axi
+            testcase: base-pmp
+            install_script: ""
+            testlist: verif/tests/base_pmp.yaml
+            compiler_march: rv32imc_zicsr_zba_zbb_zbs_zbc_zifencei
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup CVA6 Environment
+        uses: ./.github/actions/setup-cva6-env
+        with:
+          install-cook-dependencies: "true"
+
+      - name: Install simulation prerequisites
+        run: source ci/install-prereq.sh
+
+      - name: Run Tier 2 for ${{ matrix.config }} / ${{ matrix.testcase }}
+        env:
+          TIER_NAME: Tier 2
+          TIER_MODE: cook-testlist
+          TIER_CONFIG: ${{ matrix.config }}
+          TIER_TESTCASE: ${{ matrix.testcase }}
+          TIER_INSTALL_SCRIPT: ${{ matrix.install_script }}
+          TIER_TESTLIST: ${{ matrix.testlist }}
+          TIER_COMPILER_MARCH: ${{ matrix.compiler_march }}
+          TIER_EVENT_HEAD_SHA: ${{ github.sha }}
+          TIER_EVENT_BASE_SHA: ${{ github.event.before || '' }}
+        run: bash .github/scripts/run-tier-regression.sh
+
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier2-rv32-${{ matrix.config }}-${{ matrix.testcase }}
+          path: |
+            ci-results/
+            artifacts/reports/
+            build/${{ matrix.config }}/compile/
+            build/${{ matrix.config }}/simulation/sim_verilator_testharness/
+            build/${{ matrix.config }}/config/
+          if-no-files-found: error
+          retention-days: 14

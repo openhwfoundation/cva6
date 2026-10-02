@@ -29,9 +29,18 @@ from riscv_trace_csv import *
 from lib import *
 
 RD_RE    = re.compile(r"(?P<pri>\d) 0x(?P<addr>[a-f0-9]+?) " \
-                      "\((?P<bin>.*?)\) (?P<reg>[xf]\s*\d*?) 0x(?P<val>[a-f0-9]+)")
-CORE_RE  = re.compile(r"^\s*(?P<cycle>\d+)\s*\|\s*core.*0x(?P<addr>[a-f0-9]+?) \(0x(?P<bin>.*?)\) (?P<instr>.*?)$")
+                      r"\((?P<bin>.*?)\) (?P<reg>[xf]\s*\d*?) 0x(?P<val>[a-f0-9]+)")
+# cook.py TestHarness logs add a cycle column before the legacy RVFI text.
+LINE_PREFIX_RE = r"[ \t]*(?:\d+[ \t]*\|[ \t]*)?"
+CORE_RE  = re.compile(LINE_PREFIX_RE +
+                      r"core.*0x(?P<addr>[a-f0-9]+?) \(0x(?P<bin>.*?)\) (?P<instr>.*?)$")
 ILLE_RE  = re.compile(r"trap_illegal_instruction")
+END_TRAMPOLINE_RE = re.compile(
+    LINE_PREFIX_RE + r"core.*: 0x0000000080000000 ")
+START_DEBUG_RE = re.compile(
+    LINE_PREFIX_RE + r"core.*: 0x0000000000000800 ")
+STOP_DEBUG_RE = re.compile(
+    LINE_PREFIX_RE + r"core.*: 0x0000000000000890 ")
 
 LOGGER = logging.getLogger()
 
@@ -114,10 +123,6 @@ def read_verilator_trace(path, full_trace):
   # true. Otherwise, we are in state EFFECT if instr is not None, otherwise we
   # are in state INSTR.
 
-  end_trampoline_re = re.compile(r'^\s*(?P<cycle>\d+)\s*\|\s*core.*: 0x0000000080000000 ')
-  start_debug_it_re = re.compile(r'^\s*(?P<cycle>\d+)\s*\|\s*core.*: 0x0000000000000800 ')
-  stop_debug_it_re  = re.compile(r'^\s*(?P<cycle>\d+)\s*\|\s*core.*: 0x0000000000000890 ')
-
   in_trampoline = True
   in_debug = False
   instr = None
@@ -126,18 +131,18 @@ def read_verilator_trace(path, full_trace):
     for line in handle:
       if in_trampoline:
         # The TRAMPOLINE state
-        if end_trampoline_re.match(line):
+        if END_TRAMPOLINE_RE.match(line):
           in_trampoline = False
         else :
           continue
 
       if not in_trampoline:
         if in_debug:
-          if stop_debug_it_re.match(line):
+          if STOP_DEBUG_RE.match(line):
             in_debug = False
           continue
         else:
-          if start_debug_it_re.match(line):
+          if START_DEBUG_RE.match(line):
             in_debug = True
             continue
 
