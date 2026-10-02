@@ -103,7 +103,7 @@ module cva6_fifo_v3 #(
         fifo_ram_we = 1'b1;
         fifo_ram_write_address = write_pointer_q;
         fifo_ram_wdata = data_i;
-        if (FPGA_ALTERA) first_word_n = first_word_q && pop_i;
+        if (FPGA_ALTERA) first_word_n = (first_word_q && pop_i) || ((status_cnt_q == 'h1) && pop_i);
       end else begin
         // push the data onto the queue
         mem_n[write_pointer_q] = data_i;
@@ -120,7 +120,8 @@ module cva6_fifo_v3 #(
 
     if (pop_i && ~empty_o) begin
       data_ft_n = data_i;
-      if (FPGA_EN && FPGA_ALTERA) first_word_n = first_word_q && push_i;
+      if (FPGA_EN && FPGA_ALTERA)
+        first_word_n = (first_word_q && push_i) || ((status_cnt_q == 'h1) && push_i);
       // read from the queue is a default assignment
       // but increment the read pointer...
       if (read_pointer_n == FifoDepth[ADDR_DEPTH-1:0] - 1) read_pointer_n = '0;
