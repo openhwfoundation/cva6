@@ -56,6 +56,26 @@
       background-color: #0d6efd; color: #fff;
     }
 
+    /* Navbar page switcher */
+    .navbar-pages-group {
+      display: flex; gap: 0; border: 2px solid #3976d2; border-radius: 8px;
+      background: #f0f8ff; overflow: hidden;
+    }
+    .navbar-pages-group .nav-link {
+      flex: 1; padding: 0.75rem 1.5rem; font-weight: 600; font-size: 1.05rem;
+      border: none; color: #212529; background: transparent;
+      transition: all 0.3s ease; text-decoration: none;
+      display: flex; align-items: center; justify-content: center;
+      letter-spacing: 0.3px;
+    }
+    .navbar-pages-group .nav-link:hover {
+      background: rgba(67, 142, 255, 0.179);
+    }
+    .navbar-pages-group .nav-link.active {
+      background: linear-gradient(135deg, #3976d2 0%, #2d5fa8 100%);
+      color: #fff; font-weight: 700; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+
     /* Trend charts */
     .chart-container { position: relative; height: 260px; }
 
@@ -75,12 +95,16 @@
 <!-- Section 1: Navbar - white background -->
 <!-- ============================================================ -->
 <nav class="navbar navbar-expand-lg top-navbar shadow-sm">
-  <div class="container-fluid">
+  <div class="container-fluid d-flex align-items-center justify-content-between">
     <span class="navbar-brand">
       <img src="assets/openhw-landscape.svg"
            alt="OpenHW Foundation" height="32">
       CVA6 Tier CI Dashboard
     </span>
+    <div class="navbar-pages-group">
+      <a class="nav-link active" href="tier_dashboard.html">📊 Tier Dashboard</a>
+      <a class="nav-link" href="PD_dashboard.html">⚡ PD Dashboard</a>
+    </div>
     <span class="navbar-text text-muted" style="font-size:0.85rem">
       Generated: {{ generated_at }}
     </span>

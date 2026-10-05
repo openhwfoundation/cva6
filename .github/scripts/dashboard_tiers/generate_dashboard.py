@@ -303,11 +303,11 @@ def main():
     # Render template
     template_dir = Path(__file__).parent / "templates"
     env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=True)
-    template = env.get_template("index.html")
+    template = env.get_template("tier_dashboard.html")
     html = template.render(**context)
 
     # Write output
-    output_file = output_dir / "index.html"
+    output_file = output_dir / "tier_dashboard.html"
     with open(output_file, "w") as f:
         f.write(html)
 

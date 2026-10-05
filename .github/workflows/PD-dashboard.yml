@@ -1,18 +1,13 @@
-name: openhw-cva6-tier-dashboard
+name: physical-design-dashboard
 
 on:
   workflow_run:
     workflows:
-      - ci
-      - openhw-cva6-ci-tier1
-      - openhw-cva6-ci-tier2
+      - OR-flow-floorplan
+      - OR-flow-grt
     types:
       - completed
   workflow_dispatch:
-
-concurrency:
-  group: openhw-cva6-tier-dashboard
-  cancel-in-progress: false
 
 permissions:
   actions: read
@@ -22,22 +17,25 @@ permissions:
 
 jobs:
   build:
-    name: Build Tier Dashboard
+    name: Build PD Dashboard
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
+          # workflow_run always evaluates this YAML from the default branch, but pin
+          # checked-out scripts to the triggering run's commit (falls back to github.ref
+          # for workflow_dispatch, where workflow_run context is unset).
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
-      - name: Restore tier dashboard history from gh-pages-cva6-dashboard-data
+      - name: Restore PD dashboard history from gh-pages-cva6-dashboard-data
         run: |
-          mkdir -p /tmp/tier-data /tmp/dash-site
+          mkdir -p /tmp/PD-data /tmp/dash-site
           if git ls-remote --heads origin gh-pages-cva6-dashboard-data | grep -q gh-pages-cva6-dashboard-data; then
             git fetch origin gh-pages-cva6-dashboard-data --depth=1
             git checkout origin/gh-pages-cva6-dashboard-data -- data/ 2>/dev/null && \
-              cp -r data/tier/* /tmp/tier-data/ 2>/dev/null || \
-              echo "No existing tier data on gh-pages-cva6-dashboard-data, starting fresh"
+              cp -r data/PD/* /tmp/PD-data/ 2>/dev/null || \
+              echo "No existing PD flow data on gh-pages-cva6-dashboard-data, starting fresh"
             if [ -d data/dash-site ]; then
               cp -r data/dash-site/* /tmp/dash-site/ 2>/dev/null || true
             fi
@@ -45,34 +43,49 @@ jobs:
             echo "gh-pages-cva6-dashboard-data branch does not exist yet, starting fresh"
           fi
 
-      - name: Collect tier dashboard CI data
+      - name: Collect PD Floorplan CI data
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 .github/scripts/dashboard_tiers/collect_data.py \
+          python3 .github/scripts/dashboard_physical-design/extract_PD_metrics.py \
+            --artifact-prefix PD-flp- \
+            --workflow OR-flow-floorplan.yml \
+            --data-dir /tmp/PD-data \
+            --output-file runs_PD_flp.json \
             --repo "${{ github.repository }}" \
-            --data-dir /tmp/tier-data \
+            --fetch-count 20
+
+      - name: Collect PD GRT CI data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/dashboard_physical-design/extract_PD_metrics.py \
+            --artifact-prefix PD-grt- \
+            --workflow OR-flow-grt.yml \
+            --data-dir /tmp/PD-data \
+            --output-file runs_PD_grt.json \
+            --repo "${{ github.repository }}" \
             --fetch-count 20
 
       - name: Install Jinja2
         run: pip install jinja2
 
-      - name: Generate tier dashboard HTML
+      - name: Generate PD dashboard HTML
         run: |
-          python3 .github/scripts/dashboard_tiers/generate_dashboard.py \
-            --data-dir /tmp/tier-data \
+          python3 .github/scripts/dashboard_physical-design/generate_PD_dashboard.py \
+            --data-dir /tmp/PD-data \
             --output-dir /tmp/dash-site \
             --repo "${{ github.repository }}"
 
       - name: Prepare Pages artifact
         run: |
-          if [ ! -f /tmp/dash-site/PD_dashboard.html ]; then
-            echo '<h1>Tier Dashboard not yet generated. Check back after PD flow complete.</h1>' \
-            > /tmp/dash-site/PD_dashboard.html
+          if [ ! -f /tmp/dash-site/tier_dashboard.html ]; then
+            echo '<h1>Tier Dashboard not yet generated. Check back after tier tests complete.</h1>' \
+            > /tmp/dash-site/tier_dashboard.html
           fi
           cp .github/scripts/landing_page/index.html /tmp/dash-site/index.html
-          rm -rf /tmp/dash-site/tier-data
-          cp -r /tmp/tier-data /tmp/dash-site/tier-data
+          rm -rf /tmp/dash-site/PD-data
+          cp -r /tmp/PD-data /tmp/dash-site/PD-data
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -89,8 +102,8 @@ jobs:
       - name: Upload data for persistence job
         uses: actions/upload-artifact@v4
         with:
-          name: cva6-tier-dashboard-data
-          path: /tmp/tier-data/
+          name: cva6-PD-dashboard-data
+          path: /tmp/PD-data/
           retention-days: 7
 
   deploy:
@@ -105,13 +118,13 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  persist-tier-data:
-    name: Persist Tier Dashboard Data
+  persist-PD-data:
+    name: Persist PD Dashboard Data
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
@@ -126,10 +139,15 @@ jobs:
             git checkout --orphan gh-pages-cva6-dashboard-data
             git rm -rf . >/dev/null 2>&1 || true
             find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-            echo "# CVA6 Tier Dashboard Data" > README.md
+            echo "# CVA6 PD Dashboard Data" > README.md
             git add README.md
             git commit -m "Initialize gh-pages-cva6-dashboard-data branch"
           fi
+
+      - name: Clean stale data directories
+        # download-artifact only overwrites/adds files; it never removes ones no
+        # longer produced, so stale/nested leftovers would linger forever otherwise.
+        run: rm -rf data/dash-site data/PD
 
       - name: Download updated dash-site data
         uses: actions/download-artifact@v4
@@ -137,13 +155,13 @@ jobs:
           name: cva6-dashboard-site
           path: data/dash-site
 
-      - name: Download updated tier data
+      - name: Download updated PD data
         uses: actions/download-artifact@v4
         with:
-          name: cva6-tier-dashboard-data
-          path: data/tier/
+          name: cva6-PD-dashboard-data
+          path: data/PD
 
-      - name: Commit and push tier data
+      - name: Commit and push PD data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -151,6 +169,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else
-            git commit -m "Update cva6 tier dashboard data [skip ci]"
+            git commit -m "Update cva6 PD dashboard data [skip ci]"
             git push origin HEAD:gh-pages-cva6-dashboard-data
           fi

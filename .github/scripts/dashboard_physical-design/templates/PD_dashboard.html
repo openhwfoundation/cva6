@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenHW CVA6 Design Flow CI Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --pass-color: #198754;
+      --fail-color: #dc3545;
+      --skip-color: #6c757d;
+      --na-color: #e9ecef;
+    }
+    body { background: #f5f6fa; }
+
+    /* Navbar - light background so logo is visible */
+    .top-navbar { background: #fff; border-bottom: 1px solid #dee2e6; }
+    .navbar-brand { font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; color: #212529; }
+    .navbar-brand img { height: 32px; margin-right: 12px; }
+
+    .status-card { border-left: 4px solid; transition: transform 0.15s; }
+    .status-card:hover { transform: translateY(-2px); }
+    .status-card.pass { border-left-color: var(--pass-color); }
+    .status-card.fail { border-left-color: var(--fail-color); }
+    .status-card.unknown { border-left-color: var(--skip-color); }
+    .badge-pass { background-color: var(--pass-color); }
+    .badge-fail { background-color: var(--fail-color); }
+    .badge-skip { background-color: var(--skip-color); }
+
+    /* Test Matrix */
+    .matrix-table th.suite-header {
+      font-size: 0.72rem; writing-mode: vertical-lr; text-align: left;
+      padding: 8px 4px; white-space: nowrap;
+    }
+    .matrix-table td.matrix-td {
+      text-align: center; vertical-align: middle;
+      min-width: 42px; height: 42px; padding: 2px;
+    }
+    .matrix-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 6px;
+      font-size: 0.85rem; font-weight: 600;
+      text-decoration: none; color: inherit;
+    }
+    .matrix-icon.pass { background: #d1e7dd; color: #0a3622; }
+    .matrix-icon.fail { background: #f8d7da; color: #58151c; }
+    .matrix-icon.na   { background: var(--na-color); color: #adb5bd; }
+    .matrix-icon:hover { opacity: 0.8; }
+    a.matrix-icon:hover { text-decoration: none; }
+
+    /* Workflow selector */
+    .wf-selector .btn { font-size: 0.82rem; padding: 0.3rem 0.9rem; }
+    .wf-selector .btn-check:checked + .btn-outline-primary {
+      background-color: #0d6efd; color: #fff;
+    }
+
+    /* Navbar page switcher */
+    .navbar-pages-group {
+      display: flex; gap: 0; border: 2px solid #3976d2; border-radius: 8px;
+      background: #f0f8ff; overflow: hidden;
+    }
+    .navbar-pages-group .nav-link {
+      flex: 1; padding: 0.75rem 1.5rem; font-weight: 600; font-size: 1.05rem;
+      border: none; color: #212529; background: transparent;
+      transition: all 0.3s ease; text-decoration: none;
+      display: flex; align-items: center; justify-content: center;
+      letter-spacing: 0.3px;
+    }
+    .navbar-pages-group .nav-link:hover {
+      background: rgba(67, 142, 255, 0.179);
+    }
+    .navbar-pages-group .nav-link.active {
+      background: linear-gradient(135deg, #3976d2 0%, #2d5fa8 100%);
+      color: #fff; font-weight: 700; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Trend charts */
+    .chart-container { position: relative; height: 260px; }
+
+    /* Run history */
+    .flow-table { font-size: 0.85rem; }
+    .flow-table td, .flow-table th { padding: 0.35rem 0.5rem; }
+
+    @media (max-width: 768px) {
+      .matrix-table th.suite-header { font-size: 0.6rem; }
+      .matrix-icon { width: 26px; height: 26px; font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- Section 1: Navbar - white background -->
+<!-- ============================================================ -->
+<nav class="navbar navbar-expand-lg top-navbar shadow-sm">
+  <div class="container-fluid d-flex align-items-center justify-content-between">
+    <span class="navbar-brand">
+      <img src="https://openhwfoundation.org/images/openhw-landscape.png"
+           alt="OpenHW Group" height="32"
+           onerror="this.onerror=null; this.src='https://avatars.githubusercontent.com/u/51096416?s=64&v=4';">
+      CVA6 Design Flow CI Dashboard
+    </span>
+    <div class="navbar-pages-group">
+      <a class="nav-link" href="tier_dashboard.html">📊 Tier Dashboard</a>
+      <a class="nav-link active" href="PD_dashboard.html">⚡ PD Dashboard</a>
+    </div>
+    <span class="navbar-text text-muted" style="font-size:0.85rem">
+      Generated: {{ generated_at }}
+    </span>
+  </div>
+</nav>
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+
+<!-- ============================================================ -->
+<!-- Section 2: Overview Cards -->
+<!-- ============================================================ -->
+<section class="mb-4">
+  <h5 class="text-muted mb-3">Latest Run Status</h5>
+  <div class="row g-3">
+    {% for wf in workflows %}
+    <div class="col-md-6">
+      <div class="card status-card shadow-sm {{ 'pass' if wf.latest.conclusion == 'success' else ('fail' if wf.latest.conclusion == 'failure' else 'unknown') }}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h6 class="card-title mb-0">{{ wf.display_name }}</h6>
+              <small class="text-muted">{{ 'Push-triggered · Floorplan' if wf.key == 'flp' else 'Weekly · Full route (GRT)' }}</small>
+            </div>
+            {% if wf.latest.conclusion == 'success' %}
+              <span class="badge badge-pass">PASS</span>
+            {% elif wf.latest.conclusion == 'failure' %}
+              <span class="badge badge-fail">FAIL</span>
+            {% else %}
+              <span class="badge badge-skip">{{ wf.latest.conclusion|upper }}</span>
+            {% endif %}
+          </div>
+          <div class="text-muted" style="font-size:0.8rem">
+            <div>
+              <strong>Branch:</strong> {{ wf.latest.head_branch }}
+            </div>
+            <div>
+              <strong>Commit:</strong>
+              {% if wf.latest.commit_subject %}
+                {{ wf.latest.commit_subject }}
+                {% if wf.latest.event == 'workflow_dispatch' %}
+                  <em>(manual trigger)</em>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">N/A</span>
+              {% endif %}
+              &middot; <code>{{ wf.latest.head_sha }}</code>
+            </div>
+            <div>
+              <strong>Flows:</strong>
+              <span class="text-success">{{ wf.latest.passed_flows }} passed</span>
+              {% if wf.latest.failed_flows > 0 %}
+                / <span class="text-danger">{{ wf.latest.failed_flows }} failed</span>
+              {% endif %}
+              ({{ wf.latest.total_flows }} total)
+            </div>
+            <div>
+              <strong>Duration:</strong> {{ wf.latest.duration_display }}
+              &middot; <strong>Run:</strong> #{{ wf.latest.run_number }}
+            </div>
+            <div>
+              <strong>Created at:</strong> {{ wf.latest.created_at_display }}
+            </div>
+          </div>
+          {% if wf.latest.build_params_display %}
+          <div class="mt-3">
+            <div class="text-muted mb-1" style="font-size:0.87rem; font-weight:600; text-transform:uppercase; letter-spacing:0.03em">Build parameters</div>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered mb-0" style="font-size:0.78rem">
+                <tbody>
+                  <tr>
+                    {% for p in wf.latest.build_params_display %}<th class="table-light fw-normal">{{ p.label }}</th>{% endfor %}
+                  </tr>
+                  <tr>
+                    {% for p in wf.latest.build_params_display %}<td><code style="font-size:0.78rem">{{ p.value }}</code></td>{% endfor %}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+          {% if wf.latest.flows %}
+          <div class="mt-3">
+            <div class="text-muted mb-1" style="font-size:0.87rem; font-weight:600; text-transform:uppercase; letter-spacing:0.03em">Latest run results</div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0" style="font-size:0.82rem">
+                <thead class="table-light">
+                  <tr>
+                    <th>Arch</th>
+                    <th>Config</th>
+                    <th>fmax (MHz)</th>
+                    <th>Stdcell Area (Kgate)</th>
+                    <th>Worst Slack (ps)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for flow in wf.latest.flows %}
+                  {% set fk = flow.arch ~ '_' ~ flow.config %}
+                  {% set d = wf.flow_deltas.get(fk) %}
+                  <tr>
+                    <td>{{ flow.arch|upper }}</td>
+                    <td><code style="font-size:0.78rem">{{ flow.config }}</code></td>
+                    <td>
+                      {% if flow.metrics.fmax_mhz is not none %}
+                        {{ flow.metrics.fmax_mhz }}
+                        {% if d and d.fmax_mhz %}
+                          {% set dv = d.fmax_mhz %}
+                          <span style="color: {{ '#198754' if dv.value > 0 else ('#dc3545' if dv.value < 0 else '#6c757d') }}; font-size:0.78rem; font-weight:600">
+                            ({{ dv.sign }}{{ dv.value }})
+                          </span>
+                        {% endif %}
+                      {% else %}<span class="text-muted">N/A</span>{% endif %}
+                    </td>
+                    <td>
+                      {% if flow.metrics.stdcell_kgate is not none %}
+                        {{ flow.metrics.stdcell_kgate }}
+                        {% if d and d.stdcell_kgate %}
+                          {% set dv = d.stdcell_kgate %}
+                          <span style="color: {{ '#dc3545' if dv.value > 0 else ('#198754' if dv.value < 0 else '#6c757d') }}; font-size:0.78rem; font-weight:600">
+                            ({{ dv.sign }}{{ dv.value }})
+                          </span>
+                        {% endif %}
+                      {% else %}<span class="text-muted">N/A</span>{% endif %}
+                    </td>
+                    <td>
+                      {% if flow.metrics.worst_setup_slack_ps is not none %}
+                        {{ flow.metrics.worst_setup_slack_ps }}
+                        {% if d and d.worst_setup_slack_ps %}
+                          {% set dv = d.worst_setup_slack_ps %}
+                          <span style="color: {{ '#dc3545' if dv.value > 0 else ('#198754' if dv.value < 0 else '#6c757d') }}; font-size:0.78rem; font-weight:600">
+                            ({{ dv.sign }}{{ dv.value }})
+                          </span>
+                        {% endif %}
+                      {% else %}<span class="text-muted">N/A</span>{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+          <div class="mt-2">
+            <a href="{{ wf.latest.html_url }}" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">
+              View on GitHub &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- Section 4: Trend Charts -->
+<!-- ============================================================ -->
+{% for wf in workflows %}
+<section class="mb-4">
+  <h5 class="text-muted mb-3">{{ wf.type }} Metrics Trends (Last {{ trend_count }} Runs)</h5>
+
+  <div class="row g-3 mb-3">
+    <!-- Card 1: fmax -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header py-2" style="font-size:0.85rem">
+          {{ wf.display_name }}.yml - <strong>fmax</strong> (MHz)
+        </div>
+        <div class="card-body p-2">
+          <div class="chart-container">
+            <canvas id="chart-{{ wf.key }}-fmax"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: area -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header py-2" style="font-size:0.85rem">
+          {{ wf.display_name }}.yml - <strong>Stdcell Area</strong> (Kgate)
+        </div>
+        <div class="card-body p-2">
+          <div class="chart-container">
+            <canvas id="chart-{{ wf.key }}-area"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: worst slack -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm">
+        <div class="card-header py-2" style="font-size:0.85rem">
+          {{ wf.display_name }}.yml - <strong>Worst Slack</strong> (ps)
+        </div>
+        <div class="card-body p-2">
+          <div class="chart-container">
+            <canvas id="chart-{{ wf.key }}-worstslack"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<!-- ============================================================ -->
+<!-- Section 5: Run History Accordions -->
+<!-- ============================================================ -->
+<section class="mb-4">
+  <h5 class="text-muted mb-3">Run History</h5>
+  <div class="accordion" id="historyAccordion">
+    {% for wf in workflows %}
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button {{ '' if loop.first else 'collapsed' }}" type="button"
+                data-bs-toggle="collapse" data-bs-target="#collapse-{{ wf.key }}">
+          {{ wf.display_name }}
+          <span class="badge bg-secondary ms-2">{{ wf.runs|length }} runs</span>
+        </button>
+      </h2>
+      <div id="collapse-{{ wf.key }}" class="accordion-collapse collapse {{ 'show' if loop.first else '' }}"
+           data-bs-parent="#historyAccordion">
+        <div class="accordion-body p-2">
+          {% if wf.runs %}
+          <div class="accordion" id="runsAccordion-{{ wf.key }}">
+            {% for run in wf.runs[:20] %}
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-2" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#run-{{ wf.key }}-{{ run.id }}"
+                        style="font-size:0.85rem">
+                  {% if run.conclusion == 'success' %}
+                    <span class="badge badge-pass me-2">PASS</span>
+                  {% elif run.conclusion == 'failure' %}
+                    <span class="badge badge-fail me-2">FAIL</span>
+                  {% else %}
+                    <span class="badge badge-skip me-2">{{ run.conclusion|upper }}</span>
+                  {% endif %}
+                  #{{ run.run_number }}
+                  &middot;&nbsp;
+                  {% if run.commit_subject %}
+                    <span style="font-weight: 600">{{ run.commit_subject }}</span>
+                    {% if run.event == 'workflow_dispatch' %}
+                      &nbsp; <strong class="text-secondary"><em>(manual trigger)</em></strong>
+                    {% endif %}
+                  {% endif %}
+                  &nbsp;&middot;&nbsp; <span class="text-muted">{{ run.head_branch }}</span>
+                  &nbsp;&middot;&nbsp; <code>{{ run.head_sha }}</code>
+                  &nbsp;&middot; {{ run.duration_display }}
+                  <span class="ms-auto text-muted" style="font-size:0.75rem">{{ run.created_at_display }}</span>
+                </button>
+              </h2>
+              <div id="run-{{ wf.key }}-{{ run.id }}" class="accordion-collapse collapse"
+                   data-bs-parent="#runsAccordion-{{ wf.key }}">
+                <div class="accordion-body p-2">
+                  <div class="mb-2" style="font-size:0.8rem">
+                    {% if run.actor %}
+                    <div class="text-muted mb-1">Authored by: <strong>{{ run.actor }}</strong></div>
+                    {% endif %}
+                    <a href="{{ run.html_url }}" target="_blank" rel="noopener">View on GitHub</a>
+                    &middot; Event: {{ run.event }}
+                    &middot; Flows: {{ run.passed_flows }}/{{ run.total_flows }} passed
+                  </div>
+                  {% if run.build_params_display %}
+                  <div class="mb-2">
+                    <div class="text-muted mb-1" style="font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.03em">Build parameters</div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered mb-0" style="font-size:0.78rem">
+                        <tbody>
+                          <tr>
+                            {% for p in run.build_params_display %}<th class="table-light fw-normal">{{ p.label }}</th>{% endfor %}
+                          </tr>
+                          <tr>
+                            {% for p in run.build_params_display %}<td><code style="font-size:0.78rem">{{ p.value }}</code></td>{% endfor %}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% if run.flows %}
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover flow-table mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Arch</th>
+                          <th>Config</th>
+                          <th>fmax (MHz)</th>
+                          <th>Stdcell Area (Kgate)</th>
+                          <th>Worst Slack (ps)</th>
+                          <th>Status</th>
+                          <th>Duration</th>
+                          <th>Downloads</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for flow in run.flows %}
+                        <tr>
+                          <td>{{ flow.arch|upper }}</td>
+                          <td><code>{{ flow.config }}</code></td>
+                          <td>{{ flow.metrics.fmax_mhz }}</td>
+                          <td>{{ flow.metrics.stdcell_kgate }}</td>
+                          <td>{{ flow.metrics.worst_setup_slack_ps }}</td>
+                          <td>
+                            {% if flow.conclusion == 'success' %}
+                              <span class="badge badge-pass">PASS</span>
+                            {% elif flow.conclusion == 'failure' %}
+                              <span class="badge badge-fail">FAIL</span>
+                            {% else %}
+                              <span class="badge badge-skip">{{ flow.conclusion|upper }}</span>
+                            {% endif %}
+                          </td>
+                          <td>{{ flow.duration_display }}</td>
+                          <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                              {% if flow.raw_json_path %}
+                                <a href="{{ flow.raw_json_path }}"
+                                  class="btn btn-sm btn-outline-primary"
+                                  download="run{{ run.run_number }}_{{ flow.arch }}-{{ flow.config }}.json"
+                                  title="Download raw JSON metrics">
+                                  📥 JSON
+                                </a>
+                              {% endif %}
+                              {% if flow.logs_zip_path %}
+                                <a href="{{ flow.logs_zip_path }}"
+                                  class="btn btn-sm btn-outline-secondary"
+                                  download="run{{ run.run_number }}_{{ flow.arch }}-{{ flow.config }}-logs.zip"
+                                  title="Download stage logs & reports (.zip)">
+                                  📋 Logs & Reports
+                                </a>
+                              {% endif %}
+                              {% if not flow.raw_json_path and not flow.logs_zip_path %}
+                                <span class="text-muted" style="font-size:0.75rem">N/A</span>
+                              {% endif %}
+                            </div>
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                  {% else %}
+                  <div class="text-muted">No flow data available.</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-muted">No run history available.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<!-- ============================================================ -->
+<!-- Section 6: Footer -->
+<!-- ============================================================ -->
+<footer class="bg-dark text-light py-3 mt-4">
+  <div class="container-fluid px-4">
+    <div class="row">
+      <div class="col-md-6">
+        <small class="text-light opacity-75">
+          &copy; {{ year }} <a href="https://www.openhwgroup.org/" class="text-light" target="_blank" rel="noopener">OpenHW Group</a>
+          &middot; CVA6 Design Flow CI Dashboard
+        </small>
+      </div>
+      <div class="col-md-6 text-md-end">
+        <small class="text-light opacity-75">
+          Generated: {{ generated_at }}
+          &middot; <a href="https://github.com/{{ repo }}" class="text-light" target="_blank" rel="noopener">Source</a>
+        </small>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+// ============================================================
+// Chart.js Trend Charts
+// ============================================================
+const chartData = {{ chart_data_json|safe }};
+
+Object.keys(chartData).forEach(key => {
+  const wf = chartData[key];
+  const ctx_fmax = document.getElementById('chart-' + key + '-fmax');
+  const ctx_area = document.getElementById('chart-' + key + '-area');
+  const ctx_ws = document.getElementById('chart-' + key + '-worstslack');
+  if (!ctx_fmax || !wf.labels.length) return;
+
+const colors = ['#198754', '#0d6efd', '#dc3545', '#fd7e14', '#6f42c1', '#20c997', '#e83e8c'];
+
+  new Chart(ctx_fmax, {
+    type: 'line',
+    data: {
+      labels: wf.labels,
+      datasets: Object.keys(wf.series).sort().map((flow_key, index) => {
+        const color = colors[index % colors.length];
+        return {
+          label: flow_key,
+          data: wf.series[flow_key].fmax_mhz,
+          borderColor: color,
+          backgroundColor: color + '1a', // Transparency
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          spanGaps: true,
+        };
+      })
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: function(items) { return 'Run #' + items[0].label; }
+          }
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear', position: 'left',
+          // min: 0, max: 4000,
+          title: { display: true, text: 'fmax (MHz)', font: { size: 11 } },
+          ticks: { font: { size: 10 } }
+        },
+        x: {
+          ticks: { font: { size: 10 }, maxRotation: 45 }
+        }
+      }
+    }
+  });
+
+  new Chart(ctx_area, {
+    type: 'line',
+    data: {
+      labels: wf.labels,
+      datasets: Object.keys(wf.series).sort().map((flow_key, index) => {
+        const color = colors[index % colors.length];
+        return {
+          label: flow_key,
+          data: wf.series[flow_key].stdcell_kgate,
+          borderColor: color,
+          backgroundColor: color + '1a', // Transparency
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          spanGaps: true,
+        };
+      })
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: function(items) { return 'Run #' + items[0].label; }
+          }
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear', position: 'left',
+          // min: 0, max: 100,
+          title: { display: true, text: 'Area (Kgate)', font: { size: 11 } },
+          ticks: { font: { size: 10 } }
+        },
+        x: {
+          ticks: { font: { size: 10 }, maxRotation: 45 }
+        }
+      }
+    }
+  });
+
+  new Chart(ctx_ws, {
+    type: 'line',
+    data: {
+      labels: wf.labels,
+      datasets: Object.keys(wf.series).sort().map((flow_key, index) => {
+        const color = colors[index % colors.length];
+        return {
+          label: flow_key,
+          data: wf.series[flow_key].worst_setup_slack_ps,
+          borderColor: color,
+          backgroundColor: color + '1a', // Transparency
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          spanGaps: true,
+        };
+      })
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: function(items) { return 'Run #' + items[0].label; }
+          }
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear', position: 'left',
+          // min: 0, max: 100,
+          title: { display: true, text: 'Worst slack (ps)', font: { size: 11 } },
+          ticks: { font: { size: 10 } }
+        },
+        x: {
+          ticks: { font: { size: 10 }, maxRotation: 45 }
+        }
+      }
+    }
+  });
+
+});
+</script>
+</body>
+</html>
