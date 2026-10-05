@@ -1,0 +1,24 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y \
+        build-essential \
+        gcc g++ \
+        binutils \
+        lld \
+        python3 python3-pip \
+        git curl wget \
+        libz-dev \
+        pkg-config \
+        && apt-get clean
+
+    # Bazel via bazelisk
+    curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
+        -o /usr/local/bin/bazel
+    chmod +x /usr/local/bin/bazel
+
+%environment
+    export PATH=/usr/local/bin:$PATH
+    export LC_ALL=C

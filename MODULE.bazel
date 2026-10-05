@@ -1,0 +1,157 @@
+"""cva6 bazel dependencies"""
+
+module(
+    name = "cva6",
+    version = "0.0.1",
+)
+
+bazel_dep(
+    name = "rules_python",
+    version = "1.9.0",
+    # reduce namespace collisions by prefixing with cva6
+    repo_name = "cva6_rules_python",
+)
+
+python = use_extension("@cva6_rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    ignore_root_user_error = True,
+    python_version = "3.13",
+)
+
+pip = use_extension("@cva6_rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "cva6-pip",
+    python_version = "3.13",
+    requirements_lock = "//:bazel/requirements_lock.txt",
+)
+use_repo(pip, "cva6-pip")
+
+bazel_dep(name = "bazel-orfs")
+git_override(
+    module_name = "bazel-orfs",
+    commit = "553c1c3a44f0e0e857b1abb0b1b8035a77076456",
+    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
+)
+
+bazel_dep(name = "bazel-orfs-verilog")
+git_override(
+    module_name = "bazel-orfs-verilog",
+    commit = "553c1c3a44f0e0e857b1abb0b1b8035a77076456",
+    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
+    strip_prefix = "verilog",
+)
+
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "c9c22caf9bf9cfe46c5a4236c6ec7e7ae9863cc3",
+    patch_strip = 1,
+    patches = ["//:bazel/patches/fix_orfs_dev_deps.patch"],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts",
+)
+
+bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    integrity = "sha256-il+C3RFw2D3109NxSuWtD2lqYNvHXMvytT62yeJqBKM=",
+    # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
+    # so vendor src/sta (OpenSTA) and third-party/abc from their own
+    # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
+    # to.  sha256sum -c verifies each tarball since patch_cmds bytes
+    # aren't covered by archive_override's integrity.  Regenerated
+    # by bump.py on every commit bump; do not edit by hand.
+    patch_cmds = [
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-src-sta-244797f162b465751912b651d55d9854296aa745.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/244797f162b465751912b651d55d9854296aa745.tar.gz && echo '3780fc3badd4b3abe6047a241892c9cdfb3fef1634c466c431f8d33a444cbd18  .openroad-submodule-src-sta-244797f162b465751912b651d55d9854296aa745.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-244797f162b465751912b651d55d9854296aa745.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-244797f162b465751912b651d55d9854296aa745.tar.gz",
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
+        "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD",
+    ],
+    strip_prefix = "OpenROAD-4c26918f5a77392910939b51b9c2490b7e7e3201",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/4c26918f5a77392910939b51b9c2490b7e7e3201.tar.gz"],
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+
+bazel_dep(name = "yosys", version = "0.64")
+
+# yosys-slang: SystemVerilog 2017+ frontend plugin for Yosys.
+# CVA6 uses advanced SV features that Yosys' built-in Verilog-2005 parser
+# cannot handle.
+# Not yet in BCR, so use git_override to pull directly.
+bazel_dep(name = "yosys-slang", version = "0.0.0")
+git_override(
+    module_name = "yosys-slang",
+    remote = "https://github.com/povik/yosys-slang.git",
+    commit = "d5e8d8558ec2ab35a5d96c1b6b00e2cb235e86fc",
+)
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    # Expose yosys-slang plugin to synthesis flow via YOSYS_PLUGIN_PATH
+    yosys_plugins = ["@yosys-slang//src/yosys_plugin:slang.so"],
+)
+use_repo(orfs, "gnumake")
+
+bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+
+# OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
+# Force the resolution to the latest published version until BCR catches up.
+single_version_override(
+    module_name = "sv-lang",
+    version = "10.0.1-20260316-f04e8156",
+)
+
+# scip 9.2.3 (pulled transitively by OpenROAD) vendors a tinycthread that
+# #defines once_flag/call_once, colliding with glibc 2.41+'s <threads.h> and
+# failing to compile.  9.2.3.bcr.1 carries the upstream rename fix
+# (scipopt/scip@cc917e07) but isn't on official BCR yet, so it's hosted in the
+# fork registry pinned in .bazelrc.  Nothing in the graph requests .bcr.1, so
+# force it here.  Drop both once BCR ships scip > 9.2.3.
+single_version_override(
+    module_name = "scip",
+    version = "9.2.3.bcr.1",
+)
+
+# sed-4.9 ships gnulib's lib/memchr.c, which compiles cleanly only
+# when `memchr` is not a function-like macro at the point it defines
+# `__memchr (...)`.  Its own guard
+#
+#   #undef __memchr
+#   #ifdef _LIBC
+#   # undef memchr
+#   #endif
+#   #ifndef weak_alias
+#   # define __memchr memchr
+#   #endif
+#   __memchr (void const *s, int c_in, size_t n)
+#
+# only undef's `memchr` inside glibc's own build (_LIBC).  Outside
+# _LIBC, on glibc 2.41+, <string.h> defines `memchr` as a _Generic
+# macro (`__glibc_const_generic`) — so `__memchr` expands to
+# `memchr`, which expands to the macro, and the function header
+# becomes "_Generic(...)(...)" and clang rejects it with
+# "expected identifier or '('".  Force the existing `# undef memchr`
+# to run unconditionally; the bcr.5 bump is otherwise just BUILD
+# refactoring.
+single_version_override(
+    module_name = "sed",
+    patch_cmds = [
+        "sed -i 's|^#ifdef _LIBC$|#if 1|' lib/memchr.c",
+    ],
+    version = "4.9.bcr.5",
+)
+
+# sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
+# 3.8 (transitively registered via or-tools -> pybind11_abseil, dropped
+# from rules_python 2.0.0's MINOR_MAPPING). pycross.configure_environments
+# is root-honored only, so the workaround must live here (mirrored from
+# upstream OpenROAD's MODULE.bazel, which can't apply it from non-root).
+bazel_dep(name = "rules_pycross", version = "0.8.1")
+
+pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
+pycross.configure_environments(python_versions = ["3.13"])

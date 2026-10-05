@@ -1,0 +1,114 @@
+name: OR-flow-grt
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  design-flow:
+    name: ${{ matrix.config }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false  # keep other configs running even if one fails
+      matrix:
+        config:
+          - cv32a65x
+          - cv64a6_imafdc_sv39_hpdcache
+          - cv64a6_imafdc_sv39_hpdcache_wb
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Bazelisk
+        run: |
+          sudo curl -fsSL \
+            https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
+            -o /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
+
+      - name: Restore Bazel disk cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/bazel-disk-cache
+          key: bazel-orfs-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('MODULE.bazel', 'BUILD.bazel', 'bazel/**') }}
+          # each level widens the match: same config → any config
+          restore-keys: |
+            bazel-orfs-${{ runner.os }}-${{ matrix.config }}-
+            bazel-orfs-${{ runner.os }}-
+        
+      # repository cache persists all the downloaded tarballs and git archives
+      # shared across all matrix configs; keyed on MODULE.bazel (defines all external deps)
+      - name: Restore Bazel repository cache
+        id: repo-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/bazel-repo-cache
+          key: bazel-orfs-${{ runner.os }}-repo-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: |
+            bazel-orfs-${{ runner.os }}-repo-
+
+      - name: Run full flow to global routing
+        # explicit disk cache (not the output base); GC limit set to 2 GB in .bazelrc
+        run: |
+          bazel run \
+            --disk_cache="$HOME/.cache/bazel-disk-cache" \
+            --repository_cache="$HOME/.cache/bazel-repo-cache" \
+            //:${{ matrix.config }}_grt \
+            print-CORE_UTILIZATION print-PLACE_DENSITY print-ABC_CLOCK_PERIOD_IN_PS print-SYNTH_HIERARCHICAL print-SYNTH_MINIMUM_KEEP_SIZE \
+            2>&1 | tee bazel-build-output.log
+
+      - name: Extract build parameters
+        # Parses the print-VAR output captured above to extract bazel build arguments 
+        # that most affect PPA metrics
+        if: always()
+        run: |
+          mkdir -p bazel-bin/logs/asap7/cva6/base
+          json="{}"
+          for var in CORE_UTILIZATION PLACE_DENSITY ABC_CLOCK_PERIOD_IN_PS SYNTH_HIERARCHICAL SYNTH_MINIMUM_KEEP_SIZE; do
+            value=$(grep "^$var:" bazel-build-output.log | tail -n1 | cut -d' ' -f2-) || value=""
+            json=$(echo "$json" | jq --arg k "$var" --arg v "$value" '.[$k] = $v')
+          done
+          echo "$json" | tee bazel-bin/logs/asap7/cva6/base/build_params.json
+
+      - name: Save Bazel disk cache
+        uses: actions/cache/save@v4
+        # if always() preserves partial cache even when the build fails
+        if: always()
+        with:
+          path: ~/.cache/bazel-disk-cache
+          key: ${{ steps.cache-restore.outputs.cache-primary-key }}
+
+      - name: Save Bazel repository cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ~/.cache/bazel-repo-cache
+          key: ${{ steps.repo-cache-restore.outputs.cache-primary-key }}
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD-grt-${{ startsWith(matrix.config, 'cv32') && 'RV32' || 'RV64' }}-${{ matrix.config }}
+          path: bazel-bin/logs/asap7/cva6/base/5_1_grt.json
+          if-no-files-found: warn  # the job result already reflects build success/failure
+
+      - name: Upload logs & reports artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD-grt-logs-${{ startsWith(matrix.config, 'cv32') && 'RV32' || 'RV64' }}-${{ matrix.config }}
+          path: |
+            bazel-bin/logs/asap7/cva6/base/*.log
+            bazel-bin/reports/asap7/cva6/base/*
+            bazel-bin/logs/asap7/cva6/base/build_params.json
+          if-no-files-found: warn

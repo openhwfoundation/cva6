@@ -1,0 +1,30 @@
+build --incompatible_strict_action_env
+
+# scip 9.2.3 (pulled transitively by OpenROAD) ships a vendored tinycthread
+# that #defines once_flag/call_once, clashing with glibc 2.41+'s <threads.h>
+# and failing to compile locally. scip 9.2.3.bcr.1 carries the upstream fix
+# (scipopt/scip@cc917e07, renaming the symbols to TNY_*) but isn't on the
+# official BCR yet, so add the fork registry that hosts it. BCR is listed
+# first; the fork is only consulted for versions BCR doesn't carry yet.
+# The commit hash makes the fork reference immutable. Drop once a BCR scip
+# release > 9.2.3 lands.
+common --registry=https://bcr.bazel.build/
+common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/c220c8fc735c0e05c0354330b8885ca36275bd02/
+
+# Required by OpenROAD (STA uses std::format_string from C++20)
+build --cxxopt "-std=c++20" --host_cxxopt "-std=c++20"
+
+common --incompatible_disallow_empty_glob
+common --lockfile_mode=off
+
+# Required by OpenROAD's MODULE.bazel (uses isolate = True in use_extension)
+common --experimental_isolated_extension_usages
+
+# Garbage-collect disk cache to avoid exhausting CI runner disk.
+build --experimental_disk_cache_gc_max_size=2G
+
+# Custom config file configuring the remote downloader
+# Used to route GNU primary FTP through the GeoDNS mirror network
+common --downloader_config=bazel/downloader.cfg
+
+try-import %workspace%/user.bazelrc
