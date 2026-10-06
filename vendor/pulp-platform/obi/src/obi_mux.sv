@@ -45,7 +45,7 @@ module obi_mux #(
     $fatal(1, "unimplemented");
   end
 
-  localparam int unsigned RequiredExtraIdWidth = $clog2(NumSbrPorts);
+  localparam int unsigned RequiredExtraIdWidth = cf_math_pkg::idx_width(NumSbrPorts);
 
   logic [NumSbrPorts-1:0] sbr_ports_req, sbr_ports_gnt;
   sbr_port_a_chan_t [NumSbrPorts-1:0] sbr_ports_a;

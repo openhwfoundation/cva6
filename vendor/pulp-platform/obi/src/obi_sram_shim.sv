@@ -43,12 +43,14 @@ module obi_sram_shim #(
   assign wdata_o = obi_req_i.a.wdata;
   assign be_o    = obi_req_i.a.be;
 
-  assign obi_rsp_o.gnt     = gnt_i;
-  assign obi_rsp_o.rvalid  = rvalid_q;
-  assign obi_rsp_o.r.rdata = rdata_i;
-  assign obi_rsp_o.r.rid   = id_q;
-  assign obi_rsp_o.r.err   = 1'b0;
-  assign obi_rsp_o.r.r_optional = '0;
+  always_comb begin
+    obi_rsp_o         = '0;
+    obi_rsp_o.gnt     = gnt_i;
+    obi_rsp_o.rvalid  = rvalid_q;
+    obi_rsp_o.r.rdata = rdata_i;
+    obi_rsp_o.r.rid   = id_q;
+    obi_rsp_o.r.err   = 1'b0;
+  end
 
   assign rvalid_d = obi_req_i.req & obi_rsp_o.gnt;
   assign id_d     = obi_req_i.a.aid;

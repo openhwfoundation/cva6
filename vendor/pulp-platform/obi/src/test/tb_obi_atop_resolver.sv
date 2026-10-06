@@ -18,7 +18,7 @@ module tb_obi_atop_resolver;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
   localparam int unsigned MgrIdWidth = 5;
-  localparam int unsigned SbrIdWidth = MgrIdWidth+$clog2(NumManagers);
+  localparam int unsigned SbrIdWidth = MgrIdWidth+cf_math_pkg::idx_width(NumManagers);
   localparam int unsigned AUserWidth = 4;
   localparam int unsigned WUserWidth = 2;
   localparam int unsigned RUserWidth = 3;
@@ -213,14 +213,14 @@ module tb_obi_atop_resolver;
   );
 
   atop_golden_mem_pkg::atop_golden_mem #(
-    .ObiAddrWidth ( AddrWidth           ),
-    .ObiDataWidth ( DataWidth           ),
-    .ObiIdWidthM  ( MgrIdWidth          ),
-    .ObiIdWidthS  ( SbrIdWidth          ),
-    .ObiUserWidth ( AUserWidth          ),
-    .NumMgrWidth  ( $clog2(NumManagers) ),
-    .ApplDelay    ( ApplTime            ),
-    .AcqDelay     ( TestTime            )
+    .ObiAddrWidth ( AddrWidth                           ),
+    .ObiDataWidth ( DataWidth                           ),
+    .ObiIdWidthM  ( MgrIdWidth                          ),
+    .ObiIdWidthS  ( SbrIdWidth                          ),
+    .ObiUserWidth ( AUserWidth                          ),
+    .NumMgrWidth  ( cf_math_pkg::idx_width(NumManagers) ),
+    .ApplDelay    ( ApplTime                            ),
+    .AcqDelay     ( TestTime                            )
   ) golden_memory = new(mem_monitor_dv);
   assign mem_monitor_dv.user = '0;
 
@@ -493,7 +493,7 @@ module tb_obi_atop_resolver;
     // SC without acquiring lock -> !exokay
     ///////////////////////////////////////
     assert (randomize(address));
-    address[$clog2(DataWidth/8)-1:0] = '0;
+    address[cf_math_pkg::idx_width(DataWidth/8)-1:0] = '0;
     assert (randomize(data));
     assert (randomize(trans_id));
     // Initialize address
@@ -519,7 +519,7 @@ module tb_obi_atop_resolver;
     // LR/SC sequence -> exokay
     ///////////////////////////
     assert (randomize(address));
-    address[$clog2(DataWidth/8)-1:0] = '0;
+    address[cf_math_pkg::idx_width(DataWidth/8)-1:0] = '0;
     assert (randomize(trans_id));
     // Initialize address
     obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);
@@ -553,7 +553,7 @@ module tb_obi_atop_resolver;
     // LR then different SC -> !exokay
     //////////////////////////////////
     assert (randomize(address));
-    address[$clog2(DataWidth/8)-1:0] = '0;
+    address[cf_math_pkg::idx_width(DataWidth/8)-1:0] = '0;
     assert (randomize(trans_id));
     // Initialize address
     obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);
@@ -568,7 +568,7 @@ module tb_obi_atop_resolver;
 
     do begin
       assert (randomize(address_2));
-      address_2[$clog2(DataWidth/8)-1:0] = '0;
+      address_2[cf_math_pkg::idx_width(DataWidth/8)-1:0] = '0;
     end while (address_2 == address);
     assert (randomize(data));
     a_optional.atop = ATOPSC;
@@ -583,7 +583,7 @@ module tb_obi_atop_resolver;
     // LR, other core store, SC -> !exokay
     //////////////////////////////////////
     assert (randomize(address));
-    address[$clog2(DataWidth/8)-1:0] = '0;
+    address[cf_math_pkg::idx_width(DataWidth/8)-1:0] = '0;
     assert (randomize(trans_id));
     // Initialize address
     obi_rand_managers[0].write(address, '1, '0, trans_id, a_optional, rdata, rid, err, r_optional);

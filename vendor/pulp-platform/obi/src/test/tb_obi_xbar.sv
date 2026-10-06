@@ -17,7 +17,7 @@ module tb_obi_xbar;
   localparam int unsigned AddrWidth = 32;
   localparam int unsigned DataWidth = 32;
   localparam int unsigned MgrIdWidth = 5;
-  localparam int unsigned SbrIdWidth = MgrIdWidth+$clog2(NumManagers);
+  localparam int unsigned SbrIdWidth = MgrIdWidth+cf_math_pkg::idx_width(NumManagers);
   localparam int unsigned AUserWidth = 4;
   localparam int unsigned WUserWidth = 2;
   localparam int unsigned RUserWidth = 3;

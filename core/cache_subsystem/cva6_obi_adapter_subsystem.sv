@@ -9,7 +9,7 @@
 // Date: June, 2025
 // Description: CVA6 Interface adapter YPB to OBI
 
-`include "obi/typedef.svh"
+`include "obi_types.svh"
 
 module cva6_obi_adapter_subsystem
 //  Parameters

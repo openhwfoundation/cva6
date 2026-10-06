@@ -49,10 +49,10 @@ module obi_xbar #(
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
-  input  logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i
+  input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
-  logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] sbr_port_select;
+  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] sbr_port_select;
 
   // Signals from the demuxes
   sbr_port_obi_req_t [NumSbrPorts-1:0][NumMgrPorts-1:0] sbr_reqs;
@@ -188,7 +188,7 @@ module obi_xbar_intf #(
 
   input  addr_map_rule_t [NumAddrRules-1:0]   addr_map_i,
   input  logic [NumSbrPorts-1:0]              en_default_idx_i,
-  input  logic [NumSbrPorts-1:0][$clog2(NumMgrPorts)-1:0] default_idx_i
+  input  logic [NumSbrPorts-1:0][cf_math_pkg::idx_width(NumMgrPorts)-1:0] default_idx_i
 );
 
   `OBI_TYPEDEF_ALL(sbr_port_obi, SbrPortObiCfg)

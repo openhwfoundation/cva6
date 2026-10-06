@@ -16,7 +16,7 @@
         // URL
         url: "https://github.com/pulp-platform/obi.git",
         // revision
-        rev: "v0.1.3",
+        rev: "v0.1.7",
     }
 
     // Patch dir for local changes

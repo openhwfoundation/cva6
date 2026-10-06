@@ -33,7 +33,7 @@ import uvm_pkg::*;
 `include "uvm_macros.svh"
 `include "cvxif_types.svh"
 `include "axi_types.svh"
-`include "obi/typedef.svh"
+`include "obi_types.svh"
 
 
 `ifndef DPI_FESVR_SPIKE_UTILS

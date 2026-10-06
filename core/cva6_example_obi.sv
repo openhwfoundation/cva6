@@ -11,7 +11,7 @@
 
 `include "rvfi_types.svh"
 `include "cvxif_types.svh"
-`include "obi/typedef.svh"
+`include "obi_types.svh"
 
 module cva6_example_obi
   import ariane_pkg::*;
