@@ -2,7 +2,7 @@
 New Contributors are always welcome.
 
 Note that Contributors are required to be covered by an [Eclipse Contributor Agreement](https://www.eclipse.org/legal/ECA.php).
-Contributors are encouraged, but not required, to be a [member](https://www.openhwgroup.org/membership/) of the OpenHW Group.
+Contributors are encouraged, but not required, to be a [member](https://openhwfoundation.org/become-a-member/)) of the OpenHW Foundation.
 
 ## Read this before
 
@@ -19,7 +19,7 @@ Therefore here are guidelines to help the CVA6 team accept new contributions:
     * The CVA6 team can provide you recommendations to ease the upcoming contribution.
     * This can help save significant review and overhauling effort for you and us when dealing with the pull request review.
     * Together, we can anticipate specific cases that are not addressed here.
-    * If you do not know how to contact us already, get in touch through info@openhwgroup.org or open an issue in GitHub.
+    * If you do not know how to contact us already, you can get in touch through the [OpenHW contact page](https://openhwfoundation.org/contact/) or open an issue in GitHub.
 
 - Specific recommendations:
     * Always consider using the CV-X-IF interface if your contribution is an instruction-set extension.
@@ -47,15 +47,54 @@ Therefore here are guidelines to help the CVA6 team accept new contributions:
 
 If you encounter difficulties with these guidelines, get in touch with the team!
 
+### Copyright and license headers
+
+Although the repository includes a [LICENSE](https://github.com/openhwfoundation/cva6/blob/master/LICENSE) file,
+it is essential to include appropriate copyright and license headers in individual files, as they can be copied and used outside of the repository context.
+
+When contributing, please adhere to these rules:
+- **Add headers**: Include a copyright and license header in all new files, as well as in updated files that currently lack one.
+- **Do not alter licenses**: Never change an existing license (for instance, changing Solderpad 0.51 to another license).
+- **Preserve copyright history**: Do not remove or replace existing copyright owners. 
+- You may add additional copyright owners (typically your company or university) when you contribute significant changes, such as a major feature or a substantial performance increase.
+- In the copyright line, specify the year when the copyright was added with the `20xx` format. Do not update this year for subsequent modifications.
+
+Note: The copyright owner of your work is legally your employer or university in most contexts.
+
+Here is a Solderpad 0.51 file header, wrapped to 100 characters according to lowRISC SystemVerilog coding style:
+
+```
+// Copyright [year] [name of copyright owner]
+//
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// Copyright and related rights are licensed under the Solderpad Hardware License, Version 0.51
+// (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://solderpad.org/licenses/SHL-0.51.
+// Unless required by applicable law or agreed to in writing, software, hardware and materials
+// distributed under this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language
+// governing permissions and limitations under the License.
+//
+// Contributors:
+//   [name of the author], [their organisation] - Original Author
+```
+
+For files governed by other licenses, you should refer to the headers recommended by the respective license promoters. Ensure that an `SPDX-License-Identifier` is included for automated parsers.
+
+Detailed information about intellectual property and headers can be found in the [Eclipse Foundation Project Handbook](https://www.eclipse.org/projects/handbook/#ip-copyright-headers).
+
+If you have questions about licenses and headers, get in touch with the project team!
+
 ### Bug fixing
 
 Bug fixing is always welcome. You can issue a GitHub issue. Better: solve the bug and trigger a pull request.
 
 ## The Mechanics
-1. From GitHub: [fork](https://help.github.com/articles/fork-a-repo/) the [cva6](https://github.com/openhwgroup/cva6) repository
+1. From GitHub: [fork](https://help.github.com/articles/fork-a-repo/) the [cva6](https://github.com/openhwfoundation/cva6) repository
 2. Clone repository: `git clone https://github.com/[your_github_username]/cva6`
 3. Create your feature branch: `git checkout -b <my_branch>.`<br> Please uniquify your branch name.
-See the [Git Cheats](https://github.com/openhwgroup/core-v-verif/blob/master/GitCheats.md) for a useful nomenclature.
+See the [Git Cheats](https://github.com/openhwfoundation/core-v-verif/blob/master/GitCheats.md) for a useful nomenclature.
 4. Make your edits...
 5. Commit your changes: `git commit -m 'Add some feature'`
 6. Push feature branch: `git push origin <my_branch>`
@@ -69,7 +108,7 @@ Note that this can only be done with pull requests from your personal repository
 
 ## Coding Style
 
-For RTL coding, the OpenHW Group has adopted the [lowRISC Style Guides](https://github.com/lowRISC/style-guides/).
+For RTL coding, the OpenHW Foundation has adopted the [lowRISC Style Guides](https://github.com/lowRISC/style-guides/).
 
 ## Git Considerations
 
