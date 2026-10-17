@@ -230,7 +230,7 @@ function bit uvme_cva6_sb_c::is_trap_delegated(uvma_isacov_instr_c trapping,
   // changes, so a trap that repeats the cause of the previous one, as a page
   // fault retried after the handler set the A bit does, shows neither scause
   // nor mcause written.
-  cause = XLEN'(trapping.rvfi.trap[TRAP_WL-1:1]);
+  cause = XLEN'(trapping.rvfi.trap[uvma_rvfi_pkg::TRAP_WL-1:1]);
 
   // Interrupts are delegated through mideleg, which this check does not cover;
   // medeleg is indexed by exception cause only.
