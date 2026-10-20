@@ -375,6 +375,7 @@ FPGA_INCDIRS = [
     "vendor/pulp-platform/axi/include",
     "vendor/pulp-platform/obi/include",
     "core/cache_subsystem/hpdcache/rtl/include",
+    "core/cache_subsystem/hpdcache/rtl/src/utils/ecc",
     "corev_apu/register_interface/include",
     "corev_apu/instr_tracing/ITI/include",
     "core/include",
