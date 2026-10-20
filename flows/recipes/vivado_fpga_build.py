@@ -66,6 +66,7 @@ from flows.utils.target_config import (
     read_config_expected_value,
     read_config_or_exit_flist,
     read_config_or_exit_isa,
+    warn_if_fpga_disabled,
 )
 
 app = typer.Typer()
@@ -363,6 +364,9 @@ def vivado_fpga_build(
     board: FpgaBoard = typer.Option(FpgaBoard.genesys2, help="FPGA board"),
     mcs: bool = typer.Option(False, help="Also generate the .mcs flash image"),
     clean: bool = typer.Option(True, help="Clean working dir before"),
+    clean_ips: bool = typer.Option(
+        False, "--clean-ips", help="make clean the IP cores first (regenerate them)"
+    ),
     jobs: int = typer.Option(8, "--jobs", "-j", help="Vivado parallel jobs"),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
@@ -410,6 +414,7 @@ def vivado_fpga_build(
     # ==========================================================
     report.step("Check prerequisites")
 
+    warn_if_fpga_disabled(target, report, repo_dir)
     vivado_path = shutil.which("vivado")
     if vivado_path is not None:
         report.success(f"vivado: {vivado_path}")
@@ -479,6 +484,21 @@ def vivado_fpga_build(
     }
     ip_results = report.metric("IP cores")
     for ip_name in FPGA_IPS:
+        if clean_ips:
+            report.info(f"{ip_name}: make clean ")
+            run_cmd(
+                cmd=["make", "clean"],
+                report=report,
+                cwd=ip_dir(repo_dir, ip_name),
+                env=None,
+                error_patterns=None,
+                warning_patterns=None,
+                highlight_patterns=None,
+                log_file=out_dir / f"ip_{ip_name}_clean.log",
+                timeout=300,
+                check=False,
+                capture_output=False,
+            )
         if ip_is_generated(repo_dir, ip_name):
             report.info(f"{ip_name}: already generated")
             ip_results.add_row(status="pass", ip=ip_name, state="cached")

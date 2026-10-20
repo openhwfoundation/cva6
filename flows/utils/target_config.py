@@ -420,3 +420,13 @@ def read_config_or_exit_doc(target, report):
     if isinstance(authors, str):
         report.error_exit(f"'authors' of {path} must be a list, not a string", env=True)
     return cfg
+
+
+def warn_if_fpga_disabled(target, report, repo_dir=None):
+    "Warn when 'target' is built for fpga without FpgaEn =1"
+    if read_config_or_exit_rtl_cfg(target, report, repo_dir).get("FpgaEn"):
+        return True
+    report.warning(
+        f"Target {target} has FpgaEn = 0 (config/target/{target}/rtl_cfg_pkg.sv)\n"
+    )
+    return False
