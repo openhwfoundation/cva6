@@ -186,7 +186,6 @@ CVA6Cfg.NrCommitPorts
   logic [CVA6Cfg.XLEN-1:0] etrigger_context_mcause_q, etrigger_context_mcause_d;
   logic [CVA6Cfg.XLEN-1:0] etrigger_context_mtval_q, etrigger_context_mtval_d;
   logic in_trap_handler_d, in_trap_handler_q;
-  logic mret_reg_q, mret_reg_d;
 
   logic [$clog2(CVA6Cfg.SdtrigNrTriggers)-1:0] tselect_q, tselect_d;
   logic [3:0] trigger_type_q[CVA6Cfg.SdtrigNrTriggers], trigger_type_d[CVA6Cfg.SdtrigNrTriggers];
@@ -308,7 +307,6 @@ CVA6Cfg.NrCommitPorts
     etrigger_context_mtval_d       = etrigger_context_mtval_q;
 
     e_matched_d                    = e_matched_q;
-    mret_reg_d                     = mret_reg_q;
 
     if (CVA6Cfg.Sdtrig) begin
       // Triggers Match Logic
@@ -737,7 +735,7 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[i].itrigger_type.vu
           );
           // S_MODE context match check
-          if (priv_lvl_i == riscv::PRIV_LVL_S && trigger_32_tdata1_d[i].itrigger_type.s) begin
+          if (CVA6Cfg.SdtrigSupportTextra && priv_lvl_i == riscv::PRIV_LVL_S && trigger_32_tdata1_d[i].itrigger_type.s) begin
             if (CVA6Cfg.IS_XLEN32) begin
               scontext_match[i] = match_scontext32(
                 scontext_i[31:0],
@@ -757,16 +755,14 @@ CVA6Cfg.NrCommitPorts
             end
             priv_match[i] &= scontext_match[i];
           end
-          if (ex_i.cause[CVA6Cfg.XLEN-1]) begin
-            if (cause_selected(
-                    tdata2_d[i], CVA6Cfg.XLEN'(ex_i.cause[4:0])
-                ) && !etrigger_context_saved_valid_q)
-              e_matched_d[i] = 1'b1; // checking etrigger context valid bit avoids conflicts and context loss because of concurrent triggering by different types
+          // Only an interrupt matches, not an exception. Checking etrigger context valid bit avoids
+          // conflicts and context loss because of concurrent triggering by different types
+          if (trap_taken && ex_i.cause[CVA6Cfg.XLEN-1] && cause_selected(tdata2_d[i], ex_i.cause)
+              && priv_match[i] && !etrigger_context_saved_valid_q) begin
+            e_matched_d[i] = 1'b1;
           end
-          if (mret_i || sret_i) mret_reg_d = 1'b1;
-          if (e_matched_q[i] && priv_match[i] && mret_reg_q && (commit_ack_i != 2'b00) || sdtrig_commit_std_exception_valid_q) begin
-            e_matched_d[i] = 1'b0;
-            trigger_32_tdata1_d[i].itrigger_type.hit = 1'b1;
+          // The trigger fires just before the first instruction of the trap handler
+          if (e_matched_q[i] && !trigger_32_tdata1_q[i].itrigger_type.hit) begin
             fire_req_Itrigger.valid = 1'b1;
             case (trigger_32_tdata1_d[i].itrigger_type.action)
               6'd0:
@@ -777,9 +773,16 @@ CVA6Cfg.NrCommitPorts
               default: ;
             endcase
           end
-          if (sdtrig_commit_std_exception_valid_q && ex_i.valid) begin
-            trigger_32_tdata1_d[i].itrigger_type.hit = 1'b0;
+          if (e_matched_q[i] && sdtrig_commit_std_exception_valid_q && (ex_i.valid || debug_mode_i)) begin
+            trigger_32_tdata1_d[i].itrigger_type.hit = 1'b1;
+            e_matched_d[i] = 1'b0;
             fire_req_Itrigger.valid = 1'b0;
+          end
+          if (e_matched_d[i] && ex_i.valid) begin
+            etrigger_context_saved_valid_d = 1'b1;
+            etrigger_context_mepc_d = mepc_i;
+            etrigger_context_mcause_d = mcause_i;
+            etrigger_context_mtval_d = mtval_i;
           end
         end
       end
@@ -1040,7 +1043,6 @@ CVA6Cfg.NrCommitPorts
       if (CVA6Cfg.Sdtrig) begin
         tselect_q <= '0;
         e_matched_q <= '0;
-        mret_reg_q <= 1'b0;
         sdtrig_commit_std_exception_valid_q <= 0;
         sdtrig_commit_icount_valid_o <= 1'b0;
         sdtrig_commit_icount_nr_instr_o <= '0;
@@ -1082,7 +1084,6 @@ CVA6Cfg.NrCommitPorts
         end
         sdtrig_commit_std_exception_valid_q <= sdtrig_commit_std_exception_valid_d;
         e_matched_q                         <= e_matched_d;
-        mret_reg_q                          <= mret_reg_d;
         sdtrig_load_cancel_q                <= sdtrig_load_cancel_d;
         sdtrig_load_action_q                <= sdtrig_load_action_d;
         if (CVA6Cfg.SdtrigTriggerChaining) trigger_chain_vector_q <= trigger_chain_vector_d;

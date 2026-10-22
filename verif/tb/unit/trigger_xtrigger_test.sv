@@ -237,6 +237,50 @@ module trigger_xtrigger_test;
     mret = 0;
 
     $display("PASS: etrigger fires only on a selected exception (XLEN=%0d)", XLEN);
+
+    // itrigger on interrupt 7: it fires after the trap, before the first
+    // instruction of the handler. It does not wait for an mret.
+    write_csr(1, tdata1_type(4'd4) | XTRIG_M);
+    write_csr(2, XLEN'(1) << 7);
+    take_trap(INTERRUPT | XLEN'(7));
+    check_fire(3, riscv::BREAKPOINT, "itrigger on interrupt 7");
+    take_fire(riscv::BREAKPOINT);
+    mret = 1;
+    @(posedge clk);
+    #0.1;
+    mret = 0;
+
+    // An exception with code 7 does not match an itrigger
+    write_csr(1, tdata1_type(4'd4) | XTRIG_M);
+    take_trap(XLEN'(7));
+    check_no_fire(8, "itrigger fires on an exception");
+
+    // An interrupt taken from S-mode matches an itrigger with s=1
+    priv_lvl = riscv::PRIV_LVL_S;
+    write_csr(1, tdata1_type(4'd4) | XLEN'(32'h80));
+    take_trap(INTERRUPT | XLEN'(7));
+    check_fire(3, riscv::BREAKPOINT, "itrigger on an interrupt from S-mode");
+    take_fire(riscv::BREAKPOINT);
+    priv_lvl = riscv::PRIV_LVL_M;
+    mret = 1;
+    @(posedge clk);
+    #0.1;
+    mret = 0;
+
+    // Trigger 0 is an itrigger, trigger 1 is an etrigger, both on code 7.
+    // An interrupt fires only the itrigger. The etrigger does not record a hit.
+    write_csr(1, tdata1_type(4'd4) | XTRIG_M);
+    write_csr(0, 1);
+    write_csr(1, tdata1_type(4'd5) | XTRIG_M);
+    write_csr(2, XLEN'(1) << 7);
+    take_trap(INTERRUPT | XLEN'(7));
+    check_fire(3, riscv::BREAKPOINT, "itrigger with an etrigger on the same code");
+    take_fire(riscv::BREAKPOINT);
+    assert (tdata1_o[XLEN-6] == 1'b0) else $fatal(1, "etrigger fired on an interrupt");
+    write_csr(0, 0);
+    assert (tdata1_o[XLEN-6] == 1'b1) else $fatal(1, "itrigger did not record a hit");
+
+    $display("PASS: itrigger fires before the first instruction of the handler (XLEN=%0d)", XLEN);
     $finish;
   end
 endmodule

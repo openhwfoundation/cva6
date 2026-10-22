@@ -457,7 +457,8 @@ CVA6Cfg.NrCommitPorts
     || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i && commit_instr_i[0].valid)) begin
       exception_o.valid = 1'b1;
       exception_o.cause = sdtrig_commit_action_i;
-      exception_o.tval  = (CVA6Cfg.TvalEn) ? commit_instr_i[0].pc : '0;
+      // icount, itrigger and etrigger write 0 to tval
+      exception_o.tval  = '0;
     end
 
     // A load data trigger fires once the loaded value is known, after the load:
