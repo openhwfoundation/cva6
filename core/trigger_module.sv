@@ -25,8 +25,6 @@ module trigger_module
     input logic debug_mode_i,
     input logic mret_i,
     input logic sret_i,
-    input logic [13:0] instr_count_d,
-    input logic [13:0] instr_count_q,
     input logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_vaddr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_data_i,
     input logic sdtrig_lsu_inputs_fu_i,
@@ -155,8 +153,6 @@ CVA6Cfg.NrCommitPorts
   logic
       trigger_chain_vector_d[CVA6Cfg.SdtrigNrTriggers],
       trigger_chain_vector_q[CVA6Cfg.SdtrigNrTriggers];
-  logic [14:0] instr_count_offset;
-  logic [14:0] icount_diff;
   logic matchEA, matchED, matchSX, matchLA, matchLD;
   //EA = Match Control 6 Exec Address; ED = MC6 Exec Data; SX = MC6 Store (both addr. and data);...
   fire_req_t
@@ -185,7 +181,6 @@ CVA6Cfg.NrCommitPorts
   logic [CVA6Cfg.XLEN-1:0] etrigger_context_mepc_q, etrigger_context_mepc_d;
   logic [CVA6Cfg.XLEN-1:0] etrigger_context_mcause_q, etrigger_context_mcause_d;
   logic [CVA6Cfg.XLEN-1:0] etrigger_context_mtval_q, etrigger_context_mtval_d;
-  logic in_trap_handler_d, in_trap_handler_q;
 
   logic [$clog2(CVA6Cfg.SdtrigNrTriggers)-1:0] tselect_q, tselect_d;
   logic [3:0] trigger_type_q[CVA6Cfg.SdtrigNrTriggers], trigger_type_d[CVA6Cfg.SdtrigNrTriggers];
@@ -214,8 +209,6 @@ CVA6Cfg.NrCommitPorts
   logic trap_taken;
   assign trap_taken = ex_i.valid && !debug_mode_i && !(ex_i.cause inside {riscv::DEBUG_REQUEST, riscv::DEBUG_TRIGGER});
 
-  assign instr_count_offset = (CVA6Cfg.SdtrigIcount) ? instr_count_d - instr_count_q : '0;
-
   // A trigger fires in the privilege mode the current one maps to: M, S/HS or
   // U outside virtualization, VS or VU (vs, vu) when the hart is virtualized.
   function automatic logic mode_match(logic m, logic s, logic u, logic vs, logic vu);
@@ -227,12 +220,13 @@ CVA6Cfg.NrCommitPorts
     endcase
   endfunction
 
-  always_comb begin : in_trap
-    if (CVA6Cfg.SdtrigIcount) begin
-      in_trap_handler_d = in_trap_handler_q;
-      if (ex_i.valid || etrigger_context_saved_valid_q) in_trap_handler_d = 1'b1;
-      else if (mret_i) in_trap_handler_d = 1'b0;
-    end
+  // icount matches on each instruction that retires, or on the trap that is taken
+  logic [$clog2(CVA6Cfg.NrCommitPorts+1)-1:0] icount_events;
+  always_comb begin : icount_match_events
+    icount_events = '0;
+    if (trap_taken) icount_events = 1;
+    else if (!ex_i.valid && !debug_mode_i)
+      for (int p = 0; p < CVA6Cfg.NrCommitPorts; p++) icount_events += commit_ack_i[p];
   end
 
   // Trigger CSRs write/update logic
@@ -316,7 +310,6 @@ CVA6Cfg.NrCommitPorts
         matchSX = 1'b0;
         matchLD = 1'b0;
         matchLA = 1'b0;
-        icount_diff = '0;
 
         if (CVA6Cfg.SdtrigTriggerChaining)
           previous_trigg_i = $bits(
@@ -353,27 +346,21 @@ CVA6Cfg.NrCommitPorts
             end
             priv_match[i] &= scontext_match[i];
           end
-          if (!in_trap_handler_q) begin
-            if (!trigger_32_tdata1_d[i].icount_type.pending) begin
-              icount_diff = trigger_32_tdata1_q[i].icount_type.count - instr_count_offset[13:0];
-            end
-            if ((trigger_32_tdata1_q[i].icount_type.count > 0) && instr_count_offset != 0) begin
-              if (icount_diff[14] == 1'b0) begin
-                trigger_32_tdata1_d[i].icount_type.count = icount_diff[13:0];
-              end else begin
-                trigger_32_tdata1_d[i].icount_type.count = 'd0;
-              end
-              // pending becomes set when count goes to 0. A write of count=0 does not set it.
-              if (trigger_32_tdata1_d[i].icount_type.count == 0) begin
-                trigger_32_tdata1_d[i].icount_type.pending = 1'b1;
-              end
+          // A match in a mode where the trigger is enabled decrements count.
+          // pending becomes set when count goes to 0. A write of count=0 does not set it.
+          if (priv_match[i] && icount_events != 0 && trigger_32_tdata1_q[i].icount_type.count != 0) begin
+            if (trigger_32_tdata1_q[i].icount_type.count > 14'(icount_events)) begin
+              trigger_32_tdata1_d[i].icount_type.count = trigger_32_tdata1_q[i].icount_type.count - 14'(icount_events);
+            end else begin
+              trigger_32_tdata1_d[i].icount_type.count = '0;
+              trigger_32_tdata1_d[i].icount_type.pending = 1'b1;
             end
           end
           // The commit stage takes the trigger action on the next instruction to execute
           // in an enabled mode (count=0), or retires one instruction at a time (count=1).
           if (priv_match[i] && !debug_mode_i) begin
             if (trigger_32_tdata1_d[i].icount_type.pending ||
-                trigger_32_tdata1_d[i].icount_type.count != 0 && trigger_32_tdata1_d[i].icount_type.count < CVA6Cfg.NrCommitPorts) begin
+                trigger_32_tdata1_d[i].icount_type.count != 0 && 32'(trigger_32_tdata1_d[i].icount_type.count) < CVA6Cfg.NrCommitPorts) begin
               fire_req_Icount.valid = 1'b1;
               sdtrig_commit_icount_nr_instr_d = trigger_32_tdata1_d[i].icount_type.pending ? '0 :
                   $bits(sdtrig_commit_icount_nr_instr_d)'(trigger_32_tdata1_d[i].icount_type.count);
@@ -1053,7 +1040,6 @@ CVA6Cfg.NrCommitPorts
         etrigger_context_mepc_q <= '0;
         etrigger_context_mcause_q <= '0;
         etrigger_context_mtval_q <= '0;
-        if (CVA6Cfg.SdtrigIcount) in_trap_handler_q <= '0;
         for (int i = 0; i < CVA6Cfg.SdtrigNrTriggers; ++i) begin
           trigger_type_q[i] <= 4'd15;
           trigger_32_tdata1_q[i] <= {4'd15, 28'd0};
@@ -1079,9 +1065,6 @@ CVA6Cfg.NrCommitPorts
         etrigger_context_mepc_q         <= etrigger_context_mepc_d;
         etrigger_context_mcause_q       <= etrigger_context_mcause_d;
         etrigger_context_mtval_q        <= etrigger_context_mtval_d;
-        if (CVA6Cfg.SdtrigIcount) begin
-          in_trap_handler_q <= in_trap_handler_d;
-        end
         sdtrig_commit_std_exception_valid_q <= sdtrig_commit_std_exception_valid_d;
         e_matched_q                         <= e_matched_d;
         sdtrig_load_cancel_q                <= sdtrig_load_cancel_d;
@@ -1102,9 +1085,5 @@ CVA6Cfg.NrCommitPorts
     assign etrigger_context_mtval_o = '0;
   end
   assign sdtrig_load_cancel_o = sdtrig_load_cancel_q;
-  if (!CVA6Cfg.SdtrigIcount) begin
-    assign in_trap_handler_q = '0;
-    assign in_trap_handler_d = '0;
-  end
 
 endmodule
