@@ -1356,6 +1356,10 @@ CVA6Cfg.NrCommitPorts
             update_access_exception = 1'b1;
           end
         end
+        // tinfo has only read-only fields: a write is ignored
+        riscv::CSR_TINFO: begin
+          if (!CVA6Cfg.Sdtrig) update_access_exception = 1'b1;
+        end
         riscv::CSR_SCONTEXT: begin
           if (CVA6Cfg.Sdtrig && CVA6Cfg.SdtrigSupportTextra) begin
             scontext_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
