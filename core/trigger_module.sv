@@ -689,7 +689,7 @@ CVA6Cfg.NrCommitPorts
               && priv_match[i] && !etrigger_context_saved_valid_q) begin
             e_matched_d[i] = 1'b1;
           end
-          if (e_matched_q[i] && !trigger_32_tdata1_q[i].etrigger_type.hit) begin
+          if (e_matched_q[i]) begin
             fire_req_Etrigger.valid = 1'b1;
             unique case (trigger_32_tdata1_d[i].etrigger_type.action)
               6'd0:
@@ -749,7 +749,7 @@ CVA6Cfg.NrCommitPorts
             e_matched_d[i] = 1'b1;
           end
           // The trigger fires just before the first instruction of the trap handler
-          if (e_matched_q[i] && !trigger_32_tdata1_q[i].itrigger_type.hit) begin
+          if (e_matched_q[i]) begin
             fire_req_Itrigger.valid = 1'b1;
             case (trigger_32_tdata1_d[i].itrigger_type.action)
               6'd0:
