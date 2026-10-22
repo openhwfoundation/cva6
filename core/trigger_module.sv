@@ -28,6 +28,7 @@ module trigger_module
     input logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_vaddr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_data_i,
     input logic sdtrig_lsu_inputs_fu_i,
+    input fu_op sdtrig_lsu_inputs_op_i,
     input logic sdtrig_lsu_inputs_valid_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_load_data_i,
     input logic sdtrig_load_valid_i,
@@ -219,6 +220,13 @@ CVA6Cfg.NrCommitPorts
       default: return 1'b0;
     endcase
   endfunction
+
+  // lr is a load and sc is a store. An AMO is a load and a store. The store unit executes the
+  // three of them (sdtrig_lsu_inputs_fu_i=1).
+  logic lsu_load_access, lsu_store_access;
+  assign lsu_store_access = sdtrig_lsu_inputs_fu_i && !(sdtrig_lsu_inputs_op_i inside {AMO_LRW, AMO_LRD});
+  assign lsu_load_access  = !sdtrig_lsu_inputs_fu_i ||
+                            (is_amo(sdtrig_lsu_inputs_op_i) && !(sdtrig_lsu_inputs_op_i inside {AMO_SCW, AMO_SCD}));
 
   // icount matches on each instruction that retires, or on the trap that is taken
   logic [$clog2(CVA6Cfg.NrCommitPorts+1)-1:0] icount_events;
@@ -513,13 +521,13 @@ CVA6Cfg.NrCommitPorts
             //Store trigger on data
             if (CVA6Cfg.SdtrigMcontrol6Store) begin
               if (trigger_32_tdata1_d[i].mc6_type.select) begin
-                if (sdtrig_lsu_inputs_valid_i && sdtrig_lsu_inputs_fu_i) begin  //0: load, 1: store
+                if (sdtrig_lsu_inputs_valid_i && lsu_store_access) begin
                   matchSX = std_match(tdata2_d[i], sdtrig_lsu_inputs_data_i,
                                       trigger_32_tdata1_d[i].mc6_type.match);
                 end
               end
               if (!trigger_32_tdata1_d[i].mc6_type.select) begin
-                if (sdtrig_lsu_inputs_valid_i && sdtrig_lsu_inputs_fu_i) begin  //0: load, 1: store
+                if (sdtrig_lsu_inputs_valid_i && lsu_store_access) begin
                   matchSX = std_match(tdata2_d[i], sdtrig_lsu_inputs_vaddr_i,
                                       trigger_32_tdata1_d[i].mc6_type.match);
                 end
@@ -614,7 +622,7 @@ CVA6Cfg.NrCommitPorts
             //Load trigger on address
             if (CVA6Cfg.SdtrigMcontrol6LoadAddr) begin
               if (!trigger_32_tdata1_d[i].mc6_type.select) begin
-                if (sdtrig_lsu_inputs_valid_i && ~sdtrig_lsu_inputs_fu_i) begin
+                if (sdtrig_lsu_inputs_valid_i && lsu_load_access) begin
                   matchLA = std_match(tdata2_d[i], sdtrig_lsu_inputs_vaddr_i,
                                       trigger_32_tdata1_d[i].mc6_type.match);
                 end
@@ -800,13 +808,17 @@ CVA6Cfg.NrCommitPorts
       end else
       
       if (CVA6Cfg.SdtrigMcontrol6LoadAddr && fire_req_LA.valid || CVA6Cfg.SdtrigMcontrol6Store && fire_req_SX.valid) begin
-        if (CVA6Cfg.SdtrigMcontrol6LoadAddr && fire_req_LA.valid) begin
+        if (CVA6Cfg.SdtrigMcontrol6LoadAddr && fire_req_LA.valid && !sdtrig_lsu_inputs_fu_i) begin
           sdtrig_load_cancel_d = (sdtrig_load_cancel_q) ? 1'b0 : 1'b1;
           if (!sdtrig_load_cancel_q) sdtrig_load_action_d = fire_req_LA.action;
           sdtrig_load_action_o = sdtrig_load_cancel_q ? sdtrig_load_action_q : fire_req_LA.action;
         end
+        // The store unit executes lr and the AMOs: it takes the action of a load address match too
         if (CVA6Cfg.SdtrigMcontrol6Store && fire_req_SX.valid) begin
           sdtrig_store_action_o = fire_req_SX.action;
+          sdtrig_store_stall_o  = 1'b1;
+        end else if (CVA6Cfg.SdtrigMcontrol6LoadAddr && fire_req_LA.valid && sdtrig_lsu_inputs_fu_i) begin
+          sdtrig_store_action_o = fire_req_LA.action;
           sdtrig_store_stall_o  = 1'b1;
         end
       end
