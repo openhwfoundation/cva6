@@ -190,7 +190,47 @@ module trigger_tdata1_test;
     assert (tdata1_o == DISABLED) else $fatal(1, "a write of 0 from Debug Mode reads %h", tdata1_o);
     debug_mode = 0;
 
+    // A write from M-mode cannot set dmode. Thus action=1 becomes action=0.
+    // mcontrol6: action is bits 15:12. icount, etrigger, itrigger: bits 5:0.
+    write_tdata1(tdata1_type(4'd6) | DMODE | XLEN'(32'h1044), flushed);
+    assert (tdata1_o == (tdata1_type(4'd6) | XLEN'(32'h44)))
+    else $fatal(1, "mcontrol6 dmode=1 action=1 from M-mode reads %h", tdata1_o);
+    #0.5;
+    assert (decoder_action[0] == riscv::BREAKPOINT)
+    else $fatal(1, "legalized mcontrol6 does not give a breakpoint");
+    write_tdata1(tdata1_type(4'd6) | XLEN'(32'h1044), flushed);
+    assert (tdata1_o == (tdata1_type(4'd6) | XLEN'(32'h44)))
+    else $fatal(1, "mcontrol6 dmode=0 action=1 reads %h", tdata1_o);
+    write_tdata1(tdata1_type(4'd3) | DMODE | XLEN'(32'h1641), flushed);
+    assert (tdata1_o == (tdata1_type(4'd3) | XLEN'(32'h1640)))
+    else $fatal(1, "icount action=1 from M-mode reads %h", tdata1_o);
+    write_tdata1(tdata1_type(4'd5) | XLEN'(32'h241), flushed);
+    assert (tdata1_o == (tdata1_type(4'd5) | XLEN'(32'h240)))
+    else $fatal(1, "etrigger action=1 from M-mode reads %h", tdata1_o);
+    write_tdata1(tdata1_type(4'd4) | XLEN'(32'h241), flushed);
+    assert (tdata1_o == (tdata1_type(4'd4) | XLEN'(32'h240)))
+    else $fatal(1, "itrigger action=1 from M-mode reads %h", tdata1_o);
+    // An action that is not supported (5) becomes 0
+    write_tdata1(tdata1_type(4'd5) | XLEN'(32'h245), flushed);
+    assert (tdata1_o == (tdata1_type(4'd5) | XLEN'(32'h240)))
+    else $fatal(1, "etrigger action=5 reads %h", tdata1_o);
+
+    // From Debug Mode, dmode=1 keeps action=1. dmode=0 gives action=0.
+    debug_mode = 1;
+    write_tdata1(tdata1_type(4'd6) | XLEN'(32'h1044), flushed);
+    assert (tdata1_o == (tdata1_type(4'd6) | XLEN'(32'h44)))
+    else $fatal(1, "mcontrol6 dmode=0 action=1 from Debug Mode reads %h", tdata1_o);
+    write_tdata1(tdata1_type(4'd3) | DMODE | XLEN'(32'h1641), flushed);
+    assert (tdata1_o == (tdata1_type(4'd3) | DMODE | XLEN'(32'h1641)))
+    else $fatal(1, "icount dmode=1 action=1 from Debug Mode reads %h", tdata1_o);
+    write_tdata1(tdata1_type(4'd6) | DMODE | XLEN'(32'h1044), flushed);
+    assert (tdata1_o == (tdata1_type(4'd6) | DMODE | XLEN'(32'h1044)))
+    else $fatal(1, "mcontrol6 dmode=1 action=1 from Debug Mode reads %h", tdata1_o);
+    write_tdata1('0, flushed);
+    debug_mode = 0;
+
     $display("PASS: tdata1 write of 0 disables the trigger (XLEN=%0d)", XLEN);
+    $display("PASS: tdata1 never holds dmode=0 with action=1 (XLEN=%0d)", XLEN);
     $finish;
   end
 endmodule
