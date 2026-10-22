@@ -40,5 +40,9 @@ trigger_xtrigger_test:
 	$(call run_xlen_test,$@,rv64,$(RV64_CFG))
 	$(call run_xlen_test,$@,rv32,$(RV32_CFG))
 
+trigger_icount_test:
+	$(call run_xlen_test,$@,rv64,$(RV64_CFG))
+	$(call run_xlen_test,$@,rv32,$(RV32_CFG))
+
 clean:
 	rm -rf $(BUILD_ROOT)
