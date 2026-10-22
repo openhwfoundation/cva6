@@ -25,6 +25,9 @@ module trigger_module
     input logic debug_mode_i,
     input logic mret_i,
     input logic sret_i,
+    input logic mstatus_mie_i,
+    input logic mstatus_sie_i,
+    input logic medeleg_breakpoint_i,
     input logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_vaddr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_data_i,
     input logic sdtrig_lsu_inputs_fu_i,
@@ -221,6 +224,12 @@ CVA6Cfg.NrCommitPorts
     endcase
   endfunction
 
+  // A trigger with action=0 does not match or fire in M-mode while MIE=0, and in S-mode while
+  // SIE=0 when the breakpoint exceptions go to S-mode (first solution of Native Triggers)
+  logic native_allowed;
+  assign native_allowed = !(priv_lvl_i == riscv::PRIV_LVL_M && !mstatus_mie_i) &&
+                          !(priv_lvl_i == riscv::PRIV_LVL_S && medeleg_breakpoint_i && !mstatus_sie_i);
+
   // lr is a load and sc is a store. An AMO is a load and a store. The store unit executes the
   // three of them (sdtrig_lsu_inputs_fu_i=1).
   logic lsu_load_access, lsu_store_access;
@@ -354,6 +363,7 @@ CVA6Cfg.NrCommitPorts
             end
             priv_match[i] &= scontext_match[i];
           end
+          if (trigger_32_tdata1_d[i].icount_type.action == '0 && !native_allowed) priv_match[i] = 1'b0;
           // A match in a mode where the trigger is enabled decrements count.
           // pending becomes set when count goes to 0. A write of count=0 does not set it.
           if (priv_match[i] && icount_events != 0 && trigger_32_tdata1_q[i].icount_type.count != 0) begin
@@ -421,6 +431,7 @@ CVA6Cfg.NrCommitPorts
             end
             priv_match[i] &= scontext_match[i];
           end
+          if (trigger_32_tdata1_d[i].mc6_type.action == '0 && !native_allowed) priv_match[i] = 1'b0;
 
           //Execute triggers
           if ((CVA6Cfg.SdtrigMcontrol6ExecAddr || CVA6Cfg.SdtrigMcontrol6ExecData) && trigger_32_tdata1_d[i].mc6_type.execute) begin
@@ -697,7 +708,11 @@ CVA6Cfg.NrCommitPorts
               && priv_match[i] && !etrigger_context_saved_valid_q) begin
             e_matched_d[i] = 1'b1;
           end
-          if (e_matched_q[i]) begin
+          if (e_matched_q[i] && trigger_32_tdata1_d[i].etrigger_type.action == '0 && !native_allowed) begin
+            // The trap handler runs where an action=0 trigger cannot fire: drop the match
+            e_matched_d[i] = 1'b0;
+            etrigger_context_saved_valid_d = 1'b0;
+          end else if (e_matched_q[i]) begin
             fire_req_Etrigger.valid = 1'b1;
             unique case (trigger_32_tdata1_d[i].etrigger_type.action)
               6'd0:
@@ -757,7 +772,11 @@ CVA6Cfg.NrCommitPorts
             e_matched_d[i] = 1'b1;
           end
           // The trigger fires just before the first instruction of the trap handler
-          if (e_matched_q[i]) begin
+          if (e_matched_q[i] && trigger_32_tdata1_d[i].itrigger_type.action == '0 && !native_allowed) begin
+            // The trap handler runs where an action=0 trigger cannot fire: drop the match
+            e_matched_d[i] = 1'b0;
+            etrigger_context_saved_valid_d = 1'b0;
+          end else if (e_matched_q[i]) begin
             fire_req_Itrigger.valid = 1'b1;
             case (trigger_32_tdata1_d[i].itrigger_type.action)
               6'd0:
