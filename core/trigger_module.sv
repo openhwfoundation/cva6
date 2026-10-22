@@ -818,11 +818,17 @@ CVA6Cfg.NrCommitPorts
           if(   CVA6Cfg.SdtrigIcount && tdata1_i[31:28] == 4'd3
              || CVA6Cfg.SdtrigMcontrol6 && tdata1_i[31:28] == 4'd6
              || CVA6Cfg.SdtrigEtrigger && tdata1_i[31:28] == 4'd5
-             || CVA6Cfg.SdtrigItrigger && tdata1_i[31:28] == 4'd4
-             || tdata1_i[31:28] == 4'd15 || tdata1_i[31:28] == 4'd0) begin
+             || CVA6Cfg.SdtrigItrigger && tdata1_i[31:28] == 4'd4) begin
             trigger_type_d[tselect_q] = tdata1_i[31:28];
+          end else begin
+            // Type 0, type 15 and the types that are not supported disable the trigger
+            trigger_type_d[tselect_q] = 4'd15;
           end
-          if (CVA6Cfg.SdtrigIcount && trigger_type_d[tselect_q] == 4'd3) begin
+          if (trigger_type_d[tselect_q] == 4'd15) begin
+            trigger_32_tdata1_d[tselect_q] = '0;
+            trigger_32_tdata1_d[tselect_q].tdata1_type[31:27] = {4'd15, debug_mode_i && tdata1_i[27]};
+            flush_o = 1'b1;
+          end else if (CVA6Cfg.SdtrigIcount && trigger_type_d[tselect_q] == 4'd3) begin
             trigger_32_tdata1_d[tselect_q].icount_type.t_type = trigger_type_d[tselect_q];
             trigger_32_tdata1_d[tselect_q].icount_type.dmode = debug_mode_i && tdata1_i[27];
             trigger_32_tdata1_d[tselect_q].icount_type.vs = CVA6Cfg.RVH && tdata1_i[26];
@@ -951,8 +957,12 @@ CVA6Cfg.NrCommitPorts
           trigger_32_tdata1_d[tselect_q].itrigger_type.s = tdata1_w[7];
           trigger_32_tdata1_d[tselect_q].itrigger_type.u = tdata1_w[6];
           trigger_32_tdata1_d[tselect_q].itrigger_type.action = tdata1_w[5:0];
-        end else if (tdata1_w[63:60] == 4'd15) begin
-          trigger_type_d[tselect_q] = tdata1_w[63:60];
+        end else begin
+          // Type 0, type 15 and the types that are not supported disable the trigger
+          trigger_type_d[tselect_q] = 4'd15;
+          trigger_32_tdata1_d[tselect_q] = '0;
+          trigger_32_tdata1_d[tselect_q].tdata1_type[31:27] = {4'd15, debug_mode_i && tdata1_w[59]};
+          flush_o = 1'b1;
         end
       end
     end
@@ -995,6 +1005,7 @@ CVA6Cfg.NrCommitPorts
       tdata1_o = (CVA6Cfg.IS_XLEN32) ? CVA6Cfg.XLEN'(trigger_32_tdata1_q[tselect_q]) : CVA6Cfg.XLEN'({ trigger_32_tdata1_q[tselect_q].etrigger_type.t_type, trigger_32_tdata1_q[tselect_q].etrigger_type.dmode, trigger_32_tdata1_q[tselect_q].etrigger_type.hit, 45'd0, trigger_32_tdata1_q[tselect_q][12:0] });
       4'd4:
       tdata1_o = (CVA6Cfg.IS_XLEN32) ? CVA6Cfg.XLEN'(trigger_32_tdata1_q[tselect_q]) : CVA6Cfg.XLEN'({ trigger_32_tdata1_q[tselect_q].itrigger_type.t_type, trigger_32_tdata1_q[tselect_q].itrigger_type.dmode, trigger_32_tdata1_q[tselect_q].itrigger_type.hit, 45'd0, trigger_32_tdata1_q[tselect_q][12:0] });
+      4'd15: tdata1_o = {4'd15, trigger_32_tdata1_q[tselect_q].tdata1_type[27], {(CVA6Cfg.XLEN - 5) {1'b0}}};
       default: tdata1_o = '0;
     endcase
 
@@ -1025,8 +1036,8 @@ CVA6Cfg.NrCommitPorts
         etrigger_context_mtval_q <= '0;
         if (CVA6Cfg.SdtrigIcount) in_trap_handler_q <= '0;
         for (int i = 0; i < CVA6Cfg.SdtrigNrTriggers; ++i) begin
-          trigger_type_q[i] <= '0;
-          trigger_32_tdata1_q[i] <= '0;
+          trigger_type_q[i] <= 4'd15;
+          trigger_32_tdata1_q[i] <= {4'd15, 28'd0};
           if (CVA6Cfg.SdtrigTriggerChaining) trigger_chain_vector_q[i] <= '0;
           textra32_tdata3_q[i] <= '0;
           textra64_tdata3_q[i] <= '0;
