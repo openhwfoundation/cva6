@@ -100,6 +100,8 @@ m_handler:
   csrr t1, mepc
   la t2, s_handler
   CHECK_EQ(t1, t2, 7)
+  csrr t1, mtval
+  CHECK_EQ(t1, zero, 10)
   csrr t1, scause
   li t2, CAUSE_ILLEGAL
   CHECK_EQ(t1, t2, 8)
