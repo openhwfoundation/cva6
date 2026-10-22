@@ -52,8 +52,6 @@ module trigger_loadaddr_test;
       .debug_mode_i(1'b0),
       .mret_i(1'b0),
       .sret_i(1'b0),
-      .instr_count_d('0),
-      .instr_count_q('0),
       .sdtrig_lsu_inputs_vaddr_i(lsu_vaddr),
       .sdtrig_lsu_inputs_data_i('0),
       .sdtrig_lsu_inputs_fu_i(1'b0),

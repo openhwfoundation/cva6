@@ -27,7 +27,6 @@ module trigger_icount_test;
   exception_t ex;
   logic mret;
   logic [TestCfg.NrCommitPorts-1:0] commit_ack;
-  logic [13:0] instret_d, instret_q;
   logic [XLEN-1:0] tdata1_i;
   logic tdata1_we;
   logic [XLEN-1:0] tdata1_o;
@@ -50,8 +49,6 @@ module trigger_icount_test;
       .debug_mode_i(debug_mode),
       .mret_i(mret),
       .sret_i(1'b0),
-      .instr_count_d(instret_d),
-      .instr_count_q(instret_q),
       .sdtrig_lsu_inputs_vaddr_i('0),
       .sdtrig_lsu_inputs_data_i('0),
       .sdtrig_lsu_inputs_fu_i(1'b0),
@@ -123,12 +120,23 @@ module trigger_icount_test;
   task automatic retire(input int n);
     commit_ack = '0;
     for (int p = 0; p < n; p++) commit_ack[p] = 1'b1;
-    instret_d = instret_q + 14'(n);
     @(posedge clk);
     #0.1;
     commit_ack = '0;
-    instret_q  = instret_d;
   endtask
+
+  // A trap with this cause is taken
+  task automatic take_trap(input logic [XLEN-1:0] cause);
+    ex.valid = 1;
+    ex.cause = cause;
+    @(posedge clk);
+    #0.1;
+    ex = '0;
+  endtask
+
+  function automatic int read_count();
+    return int'((tdata1_o >> 10) & XLEN'(14'h3fff));
+  endfunction
 
   // The trigger action is taken: the commit stage raises the exception
   task automatic take_fire();
@@ -159,8 +167,6 @@ module trigger_icount_test;
     ex         = '0;
     mret       = 0;
     commit_ack = '0;
-    instret_d  = '0;
-    instret_q  = '0;
     tdata1_i   = '0;
     tdata1_we  = 0;
     repeat (2) @(posedge clk);
@@ -212,6 +218,59 @@ module trigger_icount_test;
     check_no_fire(4, "trigger fires twice");
 
     $display("PASS: icount fires on the next instruction in an enabled mode (XLEN=%0d)", XLEN);
+
+    // The instructions that retire in a mode where the trigger is not enabled,
+    // or in Debug Mode, do not decrement count
+    write_tdata1(ICOUNT | count(3) | ICOUNT_U);
+    priv_lvl = riscv::PRIV_LVL_M;
+    repeat (4) retire(1);
+    take_trap(XLEN'(11));
+    debug_mode = 1;
+    repeat (2) retire(1);
+    debug_mode = 0;
+    assert (read_count() == 3) else $fatal(1, "count %0d after M-mode instructions", read_count());
+
+    // One U-mode instruction and the trap from U-mode match. The M-mode handler
+    // does not match. The trigger fires on the next U-mode instruction.
+    write_tdata1(ICOUNT | count(2) | ICOUNT_U);
+    priv_lvl = riscv::PRIV_LVL_U;
+    retire(1);
+    assert (read_count() == 1) else $fatal(1, "count %0d after one U-mode instruction", read_count());
+    take_trap(XLEN'(8));
+    priv_lvl = riscv::PRIV_LVL_M;
+    assert (tdata1_o & PENDING) else $fatal(1, "the trap from U-mode does not match");
+    repeat (3) retire(1);
+    check_no_fire(2, "trigger fires in the M-mode handler");
+    priv_lvl = riscv::PRIV_LVL_U;
+    @(posedge clk);
+    #0.1;
+    take_fire();
+
+    // A trap does not stop the count. The trap and the instructions of the
+    // handler match when the trigger is enabled in the mode of the handler.
+    priv_lvl = riscv::PRIV_LVL_M;
+    write_tdata1(ICOUNT | count(3) | ICOUNT_M);
+    take_trap(XLEN'(11));
+    retire(1);
+    assert (read_count() == 1) else $fatal(1, "count %0d in the handler", read_count());
+    retire(1);
+    @(posedge clk);
+    #0.1;
+    assert (fire_now()) else $fatal(1, "trigger does not fire in the handler");
+    ex.valid = 1;
+    ex.cause = icount_action;
+    @(posedge clk);
+    #0.1;
+    ex = '0;
+
+    // Two instructions that retire in one cycle are two matches
+    if (TestCfg.NrCommitPorts > 1) begin
+      write_tdata1(ICOUNT | count(4) | ICOUNT_M);
+      retire(2);
+      assert (read_count() == 2) else $fatal(1, "count %0d after two instructions", read_count());
+    end
+
+    $display("PASS: icount matches only in the enabled modes (XLEN=%0d)", XLEN);
     $finish;
   end
 endmodule

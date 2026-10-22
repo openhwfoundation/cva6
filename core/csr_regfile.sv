@@ -3189,8 +3189,6 @@ CVA6Cfg.NrCommitPorts
           .debug_mode_i                       (debug_mode_q),
           .mret_i                             (mret),
           .sret_i                             (sret),
-          .instr_count_d                      (instret_d[13:0]),
-          .instr_count_q                      (instret_q[13:0]),
           .scontext_i                         (scontext_q),
           .tselect_i                          (tselect_to_tm),
           .tdata1_i                           (tdata1_to_tm),
