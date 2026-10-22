@@ -333,8 +333,8 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[i].icount_type.vs,
             trigger_32_tdata1_d[i].icount_type.vu
           );
-          // S_MODE context match check
-          if (priv_lvl_i == riscv::PRIV_LVL_S && trigger_32_tdata1_d[i].icount_type.s && CVA6Cfg.SdtrigSupportTextra) begin
+          // Context match check (textra), in all modes
+          if (CVA6Cfg.SdtrigSupportTextra) begin
             if (CVA6Cfg.IS_XLEN32) begin
               scontext_match[i] = match_scontext32(
                 scontext_i[31:0],
@@ -400,8 +400,8 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[i].mc6_type.vs,
             trigger_32_tdata1_d[i].mc6_type.vu
           );
-          // S_MODE context match check
-          if (CVA6Cfg.SdtrigSupportTextra && priv_lvl_i == riscv::PRIV_LVL_S && trigger_32_tdata1_d[i].mc6_type.s) begin
+          // Context match check (textra), in all modes
+          if (CVA6Cfg.SdtrigSupportTextra) begin
             if (CVA6Cfg.IS_XLEN32) begin
               scontext_match[i] = match_scontext32(
                 scontext_i[31:0],
@@ -671,8 +671,8 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[i].etrigger_type.vs,
             trigger_32_tdata1_d[i].etrigger_type.vu
           );
-          // S_MODE context match check
-          if (CVA6Cfg.SdtrigSupportTextra && priv_lvl_i == riscv::PRIV_LVL_S && trigger_32_tdata1_d[i].etrigger_type.s) begin
+          // Context match check (textra), in all modes
+          if (CVA6Cfg.SdtrigSupportTextra) begin
             if (CVA6Cfg.IS_XLEN32) begin
               scontext_match[i] = match_scontext32(
                 scontext_i[31:0],
@@ -729,8 +729,8 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[i].itrigger_type.vs,
             trigger_32_tdata1_d[i].itrigger_type.vu
           );
-          // S_MODE context match check
-          if (CVA6Cfg.SdtrigSupportTextra && priv_lvl_i == riscv::PRIV_LVL_S && trigger_32_tdata1_d[i].itrigger_type.s) begin
+          // Context match check (textra), in all modes
+          if (CVA6Cfg.SdtrigSupportTextra) begin
             if (CVA6Cfg.IS_XLEN32) begin
               scontext_match[i] = match_scontext32(
                 scontext_i[31:0],
@@ -996,7 +996,7 @@ CVA6Cfg.NrCommitPorts
         textra32_tdata3_d[tselect_q].zeroes    = '0;
         textra32_tdata3_d[tselect_q].sbytemask = tdata3_i[19:18];
         textra32_tdata3_d[tselect_q].svalue    = tdata3_i[17:2];
-        textra32_tdata3_d[tselect_q].sselect   = tdata3_i[1:0];
+        textra32_tdata3_d[tselect_q].sselect   = (tdata3_i[1:0] == 2'd1) ? 2'd1 : 2'd0;
       end
       if (CVA6Cfg.IS_XLEN64) begin  // textra64
         textra64_tdata3_d[tselect_q].mhvalue    = '0;
@@ -1005,7 +1005,7 @@ CVA6Cfg.NrCommitPorts
         textra64_tdata3_d[tselect_q].sbytemask  = tdata3_w[39:36];
         textra64_tdata3_d[tselect_q].zero_field = '0;
         textra64_tdata3_d[tselect_q].svalue     = tdata3_w[33:2];
-        textra64_tdata3_d[tselect_q].sselect    = tdata3_w[1:0];
+        textra64_tdata3_d[tselect_q].sselect    = (tdata3_w[1:0] == 2'd1) ? 2'd1 : 2'd0;
       end
     end
   end
