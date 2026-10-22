@@ -55,6 +55,7 @@ module trigger_loadaddr_test;
       .sdtrig_lsu_inputs_vaddr_i(lsu_vaddr),
       .sdtrig_lsu_inputs_data_i('0),
       .sdtrig_lsu_inputs_fu_i(1'b0),
+      .sdtrig_lsu_inputs_op_i(ariane_pkg::ADD),
       .sdtrig_lsu_inputs_valid_i(lsu_valid),
       .sdtrig_load_data_i('0),
       .sdtrig_load_valid_i(1'b0),
