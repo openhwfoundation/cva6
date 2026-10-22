@@ -550,9 +550,19 @@ CVA6Cfg.NrCommitPorts
         else read_access_exception = 1'b1;
         riscv::CSR_TINFO: begin
           if (CVA6Cfg.Sdtrig) begin
+            // trigger info: the supported types icount = 3, itrigger = 4, etrigger = 5, mcontrol6 = 6, disabled = 15
             csr_rdata = {
-              {CVA6Cfg.XLEN - 32{1'b0}}, 8'h1, 8'h0, 16'b1000_0000_0111_1000
-            };  // trigger info:icount = 3, itrigger = 4, etrigger = 5, mcontrol6 = 6, disable = 15
+              {CVA6Cfg.XLEN - 32{1'b0}},
+              8'h1,
+              8'h0,
+              1'b1,
+              8'b0,
+              CVA6Cfg.SdtrigMcontrol6,
+              CVA6Cfg.SdtrigEtrigger,
+              CVA6Cfg.SdtrigItrigger,
+              CVA6Cfg.SdtrigIcount,
+              3'b0
+            };
           end else begin
             read_access_exception = 1'b1;
           end
