@@ -226,11 +226,19 @@ module trigger_tdata1_test;
     write_tdata1(tdata1_type(4'd6) | DMODE | XLEN'(32'h1044), flushed);
     assert (tdata1_o == (tdata1_type(4'd6) | DMODE | XLEN'(32'h1044)))
     else $fatal(1, "mcontrol6 dmode=1 action=1 from Debug Mode reads %h", tdata1_o);
+    // A trigger with action=1 requests Debug Mode with the trigger cause,
+    // not with the cause of a halt request.
+    debug_mode = 0;
+    #0.5;
+    assert (decoder_action[0] == riscv::DEBUG_TRIGGER)
+    else $fatal(1, "action=1 trigger gives cause %0d", decoder_action[0]);
+    debug_mode = 1;
     write_tdata1('0, flushed);
     debug_mode = 0;
 
     $display("PASS: tdata1 write of 0 disables the trigger (XLEN=%0d)", XLEN);
     $display("PASS: tdata1 never holds dmode=0 with action=1 (XLEN=%0d)", XLEN);
+    $display("PASS: an action=1 trigger requests Debug Mode with the trigger cause (XLEN=%0d)", XLEN);
     $finish;
   end
 endmodule

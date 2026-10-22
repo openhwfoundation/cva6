@@ -429,7 +429,7 @@ CVA6Cfg.NrCommitPorts
 
   if (CVA6Cfg.DebugEn) begin
     assign debug_mode = debug_mode_q;
-    assign ex_cause_is_not_debug_request = ex_i.cause != riscv::DEBUG_REQUEST;
+    assign ex_cause_is_not_debug_request = !(ex_i.cause inside {riscv::DEBUG_REQUEST, riscv::DEBUG_TRIGGER});
   end else begin
     assign debug_mode = 1'b0;
     assign ex_cause_is_not_debug_request = 1'b1;
@@ -2364,7 +2364,7 @@ CVA6Cfg.NrCommitPorts
         end
 
         // we've got a debug request
-        if (ex_i.valid && ex_i.cause == riscv::DEBUG_REQUEST) begin
+        if (ex_i.valid && ex_i.cause inside {riscv::DEBUG_REQUEST, riscv::DEBUG_TRIGGER}) begin
           dcsr_d.prv = priv_lvl_o;
           dcsr_d.v = (!CVA6Cfg.RVH) ? 1'b0 : v_q;
           // save the PC
@@ -2373,8 +2373,8 @@ CVA6Cfg.NrCommitPorts
           debug_mode_d = 1'b1;
           // jump to the base address
           set_debug_pc_o = 1'b1;
-          // save the cause as external debug request
-          dcsr_d.cause = ariane_pkg::CauseRequest;
+          // save the cause: a trigger or an external debug request
+          dcsr_d.cause = (ex_i.cause == riscv::DEBUG_TRIGGER) ? ariane_pkg::CauseTrigger : ariane_pkg::CauseRequest;
         end
 
         // single step enable and we just retired an instruction
