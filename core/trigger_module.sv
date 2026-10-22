@@ -363,15 +363,19 @@ CVA6Cfg.NrCommitPorts
               end else begin
                 trigger_32_tdata1_d[i].icount_type.count = 'd0;
               end
-            end
-          end
-          if (priv_match[i] && !trigger_32_tdata1_q[i].icount_type.pending && !trigger_32_tdata1_q[i].icount_type.hit) begin
-            if (32'(trigger_32_tdata1_d[i].icount_type.count) < CVA6Cfg.NrCommitPorts) begin
+              // pending becomes set when count goes to 0. A write of count=0 does not set it.
               if (trigger_32_tdata1_d[i].icount_type.count == 0) begin
                 trigger_32_tdata1_d[i].icount_type.pending = 1'b1;
               end
+            end
+          end
+          // The commit stage takes the trigger action on the next instruction to execute
+          // in an enabled mode (count=0), or retires one instruction at a time (count=1).
+          if (priv_match[i] && !debug_mode_i) begin
+            if (trigger_32_tdata1_d[i].icount_type.pending ||
+                trigger_32_tdata1_d[i].icount_type.count != 0 && trigger_32_tdata1_d[i].icount_type.count < CVA6Cfg.NrCommitPorts) begin
               fire_req_Icount.valid = 1'b1;
-              sdtrig_commit_icount_nr_instr_d =
+              sdtrig_commit_icount_nr_instr_d = trigger_32_tdata1_d[i].icount_type.pending ? '0 :
                   $bits(sdtrig_commit_icount_nr_instr_d)'(trigger_32_tdata1_d[i].icount_type.count);
               unique case (trigger_32_tdata1_d[i].icount_type.action)
                 6'd0:
@@ -383,15 +387,11 @@ CVA6Cfg.NrCommitPorts
               endcase
             end
           end
-          if (trigger_32_tdata1_q[i].icount_type.pending && ex_i.valid) begin
+          // The trigger fires when the commit stage takes its action. pending is cleared.
+          if (trigger_32_tdata1_q[i].icount_type.pending && ex_i.valid && sdtrig_commit_icount_valid_o
+              && sdtrig_commit_icount_nr_instr_o == '0) begin
             trigger_32_tdata1_d[i].icount_type.hit = 1'b1;
             trigger_32_tdata1_d[i].icount_type.pending = 1'b0;
-            fire_req_Icount.valid = 1'b0;
-            fire_req_Icount.action = '0;
-          end
-          if (debug_mode_i && trigger_32_tdata1_q[i].icount_type.pending) begin
-            trigger_32_tdata1_d[i].icount_type.pending = 1'b0;
-            trigger_32_tdata1_d[i].icount_type.hit = 1'b1;
             fire_req_Icount.valid = 1'b0;
             fire_req_Icount.action = '0;
           end
