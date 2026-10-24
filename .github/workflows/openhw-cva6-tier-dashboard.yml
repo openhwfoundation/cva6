@@ -20,6 +20,10 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  # Branch persisting the dashboard data, shared with PD-dashboard.yml
+  DATA_BRANCH: gh-pages-cva6-dashboard-data
+
 jobs:
   build:
     name: Build Tier Dashboard
@@ -28,16 +32,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Restore tier dashboard history from gh-pages-cva6-tier-dashboard-data
+      - name: Restore tier dashboard history from the data branch
         run: |
-          mkdir -p /tmp/tier-data
-          if git ls-remote --heads origin gh-pages-cva6-tier-dashboard-data | grep -q gh-pages-cva6-tier-dashboard-data; then
-            git fetch origin gh-pages-cva6-tier-dashboard-data --depth=1
-            git checkout origin/gh-pages-cva6-tier-dashboard-data -- data/ 2>/dev/null && \
-              cp -r data/* /tmp/tier-data/ 2>/dev/null || \
-              echo "No existing data on gh-pages-cva6-tier-dashboard-data, starting fresh"
+          mkdir -p /tmp/tier-data /tmp/dash-site
+          if git ls-remote --heads origin "$DATA_BRANCH" | grep -q "$DATA_BRANCH"; then
+            git fetch origin "$DATA_BRANCH" --depth=1
+            git checkout "origin/$DATA_BRANCH" -- data/ 2>/dev/null && \
+              cp -r data/tier/* /tmp/tier-data/ 2>/dev/null || \
+              echo "No existing tier data on $DATA_BRANCH, starting fresh"
+            if [ -d data/dash-site ]; then
+              cp -r data/dash-site/* /tmp/dash-site/ 2>/dev/null || true
+            fi
           else
-            echo "gh-pages-cva6-tier-dashboard-data branch does not exist yet, starting fresh"
+            echo "$DATA_BRANCH branch does not exist yet, starting fresh"
           fi
 
       - name: Collect tier dashboard CI data
@@ -61,7 +68,13 @@ jobs:
 
       - name: Prepare Pages artifact
         run: |
-          cp -r /tmp/tier-data /tmp/dash-site/data
+          if [ ! -f /tmp/dash-site/PD_dashboard.html ]; then
+            echo '<h1>PD Dashboard not yet generated. Check back after the PD flow completes.</h1>' \
+            > /tmp/dash-site/PD_dashboard.html
+          fi
+          cp .github/scripts/landing_page/index.html /tmp/dash-site/index.html
+          rm -rf /tmp/dash-site/tier-data
+          cp -r /tmp/tier-data /tmp/dash-site/tier-data
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -71,7 +84,7 @@ jobs:
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cva6-tier-dashboard-site
+          name: cva6-dashboard-site
           path: /tmp/dash-site
           retention-days: 14
 
@@ -102,36 +115,76 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Prepare gh-pages-cva6-tier-dashboard-data branch
+      - name: Prepare the data branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --heads origin gh-pages-cva6-tier-dashboard-data >/dev/null 2>&1; then
-            git fetch origin gh-pages-cva6-tier-dashboard-data --depth=1
-            git checkout -B gh-pages-cva6-tier-dashboard-data origin/gh-pages-cva6-tier-dashboard-data
-          else
-            git checkout --orphan gh-pages-cva6-tier-dashboard-data
+          # --exit-code: 2 when the branch does not exist, other codes are errors (network, auth)
+          status=0
+          git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null || status=$?
+          if [ "$status" -eq 0 ]; then
+            git fetch origin "$DATA_BRANCH" --depth=1
+            git checkout -B "$DATA_BRANCH" "origin/$DATA_BRANCH"
+          elif [ "$status" -eq 2 ]; then
+            git checkout --orphan "$DATA_BRANCH"
             git rm -rf . >/dev/null 2>&1 || true
             find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
             echo "# CVA6 Tier Dashboard Data" > README.md
             git add README.md
-            git commit -m "Initialize gh-pages-cva6-tier-dashboard-data branch"
+            git commit -m "Initialize $DATA_BRANCH branch"
+          else
+            echo "::error::Cannot list the branches of origin (git ls-remote exit code $status)"
+            exit 1
           fi
+
+      # Downloaded aside, not into data/: only the tier paths are copied from them (see below)
+      - name: Download updated dash-site data
+        uses: actions/download-artifact@v4
+        with:
+          name: cva6-dashboard-site
+          path: ${{ runner.temp }}/dash-site
 
       - name: Download updated tier data
         uses: actions/download-artifact@v4
         with:
           name: cva6-tier-dashboard-data
-          path: data/
+          path: ${{ runner.temp }}/tier-data
 
       - name: Commit and push tier data
+        # PD-dashboard.yml pushes to this branch too, not synchronized with this workflow.
+        # Only the tier paths are written: data/tier, and the tier files of data/dash-site. The
+        # rest of data/dash-site holds this run's copy of the PD dashboard, taken when the run
+        # started: writing it back would undo a PD dashboard update pushed since.
+        # A push rejected because the PD workflow pushed in between is redone on top of its commit.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
-          if git diff --cached --quiet; then
-            echo "No data changes to commit"
-          else
-            git commit -m "Update cva6 tier dashboard data [skip ci]"
-            git push origin HEAD:gh-pages-cva6-tier-dashboard-data
-          fi
+          # Replaced rather than overwritten: files no longer produced must go too
+          update_tier_paths() {
+            rm -rf data/tier data/dash-site/tier_dashboard.html data/dash-site/tier-data data/dash-site/assets
+            mkdir -p data/tier data/dash-site
+            cp -r "$RUNNER_TEMP/tier-data/." data/tier/
+            cp "$RUNNER_TEMP/dash-site/tier_dashboard.html" data/dash-site/
+            cp -r "$RUNNER_TEMP/dash-site/tier-data" data/dash-site/tier-data
+            if [ -d "$RUNNER_TEMP/dash-site/assets" ]; then
+              cp -r "$RUNNER_TEMP/dash-site/assets" data/dash-site/assets
+            fi
+            # The PD files of data/dash-site are left as checked out: only the tier changes are staged
+            git add -A data/tier data/dash-site
+          }
+          for attempt in 1 2 3; do
+            update_tier_paths
+            if git diff --cached --quiet; then
+              echo "No data changes to commit"
+              exit 0
+            fi
+            git commit -q -m "Update cva6 tier dashboard data [skip ci]"
+            if git push origin "HEAD:$DATA_BRANCH"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt): redoing the commit on top of the updated branch"
+            git fetch origin "$DATA_BRANCH" --depth=1
+            git reset -q --hard "origin/$DATA_BRANCH"
+          done
+          echo "::error::Could not push to $DATA_BRANCH after 3 attempts"
+          exit 1

@@ -1,0 +1,226 @@
+name: physical-design-dashboard
+
+on:
+  workflow_run:
+    workflows:
+      - OR-flow-floorplan
+      - OR-flow-grt
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  pages: write
+  id-token: write
+
+# One run at a time: runs push to the same data branch and deploy the same Pages site.
+# A newer run replaces a pending one, which is harmless: each run collects the latest runs again
+concurrency:
+  group: physical-design-dashboard
+  cancel-in-progress: false
+
+env:
+  # Branch persisting the dashboard data, shared with openhw-cva6-tier-dashboard.yml
+  DATA_BRANCH: gh-pages-cva6-dashboard-data
+  # Its runs are the reference runs of the dashboard, the others are compared to them
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+jobs:
+  build:
+    name: Build PD Dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Restore PD dashboard history from the data branch
+        # Starting fresh makes the persist job commit a new history over the existing
+        # one: only a missing branch or missing data does that, any error fails the step
+        run: |
+          mkdir -p /tmp/PD-data /tmp/dash-site
+          # --exit-code: 2 when the branch does not exist, other codes are errors (network, auth)
+          status=0
+          git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null || status=$?
+          if [ "$status" -eq 2 ]; then
+            echo "$DATA_BRANCH branch does not exist yet, starting fresh"
+            exit 0
+          elif [ "$status" -ne 0 ]; then
+            echo "::error::Cannot list the branches of origin (git ls-remote exit code $status)"
+            exit 1
+          fi
+          git fetch origin "$DATA_BRANCH" --depth=1
+          # Empty when the branch has no data/ yet
+          data_tree=$(git ls-tree "origin/$DATA_BRANCH" data)
+          if [ -n "$data_tree" ]; then
+            git checkout "origin/$DATA_BRANCH" -- data/
+          fi
+          if [ -d data/PD ]; then
+            cp -r data/PD/. /tmp/PD-data/
+          else
+            echo "No existing PD flow data on $DATA_BRANCH, starting fresh"
+          fi
+          if [ -d data/dash-site ]; then
+            cp -r data/dash-site/. /tmp/dash-site/
+          fi
+
+      - name: Collect PD Floorplan CI data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/dashboard_physical-design/extract_PD_metrics.py \
+            --flow flp \
+            --data-dir /tmp/PD-data \
+            --repo "${{ github.repository }}" \
+            --default-branch "$DEFAULT_BRANCH" \
+            --fetch-count 20
+
+      - name: Collect PD GRT CI data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/scripts/dashboard_physical-design/extract_PD_metrics.py \
+            --flow grt \
+            --data-dir /tmp/PD-data \
+            --repo "${{ github.repository }}" \
+            --default-branch "$DEFAULT_BRANCH" \
+            --fetch-count 20
+
+      - name: Install Jinja2
+        run: pip install jinja2
+
+      - name: Generate PD dashboard HTML
+        run: |
+          python3 .github/scripts/dashboard_physical-design/generate_PD_dashboard.py \
+            --data-dir /tmp/PD-data \
+            --output-dir /tmp/dash-site \
+            --repo "${{ github.repository }}" \
+            --default-branch "$DEFAULT_BRANCH"
+
+      - name: Prepare Pages artifact
+        run: |
+          if [ ! -f /tmp/dash-site/tier_dashboard.html ]; then
+            echo '<h1>Tier Dashboard not yet generated. Check back after tier tests complete.</h1>' \
+            > /tmp/dash-site/tier_dashboard.html
+          fi
+          cp .github/scripts/landing_page/index.html /tmp/dash-site/index.html
+          rm -rf /tmp/dash-site/PD-data
+          cp -r /tmp/PD-data /tmp/dash-site/PD-data
+
+      - name: Check the PD dashboard download links
+        # The run records point to raw files of the site: dead links are reported as
+        # warnings, the dashboard is still deployed with all its runs
+        run: |
+          python3 .github/scripts/dashboard_physical-design/check_PD_site.py \
+            --data-dir /tmp/PD-data \
+            --site-dir /tmp/dash-site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: /tmp/dash-site
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cva6-dashboard-site
+          path: /tmp/dash-site
+          retention-days: 14
+
+      - name: Upload data for persistence job
+        uses: actions/upload-artifact@v4
+        with:
+          name: cva6-PD-dashboard-data
+          path: /tmp/PD-data/
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  persist-PD-data:
+    name: Persist PD Dashboard Data
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Prepare the data branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # --exit-code: 2 when the branch does not exist, other codes are errors (network, auth)
+          status=0
+          git ls-remote --exit-code --heads origin "$DATA_BRANCH" >/dev/null || status=$?
+          if [ "$status" -eq 0 ]; then
+            git fetch origin "$DATA_BRANCH" --depth=1
+            git checkout -B "$DATA_BRANCH" "origin/$DATA_BRANCH"
+          elif [ "$status" -eq 2 ]; then
+            git checkout --orphan "$DATA_BRANCH"
+            git rm -rf . >/dev/null 2>&1 || true
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            echo "# CVA6 PD Dashboard Data" > README.md
+            git add README.md
+            git commit -m "Initialize $DATA_BRANCH branch"
+          else
+            echo "::error::Cannot list the branches of origin (git ls-remote exit code $status)"
+            exit 1
+          fi
+
+      # Downloaded aside, not into data/: only the PD paths are copied from them (see below)
+      - name: Download updated dash-site data
+        uses: actions/download-artifact@v4
+        with:
+          name: cva6-dashboard-site
+          path: ${{ runner.temp }}/dash-site
+
+      - name: Download updated PD data
+        uses: actions/download-artifact@v4
+        with:
+          name: cva6-PD-dashboard-data
+          path: ${{ runner.temp }}/PD-data
+
+      - name: Commit and push PD data
+        # The tier dashboard workflow pushes to this branch too, not synchronized with this one.
+        # Only the PD paths are written: data/PD, and the PD files of data/dash-site. The rest of
+        # data/dash-site holds this run's copy of the tier dashboard, taken when the run started:
+        # writing it back would undo a tier dashboard update pushed since.
+        # A push rejected because the tier workflow pushed in between is redone on top of its commit.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Replaced rather than overwritten: files no longer produced must go too
+          update_pd_paths() {
+            rm -rf data/PD data/dash-site/PD_dashboard.html data/dash-site/PD-data
+            mkdir -p data/PD data/dash-site
+            cp -r "$RUNNER_TEMP/PD-data/." data/PD/
+            cp "$RUNNER_TEMP/dash-site/PD_dashboard.html" data/dash-site/
+            cp -r "$RUNNER_TEMP/dash-site/PD-data" data/dash-site/PD-data
+            git add -A data/PD data/dash-site/PD_dashboard.html data/dash-site/PD-data
+          }
+          for attempt in 1 2 3; do
+            update_pd_paths
+            if git diff --cached --quiet; then
+              echo "No data changes to commit"
+              exit 0
+            fi
+            git commit -q -m "Update cva6 PD dashboard data [skip ci]"
+            if git push origin "HEAD:$DATA_BRANCH"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt): redoing the commit on top of the updated branch"
+            git fetch origin "$DATA_BRANCH" --depth=1
+            git reset -q --hard "origin/$DATA_BRANCH"
+          done
+          echo "::error::Could not push to $DATA_BRANCH after 3 attempts"
+          exit 1
