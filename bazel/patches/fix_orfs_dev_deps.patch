@@ -1,0 +1,13 @@
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -30,8 +30,8 @@ bazel_dep(name = "qt-bazel", dev_dependency = True)
+ git_override(
+     module_name = "qt-bazel",
+     commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
+     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+ )
+ 
+-bazel_dep(name = "bazel-orfs", dev_dependency = True)
+-bazel_dep(name = "bazel-orfs-verilog", dev_dependency = True)
++bazel_dep(name = "bazel-orfs")
++bazel_dep(name = "bazel-orfs-verilog")

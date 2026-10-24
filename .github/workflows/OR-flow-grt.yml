@@ -1,0 +1,136 @@
+name: OR-flow-grt
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  design-flow:
+    name: ${{ matrix.config }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false  # keep other configs running even if one fails
+      matrix:
+        config:
+          - cv32a65x
+          - cv64a6_imafdc_sv39_hpdcache
+          - cv64a6_imafdc_sv39_hpdcache_wb
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Bazelisk
+        run: |
+          sudo curl -fsSL \
+            https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
+            -o /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
+
+      - name: Restore Bazel disk cache
+        id: cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/bazel-disk-cache
+          # Own "grt-" prefix: OR-flow-floorplan saves the same config and flow files first,
+          # and a saved cache key cannot be overwritten, so a shared key would never hold the GRT results
+          key: bazel-orfs-${{ runner.os }}-grt-${{ matrix.config }}-${{ hashFiles('MODULE.bazel', 'BUILD.bazel', 'bazel/**') }}
+          # each level widens the match: floorplan cache of the same flow files (tools up to date)
+          # → GRT same config → floorplan same config → any config
+          restore-keys: |
+            bazel-orfs-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('MODULE.bazel', 'BUILD.bazel', 'bazel/**') }}
+            bazel-orfs-${{ runner.os }}-grt-${{ matrix.config }}-
+            bazel-orfs-${{ runner.os }}-${{ matrix.config }}-
+            bazel-orfs-${{ runner.os }}-
+
+      # repository cache persists all the downloaded tarballs and git archives
+      # shared across all matrix configs; keyed on MODULE.bazel (defines all external deps)
+      - name: Restore Bazel repository cache
+        id: repo-cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/bazel-repo-cache
+          key: bazel-orfs-${{ runner.os }}-repo-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: |
+            bazel-orfs-${{ runner.os }}-repo-
+
+      - name: Run full flow to global routing
+        # explicit disk cache (not the output base); GC limit set to 2 GB in .bazelrc
+        run: |
+          bazel build \
+            --disk_cache="$HOME/.cache/bazel-disk-cache" \
+            --repository_cache="$HOME/.cache/bazel-repo-cache" \
+            //:${{ matrix.config }}_grt
+
+      - name: Extract build parameters
+        # The build arguments come from the *.args.json files that bazel-orfs writes for each
+        # stage, uploaded with the logs. build_params.json adds what they lack
+        if: always()
+        run: |
+          mkdir -p bazel-bin/logs/asap7/cva6/base
+          # The SDC is the only source of the clock period: ORFS derives ABC_CLOCK_PERIOD_IN_PS
+          # from it (scripts/variables.mk), but only at synthesis: the later stages run here lack the SDC
+          value=$(sed -nE 's/^set\s+clk_period\s+(\S+).*|.*-period\s+(\S+).*/\1\2/p' bazel/constraints.sdc | head -1 | awk '{print $1}')
+          # Also what ORFS gets: not a number when the SDC computes the period, e.g. with [expr]
+          if ! [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "::warning::Clock period of bazel/constraints.sdc not found or not a number: '$value'"
+          fi
+          json=$(jq -n --arg v "$value" '{ABC_CLOCK_PERIOD_IN_PS: $v}')
+          echo "$json" | tee bazel-bin/logs/asap7/cva6/base/build_params.json
+
+      - name: Save Bazel disk cache
+        uses: actions/cache/save@v6
+        # Only master saves: other branches restore the master caches, and the 10 GB
+        # cache quota of the repository is shared with the rest of the CI.
+        # always() preserves partial cache even when the build fails
+        if: always() && github.ref == 'refs/heads/master'
+        with:
+          path: ~/.cache/bazel-disk-cache
+          key: ${{ steps.cache-restore.outputs.cache-primary-key }}
+
+      - name: Save Bazel repository cache
+        uses: actions/cache/save@v6
+        if: always() && github.ref == 'refs/heads/master'
+        with:
+          path: ~/.cache/bazel-repo-cache
+          key: ${{ steps.repo-cache-restore.outputs.cache-primary-key }}
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD-grt-${{ startsWith(matrix.config, 'cv32') && 'RV32' || 'RV64' }}-${{ matrix.config }}
+          path: bazel-bin/logs/asap7/cva6/base/5_1_grt.json
+          # Only runs when the flow passed: a missing file then means that its path or the
+          # flow changed. Fail the job, instead of passing it with no metrics for the dashboard
+          if-no-files-found: error
+
+      - name: Upload logs & reports artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD-grt-logs-${{ startsWith(matrix.config, 'cv32') && 'RV32' || 'RV64' }}-${{ matrix.config }}
+          path: |
+            bazel-bin/logs/asap7/cva6/base/*.log
+            bazel-bin/reports/asap7/cva6/base/*
+            bazel-bin/results/asap7/cva6/base/*.args.json
+            bazel-bin/logs/asap7/cva6/base/build_params.json
+          if-no-files-found: warn
+
+      - name: Check global routing result
+        # bazel-orfs forces GENERATE_ARTIFACTS_ON_FAILURE=1: a congested GRT still writes
+        # its outputs and bazel succeeds, so fail the job on any GRT error instead.
+        # Last step, so that the artifacts above are uploaded anyway.
+        run: |
+          errors=$(jq '.["globalroute__flow__errors__count"]' bazel-bin/logs/asap7/cva6/base/5_1_grt.json)
+          if [ "$errors" != "0" ]; then
+            echo "::error::Global routing finished with $errors error(s), most likely congestion (see 5_1_grt.log and congestion.rpt)"
+            exit 1
+          fi

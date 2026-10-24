@@ -57,3 +57,9 @@ Bender.lock
 /verif/sim/encaps.traces
 /verif/sim/iti.traces
 /verif/sim/verilator.fst.hier
+
+# bazel-orfs ignores
+/bazel-*
+MODULE.bazel.lock
+user.bazelrc
+tmp/

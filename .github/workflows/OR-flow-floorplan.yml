@@ -1,0 +1,158 @@
+name: OR-flow-floorplan
+
+on:
+  push:
+    branches:
+      - master
+    # Whatever changes the metrics, not only the RTL: otherwise a shift caused by e.g.
+    # an ORFS bump is attributed to the next RTL commit
+    paths:
+      - 'core/**'
+      - 'vendor/**'
+      - 'common/**'
+      - 'BUILD.bazel'
+      - 'MODULE.bazel'  # ORFS, OpenROAD, yosys versions
+      - '.bazelrc'
+      - '.bazelversion'
+      - 'bazel/**'
+      - '.github/workflows/OR-flow-floorplan.yml'
+  pull_request:
+    # Same list as push
+    paths:
+      - 'core/**'
+      - 'vendor/**'
+      - 'common/**'
+      - 'BUILD.bazel'
+      - 'MODULE.bazel'
+      - '.bazelrc'
+      - '.bazelversion'
+      - 'bazel/**'
+      - '.github/workflows/OR-flow-floorplan.yml'
+  workflow_dispatch:
+
+# A new push to a PR cancels the PR run in progress. Other runs each get their own group,
+# so they are never cancelled nor queued: every master run is a PD dashboard reference point
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  design-flow:
+    name: ${{ matrix.config }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false  # keep other configs running even if one fails
+      matrix:
+        config:
+          - cv32a65x
+          - cv64a6_imafdc_sv39_hpdcache
+          - cv64a6_imafdc_sv39_hpdcache_wb
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Bazelisk
+        run: |
+          sudo curl -fsSL \
+            https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
+            -o /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
+
+      - name: Restore Bazel disk cache
+        id: cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/bazel-disk-cache
+          key: bazel-orfs-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('MODULE.bazel', 'BUILD.bazel', 'bazel/**') }}
+          # each restore-keys level widens the match: same config -> any config
+          restore-keys: |
+            bazel-orfs-${{ runner.os }}-${{ matrix.config }}-
+            bazel-orfs-${{ runner.os }}-
+
+      # repository cache persists all the downloaded tarballs and git archives
+      # shared across all matrix configs; keyed on MODULE.bazel (defines all external deps)
+      - name: Restore Bazel repository cache
+        id: repo-cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/bazel-repo-cache
+          key: bazel-orfs-${{ runner.os }}-repo-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: |
+            bazel-orfs-${{ runner.os }}-repo-
+
+      - name: Run floorplan
+        # explicit disk cache (not the output base); GC limit set to 2 GB in .bazelrc
+        # Using fast variant bazel target (macros abstract_stage = place)
+        run: |
+          bazel build \
+            --disk_cache="$HOME/.cache/bazel-disk-cache" \
+            --repository_cache="$HOME/.cache/bazel-repo-cache" \
+            //:${{ matrix.config }}_fast_floorplan
+
+      - name: Extract build parameters
+        # The build arguments come from the *.args.json files that bazel-orfs writes for each
+        # stage, uploaded with the logs. build_params.json adds what they lack
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p bazel-bin/logs/asap7/cva6/base
+          # The SDC is the only source of the clock period: ORFS derives ABC_CLOCK_PERIOD_IN_PS
+          # from it (scripts/variables.mk), but only at synthesis: the later stages run here lack the SDC
+          value=$(sed -nE 's/^set\s+clk_period\s+(\S+).*|.*-period\s+(\S+).*/\1\2/p' bazel/constraints.sdc | head -1 | awk '{print $1}')
+          # Also what ORFS gets: not a number when the SDC computes the period, e.g. with [expr]
+          if ! [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "::warning::Clock period of bazel/constraints.sdc not found or not a number: '$value'"
+          fi
+          json=$(jq -n --arg v "$value" '{ABC_CLOCK_PERIOD_IN_PS: $v}')
+
+          # Not a build parameter: lets the PD dashboard name the PR, which the GitHub API
+          # leaves out for fork PRs. Empty outside pull_request events
+          json=$(echo "$json" | jq --arg v "$PR_NUMBER" '.PR_NUMBER = $v')
+          echo "$json" | tee bazel-bin/logs/asap7/cva6/base/build_params.json
+
+      - name: Save Bazel disk cache
+        uses: actions/cache/save@v6
+        # Only master saves: PRs and other branches restore the master caches, and the 10 GB
+        # cache quota of the repository is shared with the rest of the CI.
+        # always() preserves partial cache even when the build fails
+        if: always() && github.ref == 'refs/heads/master'
+        with:
+          path: ~/.cache/bazel-disk-cache
+          key: ${{ steps.cache-restore.outputs.cache-primary-key }}
+
+      - name: Save Bazel repository cache
+        uses: actions/cache/save@v6
+        if: always() && github.ref == 'refs/heads/master'
+        with:
+          path: ~/.cache/bazel-repo-cache
+          key: ${{ steps.repo-cache-restore.outputs.cache-primary-key }}
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD-flp-${{ startsWith(matrix.config, 'cv32') && 'RV32' || 'RV64' }}-${{ matrix.config }}
+          path: bazel-bin/logs/asap7/cva6/base/2_1_floorplan.json
+          # Only runs when the flow passed: a missing file then means that its path or the
+          # flow changed. Fail the job, instead of passing it with no metrics for the dashboard
+          if-no-files-found: error
+
+      - name: Upload logs & reports artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PD-flp-logs-${{ startsWith(matrix.config, 'cv32') && 'RV32' || 'RV64' }}-${{ matrix.config }}
+          path: |
+            bazel-bin/logs/asap7/cva6/base/*.log
+            bazel-bin/reports/asap7/cva6/base/*
+            bazel-bin/results/asap7/cva6/base/*.args.json
+            bazel-bin/logs/asap7/cva6/base/build_params.json
+          if-no-files-found: warn
