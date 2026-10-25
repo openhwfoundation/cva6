@@ -104,7 +104,7 @@ for test in "${SV39_PRIV_TESTS[@]}"; do
     --test "$test" --iss_yaml cva6.yaml \
     --target cv64a6_imafdc_sv39_hpdcache_pmp_mmu_obi \
     --iss=$DV_SIMULATORS $DV_OPTS \
-    --linker=../tests/custom/privtests/priv/config/link.ld
+    --linker=../tests/custom/env/privtests/priv/config/link.ld
 done
 # Standalone tests below already PASS spike-uvm comparison - commented out for failing-only rerun
 python3 cva6.py --iss_timeout=30000 --testlist=../tests/testlist_riscv-compliance-cv64a6_imafdc_sv39.yaml --test rv32i-I-ADD-01 --iss_yaml cva6.yaml --target cv64a6_imafdc_sv39_hpdcache_pmp_mmu_obi --iss=$DV_SIMULATORS $DV_OPTS

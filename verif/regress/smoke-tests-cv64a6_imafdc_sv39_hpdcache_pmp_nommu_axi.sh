@@ -73,7 +73,7 @@ for test in "${SV39_PRIV_TESTS[@]}"; do
     --test "$test" --iss_yaml cva6.yaml \
     --target cv64a6_imafdc_sv39_hpdcache_pmp_nommu_axi \
     --iss=$DV_SIMULATORS $DV_OPTS \
-    --linker=../tests/custom/privtests/priv/config/link.ld
+    --linker=../tests/custom/env/privtests/priv/config/link.ld
 done
 python3 cva6.py --iss_timeout=30000 --testlist=../tests/testlist_riscv-compliance-cv64a6_imafdc_sv39.yaml --test rv32i-I-ADD-01 --iss_yaml cva6.yaml --target cv64a6_imafdc_sv39_hpdcache_pmp_nommu_axi --iss=$DV_SIMULATORS $DV_OPTS
 python3 cva6.py --iss_timeout=30000 --testlist=../tests/testlist_riscv-tests-cv64a6_imafdc_sv39-p.yaml --test rv64ua-p-amoadd_d --iss_yaml cva6.yaml --target cv64a6_imafdc_sv39_hpdcache_pmp_nommu_axi --iss=$DV_SIMULATORS $DV_OPTS
