@@ -432,3 +432,16 @@ ALTERA_IPS = [
 # would silently keep whichever came last - so the board a recipe was
 # asked for could differ from the one it builds.
 ALTERA_QSF_OVERRIDDEN = ("TOP_LEVEL_ENTITY", "DEVICE", "FAMILY")
+
+# Sources of core/Flist.cva6 the FPGA build (Xilinx and Altera) leave out on
+# purpose: replaced by an FPGA wrapper declaring the same module, or simulation
+# only. Same list as teh 'fpga_filter' of teh root Makefile
+FPGA_CORE_EXCLUDED = [
+    "common/local/util/tc_sram_wrapper.sv",
+    "core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv",
+    "core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv",
+    "core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_1rw.sv",
+    "vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv",
+    "core/include/instr_tracer_pkg.sv",
+    "common/local/util/instr_tracer.sv",
+]

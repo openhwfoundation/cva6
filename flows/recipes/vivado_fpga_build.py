@@ -51,6 +51,7 @@ from flows.utils.fpga_board import (
     ip_dir,
     ip_is_generated,
     ip_xci,
+    FPGA_CORE_EXCLUDED,
 )
 from flows.utils.manifest import (
     read_manifest,
@@ -67,6 +68,8 @@ from flows.utils.target_config import (
     read_config_or_exit_flist,
     read_config_or_exit_isa,
     warn_if_fpga_disabled,
+    require_flist_files,
+    require_core_files_in_flist,
 )
 
 app = typer.Typer()
@@ -446,6 +449,18 @@ def vivado_fpga_build(
         f"./cook.py fpga-bootrom -t {target} -c <toolchain> --board {board.value}",
         report=report,
         manifest_dir=bootrom_dir,
+    )
+    rtl_files = read_config_or_exit_flist(
+        target, report, filename="Flist.cva6_fpga", repo_dir=repo_dir
+    )
+    require_flist_files(rtl_files, "Flist.cva6_fpga", report)
+    require_core_files_in_flist(
+        target,
+        rtl_files,
+        FPGA_CORE_EXCLUDED,
+        "Flist.cva6_fpga",
+        report,
+        repo_dir=repo_dir,
     )
 
     report.success("Prerequisites OK")
