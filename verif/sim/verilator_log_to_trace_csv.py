@@ -32,6 +32,7 @@ RD_RE    = re.compile(r"(?P<pri>\d) 0x(?P<addr>[a-f0-9]+?) " \
                       "\((?P<bin>.*?)\) (?P<reg>[xf]\s*\d*?) 0x(?P<val>[a-f0-9]+)")
 CORE_RE  = re.compile(r"core.*0x(?P<addr>[a-f0-9]+?) \(0x(?P<bin>.*?)\) (?P<instr>.*?)$")
 ILLE_RE  = re.compile(r"trap_illegal_instruction")
+ADDR_RE = re.compile(r"(?P<rd>[a-z0-9]+),(?P<imm>-?[0-9]+)\((?P<rs1>[a-z0-9]+)\)")
 
 LOGGER = logging.getLogger()
 
@@ -46,8 +47,13 @@ def process_instr(trace):
     else:
       imm = str(int(imm, 16))
     trace.operand = trace.operand[0:idx+1] + imm
-  trace.operand = trace.operand.replace("(", ",")
-  trace.operand = trace.operand.replace(")", "")
+  address = ADDR_RE.fullmatch(trace.operand)
+  if address:
+    trace.operand = "{},{},{}".format(address.group("rd"),
+                                     address.group("rs1"),
+                                     address.group("imm"))
+  else:
+    trace.operand = trace.operand.replace("(", ",").replace(")", "")
 
 
 def read_verilator_instr(match, full_trace):
