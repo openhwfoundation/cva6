@@ -142,6 +142,7 @@ module riscv_peripherals #(
 
   logic        tck, tms, trst_n, tdi, tdo, tdo_oe;
 
+  logic dmi_rst_n; // DTM reset: synchronous clear for the DM response queue
   dmi_jtag i_dmi_jtag (
     .clk_i                                ,
     .rst_ni                               ,
@@ -152,7 +153,7 @@ module riscv_peripherals #(
     .dmi_resp_i       ( debug_resp       ),
     .dmi_resp_ready_o ( debug_resp_ready ),
     .dmi_resp_valid_i ( debug_resp_valid ),
-    .dmi_rst_no       (                  ), // not connected
+    .dmi_rst_no       ( dmi_rst_n        ),
     .tck_i            ( tck              ),
     .tms_i            ( tms              ),
     .trst_ni          ( trst_n           ),
@@ -224,6 +225,10 @@ module riscv_peripherals #(
     .clk_i                                        ,
     .rst_ni                                       , // PoR
     .testmode_i                                   ,
+    .next_dm_addr_i       ( '0                    ), // no next debug module
+    .ndmreset_ack_i       ( ndmreset_o            ),
+    .master_r_err_i       ( '0                    ),
+    .master_r_other_err_i ( '0                    ),
     .ndmreset_o                                   ,
     .dmactive_o                                   , // active debug session
     .debug_req_o                                  ,
@@ -243,7 +248,7 @@ module riscv_peripherals #(
     .master_gnt_i         ( dm_master_gnt        ),
     .master_r_valid_i     ( dm_master_r_valid    ),
     .master_r_rdata_i     ( dm_master_r_rdata    ),
-    .dmi_rst_ni           ( rst_ni               ),
+    .dmi_rst_ni           ( dmi_rst_n            ),
     .dmi_req_valid_i      ( debug_req_valid      ),
     .dmi_req_ready_o      ( debug_req_ready      ),
     .dmi_req_i            ( debug_req            ),

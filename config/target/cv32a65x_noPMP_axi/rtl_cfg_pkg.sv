@@ -62,7 +62,7 @@ package cva6_config_pkg;
       RVU: bit'(0),
       SoftwareInterruptEn: bit'(0),
       HaltAddress: 64'h800,
-      ExceptionAddress: 64'h808,
+      ExceptionAddress: 64'h810,
       RASDepth: unsigned'(8),
       BTBEntries: unsigned'(64),
       BPType: config_pkg::PH_BHT,

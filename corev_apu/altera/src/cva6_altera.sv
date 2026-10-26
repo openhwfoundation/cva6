@@ -286,6 +286,7 @@ vJTAG vJTAG_inst (
     .tck                (vjtag_tck)                 //  output,  width = 1,  tck.clk
 );
 
+logic dmi_rst_n; // DTM reset: synchronous clear for the DM response queue
 dmi_vjtag #(
     .IrLength ( 10 ),
     // .IdcodeValue ( 32'hC341A0DD)
@@ -306,7 +307,7 @@ dmi_vjtag #(
     .virtual_state_sdr_i  (vjtag_sdr),
     .virtual_state_udr_i  (vjtag_udr),
     // DMI
-    .dmi_rst_no        (),
+    .dmi_rst_no        (dmi_rst_n),
     .dmi_req_o         (debug_req),
     .dmi_req_valid_o   (debug_req_valid),
     .dmi_req_ready_i   (debug_req_ready),
@@ -345,6 +346,10 @@ dm_top #(
     .clk_i            ( clk               ),
     .rst_ni           ( rst_n             ), // PoR
     .testmode_i       ( test_en           ),
+    .next_dm_addr_i   ( '0                ), // no next debug module
+    .ndmreset_ack_i   ( ndmreset          ),
+    .master_r_err_i   ( '0                ),
+    .master_r_other_err_i ( '0            ),
     .ndmreset_o       ( ndmreset          ),
     .dmactive_o       ( dmactive          ), // active debug session
     .debug_req_o      ( debug_req_irq     ),
@@ -364,7 +369,7 @@ dm_top #(
     .master_gnt_i     ( dm_master_gnt     ),
     .master_r_valid_i ( dm_master_r_valid ),
     .master_r_rdata_i ( dm_master_r_rdata ),
-    .dmi_rst_ni       ( rst_n             ),
+    .dmi_rst_ni       ( dmi_rst_n         ),
     .dmi_req_valid_i  ( debug_req_valid   ),
     .dmi_req_ready_o  ( debug_req_ready   ),
     .dmi_req_i        ( debug_req         ),

@@ -49,6 +49,10 @@ vendor/pulp-platform/common_cells/src/exp_backoff.sv
 vendor/pulp-platform/common_cells/src/rr_arb_tree.sv
 vendor/pulp-platform/common_cells/src/rstgen_bypass.sv
 vendor/pulp-platform/common_cells/src/cdc_2phase.sv
+vendor/pulp-platform/common_cells/src/cdc_2phase_clearable.sv
+vendor/pulp-platform/common_cells/src/cdc_4phase.sv
+vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr_pkg.sv
+vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr.sv
 vendor/pulp-platform/common_cells/src/popcount.sv
 corev_apu/axi_mem_if/src/axi2mem.sv
 vendor/pulp-platform/tech_cells_generic/src/deprecated/cluster_clk_cells.sv

@@ -261,6 +261,7 @@ module dmi_vjtag #(
     // JTAG side (master side)
     .tck_i,
     .trst_ni,
+    .jtag_dmi_cdc_clear_i ( 1'b0         ), // never cleared, as before
     .jtag_dmi_req_i    ( dmi_req          ),
     .jtag_dmi_ready_o  ( dmi_req_ready    ),
     .jtag_dmi_valid_i  ( dmi_req_valid    ),
@@ -270,6 +271,7 @@ module dmi_vjtag #(
     // core side
     .clk_i,
     .rst_ni,
+    .core_dmi_rst_no   (                  ), // dmi_rst_no stays rst_ni
     .core_dmi_req_o    ( dmi_req_o        ),
     .core_dmi_valid_o  ( dmi_req_valid_o  ),
     .core_dmi_ready_i  ( dmi_req_ready_i  ),

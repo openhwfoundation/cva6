@@ -112,7 +112,7 @@ covergroup cg_cva6_config(string name) with function sample(cva6_cfg_t CVA6Cfg);
       bins HaltAddress ={64'h800};
    }
    cp_ExceptionAddress : coverpoint CVA6Cfg.ExceptionAddress {
-      bins ExceptionAddress ={64'h808};
+      bins ExceptionAddress ={64'h810};
    }
 endgroup: cg_cva6_config
 

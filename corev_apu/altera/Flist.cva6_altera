@@ -290,6 +290,10 @@ ${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_mux.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_demux.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_xbar.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cdc_2phase.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cdc_2phase_clearable.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cdc_4phase.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr_pkg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/spill_register_flushable.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/spill_register.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/deprecated/fifo_v1.sv

@@ -192,6 +192,10 @@ src :=  $(if $(spike-tandem),verif/tb/core/uvma_core_cntrl_pkg.sv)              
         vendor/pulp-platform/axi/src/axi_demux.sv                                    \
         vendor/pulp-platform/axi/src/axi_xbar.sv                                     \
         vendor/pulp-platform/common_cells/src/cdc_2phase.sv                          \
+        vendor/pulp-platform/common_cells/src/cdc_2phase_clearable.sv                \
+        vendor/pulp-platform/common_cells/src/cdc_4phase.sv                          \
+        vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr_pkg.sv                 \
+        vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr.sv                     \
         vendor/pulp-platform/common_cells/src/spill_register_flushable.sv            \
         vendor/pulp-platform/common_cells/src/spill_register.sv                      \
         vendor/pulp-platform/common_cells/src/deprecated/fifo_v1.sv                  \
@@ -300,6 +304,10 @@ xil_debug_filter = $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dm_obi_top.s
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dm_pkg.sv)
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag_tap.sv)
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag.sv)						
+# riscv-dbg's DMI test utilities are a simulation-only package (classes).
+xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_test.sv)
+# dmi_bscane_tap.sv defines the same dmi_jtag_tap module as dmi_jtag_tap.sv.
+xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_bscane_tap.sv)
 src := $(filter-out $(xil_debug_filter), $(src))
 
 fpga_src := $(addprefix $(root-dir), $(fpga_src)) src/bootrom/bootrom_$(XLEN).sv
