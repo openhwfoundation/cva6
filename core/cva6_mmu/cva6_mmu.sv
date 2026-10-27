@@ -54,6 +54,7 @@ module cva6_mmu
     input logic [CVA6Cfg.VLEN-1:0] lsu_vaddr_i,  // virtual address in
     input logic [31:0] lsu_tinst_i,  // transformed instruction in
     input logic lsu_is_store_i,  // the translation is requested by a store
+    input logic lsu_is_cbo_mgmt_i,
     output logic csr_hs_ld_st_inst_o,  // hyp load store instruction
     // if we need to walk the page table we can't grant in the same cycle
     // Cycle 0
@@ -66,7 +67,9 @@ module cva6_mmu
     // and lsu_exception_o.
     output logic [CVA6Cfg.VLEN-1:0] lsu_vaddr_o,
     output logic lsu_is_store_o,
+    output logic lsu_is_cbo_mgmt_o,
     output logic lsu_hlvx_inst_o,
+
     output exception_t lsu_exception_o,  // address translation threw an exception
     // General control signals
     input riscv::priv_lvl_t priv_lvl_i,
@@ -331,6 +334,7 @@ module cva6_mmu
       .hlvx_inst_i           (hlvx_inst_i),
 
       .lsu_is_store_i(lsu_is_store_i),
+      .lsu_is_cbo_mgmt_i(lsu_is_cbo_mgmt_i),
       // PTW memory interface
       .req_port_i    (req_port_i),
       .req_port_o    (req_port_o),
@@ -514,16 +518,20 @@ module cva6_mmu
   logic hlvx_inst_n, hlvx_inst_q;
   logic g_load_exec_as_read_ok;
   logic g_load_access_ok;
+  logic cbo_load_access_ok;
+  logic g_cbo_load_access_ok;
   pte_cva6_t dtlb_pte_n, dtlb_pte_q;
   pte_cva6_t dtlb_gpte_n, dtlb_gpte_q;
   logic lsu_req_n, lsu_req_q;
   logic lsu_is_store_n, lsu_is_store_q;
+  logic lsu_is_cbo_mgmt_n, lsu_is_cbo_mgmt_q;
   logic dtlb_hit_n, dtlb_hit_q;
   logic [CVA6Cfg.PtLevels-2:0] dtlb_is_page_n, dtlb_is_page_q;
   exception_t misaligned_ex_n, misaligned_ex_q;
 
   assign lsu_vaddr_o = lsu_vaddr_q;
   assign lsu_is_store_o = lsu_is_store_q;
+  assign lsu_is_cbo_mgmt_o = lsu_is_cbo_mgmt_q;
   assign lsu_hlvx_inst_o = CVA6Cfg.RVH ? hlvx_inst_q : 1'b0;
 
   // check if we need to do translation or if we are always ready (e.g.: we are not translating anything)
@@ -538,6 +546,7 @@ module cva6_mmu
     dtlb_pte_n = dtlb_content;
     dtlb_hit_n = dtlb_lu_hit;
     lsu_is_store_n = lsu_is_store_i;
+    lsu_is_cbo_mgmt_n = lsu_is_cbo_mgmt_i;
     dtlb_is_page_n = dtlb_is_page;
     misaligned_ex_n = misaligned_ex_i;
 
@@ -557,6 +566,9 @@ module cva6_mmu
               ((ld_st_priv_lvl_i == riscv::PRIV_LVL_S && (ld_st_v_i ? !vs_sum_i : !sum_i ) && dtlb_pte_q.u) || // SUM is not set and we are trying to access a user page in supervisor mode
     (ld_st_priv_lvl_i == riscv::PRIV_LVL_U && !dtlb_pte_q.u));
 
+    cbo_load_access_ok = dtlb_pte_q.r ||
+                         (dtlb_pte_q.x && mxr_i);
+
     if (CVA6Cfg.RVH) begin
       lsu_tinst_n = lsu_tinst_i;
       hs_ld_st_inst_n = hs_ld_st_inst_i;
@@ -570,11 +582,13 @@ module cva6_mmu
       // later plain HLV load to inherit execute-only permission.
       g_load_exec_as_read_ok = dtlb_gpte_q.x && (mxr_i || hlvx_inst_q);
       g_load_access_ok = dtlb_gpte_q.r || g_load_exec_as_read_ok;
+      g_cbo_load_access_ok = dtlb_gpte_q.r ||
+                             (dtlb_gpte_q.x && mxr_i);
       d_g_st_access_err = en_ld_st_g_translation_i && (
                           !dtlb_gpte_q.u ||
                           !dtlb_gpte_q.a ||
                           (!lsu_is_store_q && !g_load_access_ok)
-      );
+                          );
       dtlb_gpte_n = dtlb_g_content;
     end
 
@@ -621,7 +635,7 @@ module cva6_mmu
         // physical memory based exceptions are ACCESS_FAULTS (PMA/PMP)
 
         // this is a store
-        if (lsu_is_store_q) begin
+        if (lsu_is_store_q && !lsu_is_cbo_mgmt_q) begin
           // check if the page is write-able and we are not violating privileges
           // also check if the dirty flag is set
           if(CVA6Cfg.RVH && en_ld_st_g_translation_i && (!dtlb_gpte_q.w || d_g_st_access_err || !dtlb_gpte_q.d)) begin
@@ -649,6 +663,44 @@ module cva6_mmu
               lsu_exception_o.gva   = ld_st_v_i;
             end
           end
+
+          // this is a CBO management instruction
+        end else if (lsu_is_cbo_mgmt_q) begin
+          // CBO is permitted if either load or store access is permitted.
+          // The dirty bit is not required for CBO.
+          if (CVA6Cfg.RVH && en_ld_st_g_translation_i &&
+              (!dtlb_gpte_q.u ||
+               !dtlb_gpte_q.a ||
+               (!dtlb_gpte_q.w && !g_cbo_load_access_ok))) begin
+            lsu_exception_o.cause = riscv::STORE_GUEST_PAGE_FAULT;
+            lsu_exception_o.valid = 1'b1;
+            if (CVA6Cfg.TvalEn)
+              lsu_exception_o.tval = {
+                {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, lsu_vaddr_q
+              };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = CVA6Cfg.GPLEN'(lsu_gpaddr_q[(CVA6Cfg.IS_XLEN32 ? CVA6Cfg.VLEN : CVA6Cfg.GPLEN)-1:0]);
+              lsu_exception_o.tinst = '0;
+              lsu_exception_o.gva = ld_st_v_i;
+            end
+          end else if ((en_ld_st_translation_i || !CVA6Cfg.RVH) &&
+                       (!dtlb_pte_q.a ||
+                        (!dtlb_pte_q.w && !cbo_load_access_ok) ||
+                        daccess_err ||
+                        canonical_addr_check)) begin
+            lsu_exception_o.cause = riscv::STORE_PAGE_FAULT;
+            lsu_exception_o.valid = 1'b1;
+            if (CVA6Cfg.TvalEn)
+              lsu_exception_o.tval = {
+                {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, lsu_vaddr_q
+              };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = '0;
+              lsu_exception_o.tinst = lsu_tinst_q;
+              lsu_exception_o.gva = ld_st_v_i;
+            end
+          end
+
           // this is a load
         end else begin
           if (CVA6Cfg.RVH && d_g_st_access_err) begin
@@ -690,7 +742,7 @@ module cva6_mmu
           // an error makes the translation valid
           lsu_valid_o = 1'b1;
           // the page table walker can only throw page faults
-          if (lsu_is_store_q) begin
+          if (lsu_is_store_q || lsu_is_cbo_mgmt_q) begin
             if (CVA6Cfg.RVH && ptw_error_at_g_st) begin
               lsu_exception_o.cause = riscv::STORE_GUEST_PAGE_FAULT;
               lsu_exception_o.valid = 1'b1;
@@ -786,6 +838,7 @@ module cva6_mmu
       dtlb_gpte_q     <= '0;
       dtlb_hit_q      <= '0;
       lsu_is_store_q  <= '0;
+      lsu_is_cbo_mgmt_q <= '0;
       dtlb_is_page_q  <= '0;
       lsu_tinst_q     <= '0;
       hs_ld_st_inst_q <= '0;
@@ -797,6 +850,7 @@ module cva6_mmu
       dtlb_pte_q      <= dtlb_pte_n;
       dtlb_hit_q      <= dtlb_hit_n;
       lsu_is_store_q  <= lsu_is_store_n;
+      lsu_is_cbo_mgmt_q <= lsu_is_cbo_mgmt_n;
       dtlb_is_page_q  <= dtlb_is_page_n;
       misaligned_ex_q <= misaligned_ex_n;
 

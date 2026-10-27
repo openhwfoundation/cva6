@@ -60,6 +60,8 @@ module issue_read_operands
     output logic [CVA6Cfg.VLEN-1:0] pc_o,
     // Is zcmt - EX_STAGE
     output logic is_zcmt_o,
+    // Is CBO management instruction - EX_STAGE
+    output logic is_cbo_mgmt_o,
     // Is compressed instruction - EX_STAGE
     output logic is_compressed_instr_o,
     // Fixed Latency Unit is ready - EX_STAGE
@@ -1070,6 +1072,7 @@ module issue_read_operands
       end
       pc_o                     <= '0;
       is_zcmt_o                <= '0;
+      is_cbo_mgmt_o            <= '0;
       is_compressed_instr_o    <= 1'b0;
       branch_predict_o         <= {cf_t'(0), {CVA6Cfg.VLEN{1'b0}}};
       x_transaction_rejected_o <= 1'b0;
@@ -1090,6 +1093,14 @@ module issue_read_operands
         if (CVA6Cfg.RVZCMT) is_zcmt_o <= issue_instr_i[0].is_zcmt;
         else is_zcmt_o <= '0;
       end
+
+      if (issue_instr_i[0].fu == STORE) begin
+        if (CVA6Cfg.RVZiCbom) is_cbo_mgmt_o <= issue_instr_i[0].is_cbo_mgmt;
+        else is_cbo_mgmt_o <= '0;
+      end else begin
+        is_cbo_mgmt_o <= '0;
+      end
+
       x_transaction_rejected_o <= x_transaction_rejected_n;
     end
   end

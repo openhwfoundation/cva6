@@ -27,6 +27,7 @@ module pmp_data_if
     input logic [CVA6Cfg.VLEN-1:0] lsu_vaddr_i,  // virtual address in, for tval only
     input exception_t lsu_exception_i,  // lsu exception coming from MMU, or misaligned exception
     input logic lsu_is_store_i,  // the translation is requested by a store
+    input logic lsu_is_cbo_mgmt_i,
     input logic lsu_hlvx_inst_i,
     output logic lsu_valid_o,  // translation is valid
     output logic [CVA6Cfg.PLEN-1:0] lsu_paddr_o,  // translated address
@@ -124,7 +125,9 @@ module pmp_data_if
     lsu_valid_o     = lsu_valid_i;
     lsu_paddr_o     = lsu_paddr_i;
     lsu_exception_o = lsu_exception_i;
-    if (lsu_is_store_i) begin
+    if (lsu_is_cbo_mgmt_i) begin
+      pmp_access_type = riscv::pmp_access_t'(riscv::ACCESS_READ | riscv::ACCESS_WRITE);
+    end else if (lsu_is_store_i) begin
       pmp_access_type = riscv::ACCESS_WRITE;
     end else if (lsu_hlvx_inst_i) begin
       pmp_access_type = riscv::pmp_access_t'(riscv::ACCESS_READ | riscv::ACCESS_EXEC);
@@ -144,7 +147,7 @@ module pmp_data_if
         lsu_exception_o.tval = lsu_vaddr_xlen;
       end
 
-      if (lsu_is_store_i) begin
+      if (lsu_is_store_i || lsu_is_cbo_mgmt_i) begin
         lsu_exception_o.cause = riscv::ST_ACCESS_FAULT;
       end else begin
         lsu_exception_o.cause = riscv::LD_ACCESS_FAULT;

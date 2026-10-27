@@ -54,6 +54,7 @@ module ex_stage
     input logic [CVA6Cfg.VLEN-1:0] pc_i,
     // Is_zcmt instruction - ISSUE_STAGE
     input logic is_zcmt_i,
+    input logic is_cbo_mgmt_i,
     // Report whether instruction is compressed - ISSUE_STAGE
     input logic is_compressed_instr_i,
     // Report instruction encoding - ISSUE_STAGE
@@ -566,6 +567,7 @@ module ex_stage
       .no_st_pending_o,
       .shared_tlb_flush_busy_o(shared_tlb_flush_busy_o),
       .fu_data_i              (lsu_data),
+      .is_cbo_mgmt_i           (is_cbo_mgmt_i),
       .lsu_ready_o,
       .lsu_valid_i            (|lsu_valid_i),
       .speculative_load_i     (speculative_load),

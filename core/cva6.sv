@@ -122,6 +122,7 @@ module cva6
       logic is_double_rd_macro_instr;  // is double move decoded 32bit instruction of macro definition
       logic vfp;  // is this a vector floating-point instruction?
       logic is_zcmt;  //is a zcmt instruction
+      logic is_cbo_mgmt;  // is a CBO management instruction
     },
     localparam type writeback_t = struct packed {
       logic valid;  // wb data is valid
@@ -911,6 +912,7 @@ module cva6
       .alu_bypass_o            (alu_bypass_id_ex),
       .pc_o                    (pc_id_ex),
       .is_zcmt_o               (zcmt_id_ex),
+      .is_cbo_mgmt_o           (cbo_mgmt_id_ex),
       .is_compressed_instr_o   (is_compressed_instr_id_ex),
       .tinst_o                 (tinst_ex),
       // fixed latency unit ready
@@ -1012,6 +1014,7 @@ module cva6
       .alu_bypass_i(alu_bypass_id_ex),
       .pc_i(pc_id_ex),
       .is_zcmt_i(zcmt_id_ex),
+      .is_cbo_mgmt_i(cbo_mgmt_id_ex),
       .is_compressed_instr_i(is_compressed_instr_id_ex),
       .tinst_i(tinst_ex),
       // fixed latency units
