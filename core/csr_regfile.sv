@@ -2666,7 +2666,9 @@ module csr_regfile
       csr_exception_o.valid = 1'b1;
     end
 
-    if (CVA6Cfg.RVH && (virtual_update_access_exception || virtual_read_access_exception || virtual_privilege_violation)) begin
+    if (CVA6Cfg.RVH &&
+        !(update_access_exception || read_access_exception) &&
+        (virtual_update_access_exception || virtual_read_access_exception || virtual_privilege_violation)) begin
       csr_exception_o.cause = riscv::VIRTUAL_INSTRUCTION;
       csr_exception_o.valid = 1'b1;
     end
