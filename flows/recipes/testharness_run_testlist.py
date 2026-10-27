@@ -18,6 +18,7 @@ one run per test, and a single report carrying the verdict of each.
 
 from enum import Enum
 from pathlib import Path
+from typing import Annotated
 
 import typer
 import yaml
@@ -82,6 +83,9 @@ def testharness_run_testlist(
     sim_timeout: int = typer.Option(
         SIMULATION_TIMEOUT, "--sim-timeout", help="Simulation timeout in seconds"
     ),
+    tandem_enabled: Annotated[
+        bool, typer.Option(help="Enable live tandem for every Verilator test")
+    ] = False,
     uvm_verbosity: UvmVerbosity = typer.Option(
         # LOW rather than NONE: the harness reports its verdict with
         # `uvm_info(..., UVM_LOW)`, and NONE drops the line the recipes
@@ -103,7 +107,7 @@ def testharness_run_testlist(
         "testharness-run-testlist",
         out_dir=build_root
         / "simulation"
-        / f"testharness_{simulator.value}_{testlist_file.stem}",
+        / f"testharness_{simulator.value}_{testlist_file.stem}{'_tandem' if tandem_enabled else ''}",
         title="TESTHARNESS TESTLIST RUN",
         context={
             "simulator": simulator.value,
@@ -111,10 +115,16 @@ def testharness_run_testlist(
             "testlist": testlist,
             "comp_mode": comp_mode.value,
             "trace_mode": trace_mode.value,
+            "tandem_enabled": tandem_enabled,
         },
         quiet=quiet,
     )
     results = report.metric("Test results")
+    if tandem_enabled and simulator != Simulator.verilator:
+        report.error_exit("This live tandem option supports Verilator only", env=True)
+    mode = f"sim_rtl_{simulator.value}_testharness" + (
+        "_tandem" if tandem_enabled else ""
+    )
 
     report.step("Read the testlist")
     if not testlist_file.is_file():
@@ -143,9 +153,7 @@ def testharness_run_testlist(
 
     for name in names:
         report.step(f"Run {name}")
-        run_dir = (
-            build_root / "simulation" / f"sim_rtl_{simulator.value}_testharness" / name
-        )
+        run_dir = build_root / "simulation" / mode / name
         # Each test already has its own output directory, hence run_name.
         # The options are passed explicitly: one left out of a recipe
         # called as a plain function arrives as the Typer descriptor,
@@ -162,7 +170,9 @@ def testharness_run_testlist(
         try:
             if simulator == Simulator.verilator:
                 # Only Verilator opens a waveform viewer of its own.
-                verilator_testharness_run(interactive_gui=False, **arguments)
+                verilator_testharness_run(
+                    interactive_gui=False, tandem_enabled=tandem_enabled, **arguments
+                )
             else:
                 # The event-driven simulators take the UVM verbosity, the
                 # harness reporting its verdict through uvm_info.

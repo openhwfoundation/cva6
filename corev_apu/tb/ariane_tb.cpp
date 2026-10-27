@@ -38,6 +38,9 @@
 #include <ctime>
 #include <signal.h>
 #include <unistd.h>
+#ifdef CVA6_TANDEM_STACK_BYTES
+#include <sys/resource.h>
+#endif
 
 #include <fesvr/dtm.h>
 #include <fesvr/htif_hexwriter.h>
@@ -58,9 +61,39 @@ static const char *verilog_plusargs[] = {"jtag_rbb_enable", "time_out", "debug_d
 extern dtm_t* dtm;
 extern remote_bitbang_t * jtag;
 
+static volatile sig_atomic_t termination_signal = 0;
+
 void handle_sigterm(int sig) {
-  dtm->stop();
+  // A repeated signal must also escape blocking JTAG DPI calls.
+  if (termination_signal) _exit(128 + sig);
+  // Do not call FESVR or classify a forced stop as a successful tohost exit.
+  termination_signal = sig;
 }
+
+#ifdef CVA6_TANDEM_STACK_BYTES
+static bool prepare_tandem_stack() {
+  // Packed RVFI/CSR temporaries in the generated live comparator exceed the
+  // usual 8 MiB stack. Raise only the soft limit, never the administrator's cap.
+  struct rlimit limit;
+  const rlim_t required = CVA6_TANDEM_STACK_BYTES;
+  if (getrlimit(RLIMIT_STACK, &limit) != 0) {
+    perror("Cannot inspect live tandem stack limit");
+    return false;
+  }
+  if (limit.rlim_cur == RLIM_INFINITY || limit.rlim_cur >= required) return true;
+  if (limit.rlim_max != RLIM_INFINITY && limit.rlim_max < required) {
+    fprintf(stderr, "Live tandem requires a stack limit of at least %llu bytes\n",
+            static_cast<unsigned long long>(required));
+    return false;
+  }
+  limit.rlim_cur = required;
+  if (setrlimit(RLIMIT_STACK, &limit) != 0) {
+    perror("Cannot raise live tandem stack limit");
+    return false;
+  }
+  return true;
+}
+#endif
 
 
 extern "C" void read_elf(const char* filename);
@@ -278,9 +311,13 @@ done_processing:
   const char *vcd_file = NULL;
   Verilated::commandArgs(argc, argv);
 
+#ifdef CVA6_TANDEM_STACK_BYTES
+  if (!prepare_tandem_stack()) return 1;
+#endif
   jtag = new remote_bitbang_t(rbb_port);
   dtm = new preload_aware_dtm_t(htif_argc, htif_argv);
   signal(SIGTERM, handle_sigterm);
+  signal(SIGINT, handle_sigterm);
 
   std::unique_ptr<Variane_testharness> top(new Variane_testharness);
 
@@ -327,6 +364,10 @@ done_processing:
 #endif
     main_time++;
   }
+  // Spike/FESVR installs its own handlers during the initial eval. The
+  // TestHarness owns termination once initialization has completed.
+  signal(SIGTERM, handle_sigterm);
+  signal(SIGINT, handle_sigterm);
   top->rst_ni = 1;
 
   // Preload memory.
@@ -355,7 +396,9 @@ done_processing:
         }
   }
 
-  while (!dtm->done() && !jtag->done() && !(top->exit_o & 0x1)) {
+  fprintf(stderr, "TestHarness initialized; starting execution\n");
+  while (!termination_signal && !Verilated::gotFinish() &&
+         !dtm->done() && !jtag->done() && !(top->exit_o & 0x1)) {
     top->clk_i = 0;
     top->eval();
 #if VM_TRACE
@@ -383,7 +426,14 @@ done_processing:
     fclose(vcdfile);
 #endif
 
-  if (dtm->exit_code()) {
+  if (termination_signal) {
+    fprintf(stderr, "*** FAILED *** (interrupted by signal %d)\n", termination_signal);
+    dtm->stop();
+    ret = 128 + termination_signal;
+  } else if (!dtm->done() && !jtag->done() && !(top->exit_o & 0x1)) {
+    fprintf(stderr, "*** FAILED *** (simulation finished without a tohost result)\n");
+    ret = 1;
+  } else if (dtm->exit_code()) {
     fprintf(stderr, "%s *** FAILED *** (tohost = %d) after %ld cycles\n", htif_argv[1], dtm->exit_code(), main_time);
     ret = dtm->exit_code();
   } else if (jtag->exit_code()) {

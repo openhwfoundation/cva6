@@ -12,12 +12,12 @@
 """
 Run one test on the Verilator TestHarness.
 
-The harness prints its verdict rather than returning it: the simulation
-exits 0 whatever the program did, so the log is what says whether the
-test passed.
+Require successful execution and a tohost result. Live runs also check
+the native Spike verdict; disassembly is not comparison.
 """
 
 from pathlib import Path
+from typing import Annotated
 import re
 import shutil
 import stat
@@ -40,6 +40,7 @@ from flows.utils.manifest import (
 from flows.utils.pk_run import HarnessProgram
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
+from flows.utils.tandem import analyze_tandem_report
 
 app = typer.Typer()
 
@@ -82,6 +83,9 @@ def verilator_testharness_run(
     sim_timeout: int = typer.Option(
         SIMULATION_TIMEOUT, "--sim-timeout", help="Simulation timeout in seconds"
     ),
+    tandem_enabled: Annotated[
+        bool, typer.Option(help="Require native live Spike/RVFI comparison")
+    ] = False,
     run_name: str = typer.Option(
         None,
         "--run-name",
@@ -106,6 +110,7 @@ def verilator_testharness_run(
             "interactive_gui": interactive_gui,
             "sim_timeout": sim_timeout,
             "run_name": run_name,
+            "tandem_enabled": tandem_enabled,
         },
         quiet=quiet,
     )
@@ -123,21 +128,19 @@ def verilator_testharness_run(
     repo_dir = Path.cwd()
     build_root = repo_dir / "build" / target
     compile_dir = build_root / "compile" / test_name
-    elab_dir = build_root / "elab" / "sim_rtl_verilator_testharness"
+    mode = "sim_rtl_verilator_testharness" + ("_tandem" if tandem_enabled else "")
+    elab_dir = build_root / "elab" / mode
     # Named after the run rather than the test, so running the same test
     # twice on one elaboration keeps both outputs and both reports.
-    simulation_dir = (
-        build_root
-        / "simulation"
-        / "sim_rtl_verilator_testharness"
-        / (run_name or test_name)
-    )
+    simulation_dir = build_root / "simulation" / mode / (run_name or test_name)
     report.set_out_dir(simulation_dir)
 
     spike_dir = repo_dir / "tools" / "spike"
     spike_dasm = spike_dir / "bin" / "spike-dasm"
     elf = compile_dir / f"{test_name}.elf"
     binary = elab_dir / "Variane_testharness"
+    spike_config = repo_dir / "config" / "target" / target / "spike.yaml"
+    tandem_report = simulation_dir / "testharness.log.yaml"
 
     # ==========================================================
     # CHECK PREREQUISITES
@@ -156,13 +159,28 @@ def verilator_testharness_run(
     require_prerequisite(
         binary,
         "Verilator TestHarness",
-        f"./cook.py verilator-testharness-comp -t {target}",
+        f"./cook.py verilator-testharness-comp -t {target}"
+        + (" --tandem-enabled" if tandem_enabled else ""),
         report=report,
     )
 
     # Options must be compatible with how the design was elaborated
     elab_manifest = read_manifest(elab_dir, report)
     compile_manifest = read_manifest(compile_dir, report)
+    build_options = (
+        elab_manifest.get("options", {}) if isinstance(elab_manifest, dict) else {}
+    )
+    if (
+        not isinstance(build_options, dict)
+        or build_options.get("tandem_enabled", False) is not tandem_enabled
+    ):
+        report.error_exit(
+            "TestHarness build does not match requested tandem mode", env=True
+        )
+    if tandem_enabled and not spike_config.is_file():
+        report.error_exit(
+            f"Missing Spike target configuration: {spike_config}", env=True
+        )
     if trace_mode != TraceMode.notrace:
         require_manifest_option(
             elab_manifest,
@@ -225,6 +243,8 @@ def verilator_testharness_run(
         "+report_file=testharness.log.yaml",
         f"+tohost_addr={program.tohost}",
     ]
+    if tandem_enabled:
+        sim_cmd.append(f"+config_file={spike_config}")
 
     # ==========================================================
     # LAUNCH SIMULATION
@@ -254,13 +274,16 @@ def verilator_testharness_run(
     # VERDICT
     # ==========================================================
     # The driver prints `*** SUCCESS ***` or `*** FAILED *** (tohost = N)`,
-    # but the log alone is not the verdict: on SIGTERM, which is how a
-    # timeout ends the run, the driver stops the DTM and prints SUCCESS
-    # with an exit code of 0. The failure recorded by run_cmd comes first.
+    # but a timeout, signal or non-zero exit recorded by run_cmd takes
+    # precedence over any successful banner left in the log.
     # Named after the test: the GitHub smoke reads the verdict of this step
     report.step(f"Run {test_name}")
     passed = False
-    text = log_file.read_text(encoding="utf-8", errors="replace")
+    text = (
+        log_file.read_text(encoding="utf-8", errors="replace")
+        if log_file.is_file()
+        else ""
+    )
     failures = [
         marker
         for marker in (
@@ -286,6 +309,14 @@ def verilator_testharness_run(
         cycles = re.search(r"\*\*\* SUCCESS \*\*\*.* after (\d+) cycles", text)
         if cycles:
             report.set_label(f"{int(cycles.group(1)) / 1000:.2f} kCycles")
+
+    if tandem_enabled:
+        try:
+            if analyze_tandem_report(tandem_report, report, blocking=True):
+                passed = False
+        except OSError as error:
+            report.error(f"Cannot read tandem report: {error}")
+            passed = False
 
     # ==========================================================
     # DISASSEMBLE RVFI TRACE
@@ -327,6 +358,10 @@ def verilator_testharness_run(
             "trace_mode": trace_mode,
             "interactive_gui": interactive_gui,
             "run_name": run_name,
+            "tandem_enabled": tandem_enabled,
+            "spike_config": (
+                str(spike_config.relative_to(repo_dir)) if tandem_enabled else None
+            ),
         },
         report=report,
     )
@@ -336,7 +371,9 @@ def verilator_testharness_run(
     # ==========================================================
     report.step("Generated files")
     generated = []
-    for genfile in [log_file, raw_trace, dasm_log]:
+    for genfile in [log_file, raw_trace, dasm_log] + (
+        [tandem_report] if tandem_enabled else []
+    ):
         if genfile.exists():
             report.info(f"> {genfile}")
             generated.append(str(genfile.relative_to(repo_dir)))

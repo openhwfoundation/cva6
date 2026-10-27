@@ -1,7 +1,7 @@
 # Copyright 2026 OpenHW Foundation
 # SPDX-License-Identifier: Apache-2.0
 name: Setup CVA6 Cook environment
-description: GCC and Verilator with vendor Spike libraries and disassembler for RTL-only jobs
+description: GCC and Verilator with vendor Spike libraries for Cook smoke and live tandem
 inputs:
   verilator-version:
     description: Verilator release to build
@@ -83,6 +83,14 @@ runs:
         echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
         "$VERILATOR_INSTALL_DIR/bin/verilator" --version
         test -x "$SPIKE_INSTALL_DIR/bin/spike-dasm"
+        # Check the native link libraries on both installed and cached tools.
+        for library in fesvr riscv disasm yaml-cpp; do
+          if [ ! -f "$SPIKE_INSTALL_DIR/lib/lib$library.so" ] &&
+             [ ! -f "$SPIKE_INSTALL_DIR/lib/lib$library.a" ]; then
+            echo "Missing Spike library: lib$library (.so or .a)" >&2
+            exit 1
+          fi
+        done
     # Save only after successful setup, independently of later smoke failures.
     - uses: actions/cache/save@v6
       if: steps.gcc.outputs.cache-hit != 'true'
