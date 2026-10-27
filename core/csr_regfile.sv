@@ -2129,7 +2129,8 @@ CVA6Cfg.NrCommitPorts
       vsstatus_d.uxl = riscv::XLEN_64;
     end
     // mark the floating point extension register as dirty
-    if (CVA6Cfg.FpPresent && (dirty_fp_state_csr || dirty_fp_state_i)) begin
+    if (CVA6Cfg.FpPresent &&
+        (dirty_fp_state_csr || dirty_fp_state_i || csr_write_fflags_i)) begin
       mstatus_d.fs = riscv::Dirty;
       if (CVA6Cfg.RVH) begin
         if (v_q) begin
