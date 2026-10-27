@@ -289,7 +289,7 @@ module decoder
                   end
                   // we don't support U mode interrupts so WFI is illegal in this context
                   if (CVA6Cfg.RVU && priv_lvl_i == riscv::PRIV_LVL_U) begin
-                    if (CVA6Cfg.RVH && v_i) virtual_illegal_instr = 1'b1;
+                    if (CVA6Cfg.RVH && v_i && !tw_i) virtual_illegal_instr = 1'b1;
                     else illegal_instr = 1'b1;
                     instruction_o.op = ariane_pkg::ADD;
                   end
