@@ -921,7 +921,7 @@ def _job_fpga_build(target, board, quiet):
             board=board,
             mcs=False,
             clean=True,
-            clean_ips=False,
+            clean_ips=[],
             jobs=VIVADO_JOBS,
             quiet=quiet,
         )

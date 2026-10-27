@@ -51,6 +51,7 @@ from flows.utils.fpga_board import (
     ip_dir,
     ip_is_generated,
     ip_xci,
+    clean_ip,
     FPGA_CORE_EXCLUDED,
 )
 from flows.utils.manifest import (
@@ -367,8 +368,11 @@ def vivado_fpga_build(
     board: FpgaBoard = typer.Option(FpgaBoard.genesys2, help="FPGA board"),
     mcs: bool = typer.Option(False, help="Also generate the .mcs flash image"),
     clean: bool = typer.Option(True, help="Clean working dir before"),
-    clean_ips: bool = typer.Option(
-        False, "--clean-ips", help="make clean the IP cores first (regenerate them)"
+    clean_ips: list[str] = typer.Option(
+        [],
+        "--clean-ips",
+        help="Remove the generated files of this IP core so"
+        "it is generated again; repeat the option for several or give 'all'",
     ),
     jobs: int = typer.Option(8, "--jobs", "-j", help="Vivado parallel jobs"),
     quiet: bool = typer.Option(
@@ -416,7 +420,6 @@ def vivado_fpga_build(
     # CHECK PREREQUISITES
     # ==========================================================
     report.step("Check prerequisites")
-
     warn_if_fpga_disabled(target, report, repo_dir)
     vivado_path = shutil.which("vivado")
     if vivado_path is not None:
@@ -462,7 +465,12 @@ def vivado_fpga_build(
         report,
         repo_dir=repo_dir,
     )
-
+    unknown = [ip for ip in clean_ips if ip != "all" and ip not in FPGA_IPS]
+    if unknown:
+        report.error_exit(
+            f"Unknown IP core(s) for --clean-ips: {','.join(unknown)}\n"
+            f"  known: all, {','.join(FPGA_IPS)}"
+        )
     report.success("Prerequisites OK")
 
     # ==========================================================
@@ -478,6 +486,13 @@ def vivado_fpga_build(
             report.error_exit(f"Clean error : {e}", env=True)
     else:
         report.info(f"Skip cleaning {out_dir}")
+    for ip_name in FPGA_IPS:
+        if "all" in clean_ips or ip_name in clean_ips:
+            try:
+                removed = clean_ip(repo_dir, ip_name)
+            except OSError as e:
+                report.error_exit(f"Clean error on IP {ip_name}: {e}", env=True)
+            report.info(f"{ip_name}: removed {len(removed)} item(s)")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     report.info(f"create {out_dir}")
@@ -499,21 +514,6 @@ def vivado_fpga_build(
     }
     ip_results = report.metric("IP cores")
     for ip_name in FPGA_IPS:
-        if clean_ips:
-            report.info(f"{ip_name}: make clean ")
-            run_cmd(
-                cmd=["make", "clean"],
-                report=report,
-                cwd=ip_dir(repo_dir, ip_name),
-                env=None,
-                error_patterns=None,
-                warning_patterns=None,
-                highlight_patterns=None,
-                log_file=out_dir / f"ip_{ip_name}_clean.log",
-                timeout=300,
-                check=False,
-                capture_output=False,
-            )
         if ip_is_generated(repo_dir, ip_name):
             report.info(f"{ip_name}: already generated")
             ip_results.add_row(status="pass", ip=ip_name, state="cached")

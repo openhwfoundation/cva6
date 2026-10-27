@@ -41,6 +41,7 @@ but not programmed, and the recipes say so rather than guessing a device
 name that would fail inside Vivado.
 """
 
+import shutil
 from flows.utils.autocompletion import AlteraBoard, FpgaBoard
 
 
@@ -363,6 +364,34 @@ def ip_is_generated(repo_dir, ip_name):
     checkpoint is the mark, so an incomplete IP is generated again.
     """
     return ip_dcp(repo_dir, ip_name).exists()
+
+
+def clean_ip(repo_dir, ip_name):
+    """
+    Remove the generated files of an IP core, so it is generated again.
+    same files as the 'make clean' of corev_apu/fpga/xilinx/common.mk:
+    ip/*, <ip_name>.* (project, .srcs, .runs, .cache...), componenet.xml,
+    vivado*.jou and vivado*.log.
+    Returns the names of what was removed.
+    """
+    d = ip_dir(repo_dir, ip_name)
+    targets = (
+        list(d.glob("ip/*"))
+        + list(d.glob(f"{ip_name}.*"))
+        + list(d.glob("vivado*.jou"))
+        + list(d.glob("vivado*.log"))
+    )
+    removed = []
+    for p in targets:
+        if p.is_dir() and not p.is_symlink():
+            shutil.rmtree(p)
+        elif p.exists() or p.is_symlink():
+            p.unlink()
+        else:
+            continue
+        removed.append(p.name)
+    (d / "ip").mkdir(exist_ok=True)
+    return removed
 
 
 # Include directories of the FPGA elaboration, relative to the repository
