@@ -126,6 +126,16 @@ testlist:
     iterations: 1
     asm_tests: <path_var>/custom/issues/decoder-zip-unzip-rv64.S
 
+  - test: decoder-zkn-rv32-only-rv64
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/custom/issues/decoder-zkn-rv32-only-rv64.S
+
+  - test: decoder-zkn-rv64-only-rv32
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/custom/issues/decoder-zkn-rv64-only-rv32.S
+
   - test: pmp-misalign-priority-over-access-fault
     description: >
       Misaligned hsv.d/hlv.d to a PMP-denied paddr must report
