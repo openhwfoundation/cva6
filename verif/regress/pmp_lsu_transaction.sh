@@ -64,6 +64,11 @@ run_test pmp-lsu-transaction-no-mmu-rv64 hwconfig \
 make -C ../.. clean
 run_test pmp-hlvx-access-fault-rv64 cv64a6_imafdch_sv39
 
+# An instruction guest-page fault must outrank the PMP/PMA check that runs on
+# the address forwarded for the failed translation (issue #3597).  Same
+# configuration as the run above, so the model is reused.
+run_test pmp-instr-guest-page-fault-priority-rv64 cv64a6_imafdch_sv39
+
 make -C ../.. clean
 run_test pmp-hlvx-access-fault-rv64 hwconfig \
   --hwconfig_opts="cv64a6_imafdch_sv39 +CVA6ConfigDcacheFlushOnFence=0 +CVA6ConfigDcacheFlushOnFenceI=0 +CVA6ConfigDcacheInvalidateOnFlush=0 *MmuPresent=0"

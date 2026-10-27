@@ -79,11 +79,13 @@ module pmp_data_if
 
     // if it didn't match any execute region throw an `Instruction Access Fault` (PMA)
     // or if PMP reject the access
-    // Per RISCV privilege spec, a page fault has higher priority than access
-    // fault, therefore do not change the exception type in case of double
-    // exception
+    // A translation fault outranks the access fault of the final physical
+    // access, and a failed G-stage walk has no final physical address at all,
+    // so keep INSTR_GUEST_PAGE_FAULT here just like INSTR_PAGE_FAULT. An access
+    // fault raised during the translation itself is unrelated and unaffected.
     if (icache_areq_i.fetch_valid) begin
-      if (icache_areq_o.fetch_exception.cause != riscv::INSTR_PAGE_FAULT) begin
+      if (!(icache_areq_o.fetch_exception.cause inside
+            {riscv::INSTR_PAGE_FAULT, riscv::INSTR_GUEST_PAGE_FAULT})) begin
         if (!match_any_execute_region || !pmp_if_allow) begin
           icache_areq_o.fetch_exception.cause = riscv::INSTR_ACCESS_FAULT;
           icache_areq_o.fetch_exception.valid = 1'b1;
