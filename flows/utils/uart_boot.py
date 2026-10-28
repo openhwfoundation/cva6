@@ -78,6 +78,12 @@ def is_url(device):
 # it makes the kernel identify itself on the console.
 PROMPT = "#"
 PROMPT_COMMAND = b"uname -a\n"
+
+# Seconds of console silence after which the board is prodded with an
+# empty line: a board that reached its prompt before the console was
+# opened prints nothing more on its own.
+WAKE_AFTER = 20
+
 # Images whose console asks for a login are logged in as root
 LOGIN_PROMPT = "login:"
 LOGIN_USER = b"root\n"
@@ -247,6 +253,7 @@ def watch_boot(console, timeout, expect=DEFAULT_EXPECT, arch=ARCH_MARKER, on_lin
     lines = []
     deadline = time.monotonic() + timeout
     started = time.monotonic()
+    last_rx = started
 
     try:
         while True:
@@ -255,8 +262,13 @@ def watch_boot(console, timeout, expect=DEFAULT_EXPECT, arch=ARCH_MARKER, on_lin
 
             raw = console.readline()
             if not raw:
+                # Still silent: ask the prompt again, the deadline above
+                # is the guard
+                if not lines and time.monotonic() - last_rx > WAKE_AFTER:
+                    console.write(b"\n")
+                    last_rx = time.monotonic()
                 continue  # nothing yet, the deadline above is the guard
-
+            last_rx = time.monotonic()
             line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
             lines.append(line)
             if on_line is not None:
