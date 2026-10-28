@@ -138,6 +138,22 @@ testlist:
       <path_var>/custom/common/crt.S
       -I<path_var>/custom/env -I<path_var>/custom/common
       -T ../../config/gen_from_riscv_config/linker/link.ld -lgcc -march=rv64gh
+
+  - test: pmp-instr-guest-page-fault-priority-rv64
+    description: >
+      RV64+H: a VS-mode instruction fetch to an unmapped guest physical address
+      must report an instruction guest-page fault (mcause=20), not an
+      instruction access fault, even when PMP denies the address that the MMU
+      forwards for the failed G-stage translation.
+    iterations: 1
+    path_var: TESTS_PATH
+    asm_tests: <path_var>/custom/issues/pmp-instr-guest-page-fault-priority-rv64.S
+    gcc_opts: >-
+      -static -misa-spec=2.2 -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+      <path_var>/custom/common/crt.S
+      -I<path_var>/custom/env -I<path_var>/custom/common
+      -T ../../config/gen_from_riscv_config/linker/link.ld -lgcc -march=rv64gh
+
   - test: vsmode-counterh-cause
     description: >
       RV64+H: a high-half counter CSR access from VS-mode must raise
