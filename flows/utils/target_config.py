@@ -447,7 +447,8 @@ def require_core_files_in_flist(
         report.warning(
             f"{len(missing)} source file(s) of the core fileslist missing from {flist_name}:\n"
             + "\n".join(f"{f}" for f in missing)
-            + "\n Add them to the FPGA filelist, or to FPGA_CORE_EXCLUDED if the FPGA build must leave them out."
+            + "\n Add them to the FPGA filelist, or to FPGA_CORE_EXCLUDED if the FPGA"
+            "build must leave them out."
         )
 
 
