@@ -78,6 +78,9 @@ def is_url(device):
 # it makes the kernel identify itself on the console.
 PROMPT = "#"
 PROMPT_COMMAND = b"uname -a\n"
+# Images whose console asks for a login are logged in as root
+LOGIN_PROMPT = "login:"
+LOGIN_USER = b"root\n"
 
 # The `uname -a` answer of a booted system carries both of these: the
 # distribution built by the CVA6 SDK and the architecture of the core.
@@ -258,6 +261,11 @@ def watch_boot(console, timeout, expect=DEFAULT_EXPECT, arch=ARCH_MARKER, on_lin
             lines.append(line)
             if on_line is not None:
                 on_line(line)
+            if line.rstrip().endswith(LOGIN_PROMPT):
+                # Login prompt of an image without autologin: log in as root,
+                # the shell prompt follows
+                console.write(LOGIN_USER)
+                continue
 
             # End of boot: identify the system on the console, once per
             # prompt.
