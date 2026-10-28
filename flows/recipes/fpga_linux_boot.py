@@ -30,6 +30,7 @@ import os
 from pathlib import Path
 import shutil
 import typer
+import yaml
 
 from flows.utils.fpga_board import any_board_params, is_altera_board
 from flows.utils.manifest import (
@@ -190,8 +191,24 @@ def fpga_linux_boot(
         f"./cook.py {program_recipe} -t {target} --board {board.value}",
         report=report,
     )
+    try:
+        program_status = yaml.safe_load(
+            (program_dir / "cook_report.yml").read_text(encoding="utf-8")
+        ).get("status")
+    except (OSError, yaml.YAMLError, AttributeError):
+        program_status = None
+    program_manifest = read_manifest(program_dir, report)
+    if program_status != "pass" or program_manifest is None:
+        report.error_exit(
+            f"Board '{board.value}' was not programmed with target '{target}': "
+            f"the last {program_recipe} run did not pass"
+            f"(status: {program_status})\n"
+            f" Run first ./cook.py {program_recipe} -t {target} "
+            f" --board {board.value}",
+            env=True,
+        )
     require_manifest_option(
-        read_manifest(program_dir, report),
+        program_manifest,
         "board",
         [board.value],
         f"booting board '{board.value}' needs that board to be the programmed one",
