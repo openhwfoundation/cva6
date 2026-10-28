@@ -1,0 +1,14 @@
+# Testlist for the pure-G-stage GPA overflow reproducer (cv64a6_imafdch_sv39).
+
+testlist:
+  - test: rv64h-p-gstage-overflow-fetch
+    iterations: 1
+    path_var: TESTS_PATH
+    gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
+    asm_tests: <path_var>/custom/gstage_overflow/gstage_overflow_repro.S
+
+  - test: rv64h-p-gstage-overflow-data
+    iterations: 1
+    path_var: TESTS_PATH
+    gcc_opts: "-DDATA_SIDE -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
+    asm_tests: <path_var>/custom/gstage_overflow/gstage_overflow_repro.S
