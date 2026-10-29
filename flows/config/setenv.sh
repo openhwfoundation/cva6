@@ -23,6 +23,13 @@ export XILINX_VIVADO_BASHRC=/xilinx_path/Vivado/2018.2/settings64.sh
 #export XILINXD_LICENSE_FILE=port@your_xilinx_license_server
 # Board reached over the network, the USB cables staying on the machine it is
 # wired to (see the FPGA section of flows/README.md):
+# Bench PC reached over SSH: fpga-boot opens a tunnel to it for each board,
+# the port of its serial bridge on the bench PC, and the local ports of its
+# tunnel (different for boards booting at the same time)
+#export BENCH_SSH=user@bench-pc
+#export BENCH_UART_PORT_FPGA_LINUX_CV32A6=4001
+#export BENCH_LOCAL_JTAG_PORT_FPGA_LINUX_CV32A6=<local_jtag_port>
+#export BENCH_LOCAL_UART_PORT_FPGA_LINUX_CV32A6=<local_uart_port>      
 #   hw_server <host>:3121 for the JTAG, a serial to TCP bridge for the console
 #export HW_SERVER_URL=bench-pc:3121
 #   Several boards on one hw_server: the JTAG serial of the board of each 

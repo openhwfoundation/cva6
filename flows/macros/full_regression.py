@@ -35,8 +35,13 @@ final `merge-reports` + `report-html` build the same dashboard as the CI
 does; they are always run, even when jobs failed.
 """
 
+import contextlib
 import os
 import random
+import socket
+import subprocess
+import tempfile
+import time
 from functools import partial
 from pathlib import Path
 import yaml
@@ -723,6 +728,9 @@ SYNTH = "synth"
 VIVADO = "vivado"
 QUARTUS = "quartus"
 
+# Time given to the SSH tunnel to the bench to come up
+BENCH_TUNNEL_TIMEOUT = 30
+
 
 def bench(target, name):
     """
@@ -743,6 +751,98 @@ def board_pool(board, target):
     """
     cable = bench(target, "HW_TARGET")
     return f"board:{board.value}:{cable}" if cable else f"board:{board.value}"
+
+
+@contextlib.contextmanager
+def bench_tunnel(target):
+    """
+    SSH tunnel to the bench PC holding the board of 'target', open for the
+    duration of the 'with' block only, and closed whatever happens in it.
+
+    Yields '(hw_server,uart)' for the recipes. Without '$BENCH_SSH' the board is
+    reached directly and nothing is opened: '(None, $UART_SERIAL of the target),
+    None letting vivado-fpga-program read 'HW_SERVER_URL'.
+
+    With '$BENCH_SSH' (user@bench-pc), the hw_server (port
+    '$BENCH_HW_SERVER_PORT_<TARGET>', default 3121) and the serial bridge of the
+    board ('$BENCH_UART_PORT_<TARGET>') of the bench PC are forwarded to the local
+    ports '$BENCH_LOCAL_JTAG_PORT_<TARGET>' and '$BENCH_LOCAL_UART_PORT_<TARGET>',
+    different for each target: the tunnels of two boards booting at the same time are
+    open together. The SSH key is the one of the account running the flows.
+    """
+    bench_ssh = os.environ.get("BENCH_SSH")
+    if not bench_ssh:
+        yield None, bench(target, "UART_SERIAL")
+        return
+    remote_jtag = os.environ.get("BENCH_HW_SERVER_PORT", "3121")
+    ports = {
+        name: bench(target, name)
+        for name in (
+            "BENCH_UART_PORT",
+            "BENCH_LOCAL_JTAG_PORT",
+            "BENCH_LOCAL_UART_PORT",
+        )
+    }
+    missing = [f"${name}_{target.upper()}" for name, port in ports.items() if not port]
+    if missing:
+        raise JobFailure(
+            f"$BENCH_SSH is set but not the ports of the board of {target}:"
+            f"set {','.join(missing)}"
+        )
+    remote_uart = ports["BENCH_UART_PORT"]
+    jtag = ports["BENCH_LOCAL_JTAG_PORT"]
+    uart = ports["BENCH_LOCAL_UART_PORT"]
+    # ssh errors go to a file rather than a pipe: a pipe nobody reads while
+    # the tunnel is up could fill and block ssh
+    with tempfile.TemporaryFile(mode="w+") as errors:
+        proc = subprocess.Popen(
+            [
+                "ssh",
+                "-N",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "-o",
+                "ServerAliveInterval=30",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-L",
+                f"{jtag}:localhost:{remote_jtag}",
+                "-L",
+                f"{uart}:localhost:{remote_uart}",
+                bench_ssh,
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=errors,
+        )
+        try:
+            deadline = time.monotonic() + BENCH_TUNNEL_TIMEOUT
+            pending = [int(jtag), int(uart)]
+            while pending:
+                if proc.poll() is not None:
+                    errors.seek(0)
+                    raise JobFailure(
+                        f"SSH tunnel to {bench_ssh} failed {errors.read().strip()}"
+                    )
+                if time.monotonic() > deadline:
+                    raise JobFailure(
+                        f"SSH tunnel to {bench_ssh} not up after "
+                        f"{BENCH_TUNNEL_TIMEOUT}s"
+                    )
+                with socket.socket() as sock:
+                    if sock.connect_ex(("127.0.0.1", pending[0])) == 0:
+                        pending.pop(0)
+                        continue
+                time.sleep(0.5)
+            yield f"localhost:{jtag}", f"socket://localhost:{uart}"
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 # Where merge-reports and report-html write the final dashboard
@@ -942,44 +1042,53 @@ def _job_fpga_boot(target, board, quiet):
 
     One job holding the board for both steps: between the two, another
     job could program it with a different bitstream. The connection to
-    the board comes from the environment of the runner, $HW_SERVER_URL
-    and $UART_SERIAL for Xilinx, $JTAG_CABLE for Altera.
+    the board comes from the environment of the runner (see bench() and
+    bench_tunnel()): for Xilinx, and SSH tunnel to the bench PC opened
+    for this job only when $BENCH_SSH is set, else $HW_SERVER_URL and the
+    $UART_SERIAL of the target; $JTAG_CABLE for Altera.
     """
-    if is_altera_board(board):
-        _recipe(
-            quartus_fpga_program,
-            target=target,
-            board=board,
-            cable=None,
-            device_index=1,
-            bitstream=None,
-            quiet=quiet,
-        )
-    else:
-        _recipe(
-            vivado_fpga_program,
-            target=target,
-            board=board,
-            hw_server=None,
-            hw_target=bench(target, "HW_TARGET"),
-            bitstream=None,
-            # vivado_lab is enough to program a board, on a runner carrying
-            # the lab edition only
-            vivado_cmd=os.environ.get("VIVADO_CMD", "vivado"),
-            quiet=quiet,
-        )
-    _recipe(
-        fpga_linux_boot,
-        target=target,
-        board=AnyBoard(board.value),
-        uart=bench(target, "UART_SERIAL"),
-        cable=None,
-        juart_instance=None,
-        baudrate=None,
-        boot_timeout=BOOT_TIMEOUT,
-        expect=DEFAULT_EXPECT,
-        quiet=quiet,
+    altera = is_altera_board(board)
+    tunnel = (
+        contextlib.nullcontext((None, bench(target, "UART_SERIAL")))
+        if altera
+        else bench_tunnel(target)
     )
+    with tunnel as (hw_server, uart):
+        if altera:
+            _recipe(
+                quartus_fpga_program,
+                target=target,
+                board=board,
+                cable=None,
+                device_index=1,
+                bitstream=None,
+                quiet=quiet,
+            )
+        else:
+            _recipe(
+                vivado_fpga_program,
+                target=target,
+                board=board,
+                hw_server=hw_server,
+                hw_target=bench(target, "HW_TARGET"),
+                bitstream=None,
+                # vivado_lab is enough to program a board, on a runner carrying
+                # the lab edition only
+                vivado_cmd=os.environ.get("VIVADO_CMD", "vivado"),
+                quiet=quiet,
+            )
+        _recipe(
+            fpga_linux_boot,
+            target=target,
+            board=AnyBoard(board.value),
+            uart=uart,
+            cable=None,
+            juart_instance=None,
+            baudrate=None,
+            boot_timeout=BOOT_TIMEOUT,
+            expect=DEFAULT_EXPECT,
+            quiet=quiet,
+        )
 
 
 def _job_vcs_testharness_comp(target, quiet):
