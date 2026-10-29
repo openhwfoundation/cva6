@@ -724,16 +724,25 @@ VIVADO = "vivado"
 QUARTUS = "quartus"
 
 
-def board_pool(board):
+def bench(target, name):
     """
-    Pool of a physical board, one slot: programming it and booting Linux
-    on it take the board as a whole, and two jobs driving it at the same
-    time would boot one bitstream and read the console of the other.
+    Setting of the bench driving the board of 'target', from the environment
+    of the runner: '$<name>_<TARGET>' (target in upper case), else '$<name>'.
+    """
+    return os.environ.get(f"{name}_{target.upper()}") or os.environ.get(name)
+
+
+def board_pool(board, target):
+    """
+    Pool of a physical board, one slot. A board is told apart by its JTAG cable
+    when the bench gives one, so two boards of the same kind run side by side,
+    while two targets on one board still wait for each other.
 
     It serialises the jobs of one run only: two pipelines on the same
     board are kept apart by the resource_group of the CI job.
     """
-    return f"board:{board.value}"
+    cable = bench(target, "HW_TARGET")
+    return f"board:{board.value}:{cable}" if cable else f"board:{board.value}"
 
 
 # Where merge-reports and report-html write the final dashboard
@@ -952,6 +961,7 @@ def _job_fpga_boot(target, board, quiet):
             target=target,
             board=board,
             hw_server=None,
+            hw_target=bench(target, "HW_TARGET"),
             bitstream=None,
             # vivado_lab is enough to program a board, on a runner carrying
             # the lab edition only
@@ -1227,7 +1237,7 @@ def _add_fpga_jobs(scheduler, target, board, elab_job, deps_job, quiet):
         partial(_job_fpga_boot, target=target, board=board, quiet=quiet),
         build / target / "fpga_boot" / board.value,
         deps=[image],
-        resource=board_pool(board),
+        resource=board_pool(board, target),
     )
 
 
@@ -1813,7 +1823,10 @@ def full_regression(
             VIVADO: vivado_licenses,
             QUARTUS: quartus_licenses,
             # One slot per board: see board_pool()
-            **{board_pool(board): 1 for _, board in FPGA_TARGETS + ALTERA_TARGETS},
+            **{
+                board_pool(board, target): 1
+                for target, board in FPGA_TARGETS + ALTERA_TARGETS
+            },
         },
         max_workers=jobs,
         on_event=on_event,
