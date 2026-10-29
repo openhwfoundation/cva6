@@ -972,7 +972,7 @@ def _job_fpga_boot(target, board, quiet):
         fpga_linux_boot,
         target=target,
         board=AnyBoard(board.value),
-        uart=None,
+        uart=bench(target, "UART_SERIAL"),
         cable=None,
         juart_instance=None,
         baudrate=None,
