@@ -25,6 +25,9 @@ export XILINX_VIVADO_BASHRC=/xilinx_path/Vivado/2018.2/settings64.sh
 # wired to (see the FPGA section of flows/README.md):
 #   hw_server <host>:3121 for the JTAG, a serial to TCP bridge for the console
 #export HW_SERVER_URL=bench-pc:3121
+#   Several boards on one hw_server: the JTAG serial of the board of each 
+#   target, as get_hw_targets shows it (one board: $HW_TARGET, or nothing)
+#export HW_TARGET_FPGA_LINUX_CV32A6=<FPGA_JTAG serial>
 #export UART_SERIAL=rfc2217://bench-pc:4001
 #Intel/Altera (FPGA recipes)
 # Quartus Prime Pro, with qsys-script and qsys-generate of its
