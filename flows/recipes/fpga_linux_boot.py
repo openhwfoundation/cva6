@@ -54,7 +54,7 @@ app = typer.Typer()
 
 # Wall clock budget of the boot. The board runs a full Linux from an SD
 # card at a few dozen MHz: minutes, not seconds.
-BOOT_TIMEOUT = 420
+BOOT_TIMEOUT = 700
 
 
 # ==========================================================
