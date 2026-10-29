@@ -28,6 +28,8 @@ export XILINX_VIVADO_BASHRC=/xilinx_path/Vivado/2018.2/settings64.sh
 #   Several boards on one hw_server: the JTAG serial of the board of each 
 #   target, as get_hw_targets shows it (one board: $HW_TARGET, or nothing)
 #export HW_TARGET_FPGA_LINUX_CV32A6=<FPGA_JTAG serial>
+#   Its console, when each board has its own (one board: $UART_SERIAL)
+#export UART_SERIAL_FPGA_LINUX_CV32A6=socket://bench-pc:4001
 #export UART_SERIAL=rfc2217://bench-pc:4001
 #Intel/Altera (FPGA recipes)
 # Quartus Prime Pro, with qsys-script and qsys-generate of its
