@@ -622,6 +622,7 @@ module cva6
   logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_operand_a;
   logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_operand_c;
   logic sdtrig_lsu_inputs_we, sdtrig_lsu_inputs_valid;
+  fu_op sdtrig_lsu_inputs_op;
   logic sdtrig_commit_icount_valid;
   logic [$clog2(CVA6Cfg.NrCommitPorts)-1:0] sdtrig_commit_icount_nr_instr;
 
@@ -1140,6 +1141,7 @@ module cva6
       .sdtrig_lsu_inputs_operand_a_o(sdtrig_lsu_inputs_operand_a),
       .sdtrig_lsu_inputs_operand_c_o(sdtrig_lsu_inputs_operand_c),
       .sdtrig_lsu_inputs_we_o       (sdtrig_lsu_inputs_we),
+      .sdtrig_lsu_inputs_op_o       (sdtrig_lsu_inputs_op),
       .sdtrig_lsu_inputs_valid_o    (sdtrig_lsu_inputs_valid)
   );
 
@@ -1318,6 +1320,7 @@ module cva6
       .sdtrig_lsu_inputs_vaddr_i          (sdtrig_lsu_inputs_operand_a),
       .sdtrig_lsu_inputs_data_i           (sdtrig_lsu_inputs_operand_c),
       .sdtrig_lsu_inputs_fu_i             (sdtrig_lsu_inputs_we),
+      .sdtrig_lsu_inputs_op_i             (sdtrig_lsu_inputs_op),
       .sdtrig_lsu_inputs_valid_i          (sdtrig_lsu_inputs_valid),
       .sdtrig_load_data_i                 (load_result_ex_id),
       .sdtrig_load_valid_i                (load_valid_ex_id),

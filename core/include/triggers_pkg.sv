@@ -121,7 +121,7 @@ package triggers_pkg;
           if (scontext[8*b+:8] != svalue[8*b+:8]) match = 1'b0;
         end
       end
-    end else match = 1'b0;
+    end
     return match;
   endfunction
 
@@ -138,7 +138,7 @@ package triggers_pkg;
           if (scontext[8*b+:8] != svalue[8*b+:8]) match = 1'b0;
         end
       end
-    end else match = 1'b0;
+    end
     return match;
   endfunction
 

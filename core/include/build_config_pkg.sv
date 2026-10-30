@@ -145,7 +145,7 @@ package build_config_pkg;
     cfg.SdtrigTriggerChaining = CVA6Cfg.SdtrigMcontrol6 ? CVA6Cfg.SdtrigTriggerChaining : 1'b0;
     cfg.SdtrigSupportedActions = CVA6Cfg.Sdtrig ? (CVA6Cfg.DebugEn ? CVA6Cfg.SdtrigSupportedActions : 2'b01) : 2'b00;
     cfg.SdtrigSupportedMatch = CVA6Cfg.Sdtrig ? CVA6Cfg.SdtrigSupportedMatch : 10'b00_0000_0000;
-    cfg.SdtrigSupportTextra = 1'b0;  //Trigger Extra not supported : no use implemented yet
+    cfg.SdtrigSupportTextra = CVA6Cfg.Sdtrig ? CVA6Cfg.SdtrigSupportTextra : 1'b0;
 
     cfg.NonIdemPotenceEn = (CVA6Cfg.NrNonIdempotentRules > 0) && (CVA6Cfg.NonIdempotentLength > 0);
     cfg.AxiBurstWriteEn = CVA6Cfg.AxiBurstWriteEn;

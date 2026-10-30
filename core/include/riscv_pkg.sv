@@ -355,6 +355,7 @@ package riscv;
   localparam logic [XLEN-1:0] VIRTUAL_INSTRUCTION = 22;  // virtual instruction
   localparam logic [XLEN-1:0] STORE_GUEST_PAGE_FAULT = 23;  // Store guest-page fault
   localparam logic [XLEN-1:0] DEBUG_REQUEST = 24;  // Debug request
+  localparam logic [XLEN-1:0] DEBUG_TRIGGER = 25;  // Debug request from a trigger with action=1
 
   localparam int unsigned IRQ_S_SOFT = 1;
   localparam int unsigned IRQ_VS_SOFT = 2;

@@ -197,6 +197,7 @@ module csr_regfile
     input logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_vaddr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_data_i,
     input logic sdtrig_lsu_inputs_fu_i,
+    input ariane_pkg::fu_op sdtrig_lsu_inputs_op_i,
     input logic sdtrig_lsu_inputs_valid_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_load_data_i,
     input logic sdtrig_load_valid_i,
@@ -482,9 +483,19 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_TINFO: begin
           if (CVA6Cfg.Sdtrig) begin
+            // trigger info: the supported types icount = 3, itrigger = 4, etrigger = 5, mcontrol6 = 6, disabled = 15
             csr_rdata = {
-              {CVA6Cfg.XLEN - 32{1'b0}}, 8'h1, 8'h0, 16'b1000_0000_0111_1000
-            };  // trigger info:icount = 3, itrigger = 4, etrigger = 5, mcontrol6 = 6, disable = 15
+              {CVA6Cfg.XLEN - 32{1'b0}},
+              8'h1,
+              8'h0,
+              1'b1,
+              8'b0,
+              CVA6Cfg.SdtrigMcontrol6,
+              CVA6Cfg.SdtrigEtrigger,
+              CVA6Cfg.SdtrigItrigger,
+              CVA6Cfg.SdtrigIcount,
+              3'b0
+            };
           end else begin
             read_access_exception = 1'b1;
           end
@@ -1107,12 +1118,12 @@ module csr_regfile
     end
     mip_d = mip_q;
     mie_d = mie_q;
-    mepc_d       = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mepc : mepc_q;
-    mcause_d     = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : mcause_q;
+    mepc_d       = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mepc : mepc_q;
+    mcause_d     = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : mcause_q;
     mcounteren_d = mcounteren_q;
     mscratch_d = mscratch_q;
     if (CVA6Cfg.TvalEn)
-      mtval_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mtval : mtval_q;
+      mtval_d = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mtval : mtval_q;
     if (CVA6Cfg.RVH) begin
       mtinst_d = mtinst_q;
       mtval2_d = mtval2_q;
@@ -1298,6 +1309,10 @@ module csr_regfile
           end else begin
             update_access_exception = 1'b1;
           end
+        end
+        // tinfo has only read-only fields: a write is ignored
+        riscv::CSR_TINFO: begin
+          if (!CVA6Cfg.Sdtrig) update_access_exception = 1'b1;
         end
         riscv::CSR_SCONTEXT: begin
           if (CVA6Cfg.Sdtrig && CVA6Cfg.SdtrigSupportTextra) begin
@@ -1754,13 +1769,13 @@ module csr_regfile
         riscv::CSR_MSCRATCH: mscratch_d = csr_wdata;
         riscv::CSR_MEPC:
         // bit[1] stays writable only with RVC; without RVC (IALIGN=32) mepc[1:0] are always zero
-        mepc_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mepc
+        mepc_d = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mepc
         : {csr_wdata[CVA6Cfg.XLEN-1:2], csr_wdata[1] & CVA6Cfg.RVC, 1'b0};
         riscv::CSR_MCAUSE:
-        mcause_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : {csr_wdata[CVA6Cfg.XLEN - 1], {CVA6Cfg.XLEN - 6{1'b0}}, csr_wdata[4:0]};
+        mcause_d = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : {csr_wdata[CVA6Cfg.XLEN - 1], {CVA6Cfg.XLEN - 6{1'b0}}, csr_wdata[4:0]};
         riscv::CSR_MTVAL: begin
           if (CVA6Cfg.TvalEn)
-            mtval_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mtval : csr_wdata;
+            mtval_d = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mtval : csr_wdata;
         end
         riscv::CSR_MTINST:
         if (CVA6Cfg.RVH) mtinst_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
@@ -2107,7 +2122,7 @@ module csr_regfile
     trap_to_v = 1'b0;
     // Exception is taken and we are not in debug mode
     // exceptions in debug mode don't update any fields
-    if ((CVA6Cfg.DebugEn && !debug_mode_q && ex_i.cause != riscv::DEBUG_REQUEST && ex_i.valid) || (!CVA6Cfg.DebugEn && ex_i.valid)) begin
+    if ((CVA6Cfg.DebugEn && !debug_mode_q && !(ex_i.cause inside {riscv::DEBUG_REQUEST, riscv::DEBUG_TRIGGER}) && ex_i.valid) || (!CVA6Cfg.DebugEn && ex_i.valid)) begin
       // do not flush, flush is reserved for CSR writes with side effects
       flush_o = 1'b0;
       // figure out where to trap to
@@ -2201,11 +2216,11 @@ module csr_regfile
         // save the previous privilege mode
         mstatus_d.mpp = priv_lvl_q;
         //set cause and epc adapted to etrigger
-        mcause_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : ex_i.cause;
-        mepc_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mepc : {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{pc_i[CVA6Cfg.VLEN-1]}}, pc_i};
+        mcause_d = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : ex_i.cause;
+        mepc_d = ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mepc : {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{pc_i[CVA6Cfg.VLEN-1]}}, pc_i};
         // set mtval or stval
         if (CVA6Cfg.TvalEn) begin
-          if (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) begin
+          if ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_etrigger_context_saved_valid && mret) begin
             mtval_d = sdtrig_etrigger_context_mtval;
           end else begin
             mtval_d        = ((ariane_pkg::ZERO_TVAL
@@ -2292,7 +2307,7 @@ module csr_regfile
       end
 
       // we've got a debug request
-      if (ex_i.valid && ex_i.cause == riscv::DEBUG_REQUEST) begin
+      if (ex_i.valid && ex_i.cause inside {riscv::DEBUG_REQUEST, riscv::DEBUG_TRIGGER}) begin
         dcsr_d.prv = priv_lvl_o;
         dcsr_d.v = (!CVA6Cfg.RVH) ? 1'b0 : v_q;
         // save the PC
@@ -2301,8 +2316,8 @@ module csr_regfile
         debug_mode_d = 1'b1;
         // jump to the base address
         set_debug_pc_o = 1'b1;
-        // save the cause as external debug request
-        dcsr_d.cause = ariane_pkg::CauseRequest;
+        // save the cause: a trigger or an external debug request
+        dcsr_d.cause = (ex_i.cause == riscv::DEBUG_TRIGGER) ? ariane_pkg::CauseTrigger : ariane_pkg::CauseRequest;
       end
 
       // single step enable and we just retired an instruction
@@ -3086,6 +3101,7 @@ module csr_regfile
           .fetch_sdtrig_instr_i               (fetch_sdtrig_instr_i),
           .sdtrig_lsu_inputs_data_i           (sdtrig_lsu_inputs_data_i),
           .sdtrig_lsu_inputs_fu_i             (sdtrig_lsu_inputs_fu_i),
+          .sdtrig_lsu_inputs_op_i             (sdtrig_lsu_inputs_op_i),
           .sdtrig_lsu_inputs_valid_i          (sdtrig_lsu_inputs_valid_i),
           .sdtrig_load_data_i                 (sdtrig_load_data_i),
           .sdtrig_load_valid_i                (sdtrig_load_valid_i),
@@ -3093,8 +3109,9 @@ module csr_regfile
           .debug_mode_i                       (debug_mode_q),
           .mret_i                             (mret),
           .sret_i                             (sret),
-          .instr_count_d                      (instret_d[13:0]),
-          .instr_count_q                      (instret_q[13:0]),
+          .mstatus_mie_i                      (mstatus_q.mie),
+          .mstatus_sie_i                      (mstatus_q.sie),
+          .medeleg_breakpoint_i               (medeleg_q[$clog2(CVA6Cfg.XLEN)'(riscv::BREAKPOINT)]),
           .scontext_i                         (scontext_q),
           .tselect_i                          (tselect_to_tm),
           .tdata1_i                           (tdata1_to_tm),

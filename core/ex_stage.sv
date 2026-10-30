@@ -253,6 +253,7 @@ module ex_stage
     output logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_operand_a_o,
     output logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_operand_c_o,
     output logic sdtrig_lsu_inputs_we_o,
+    output fu_op sdtrig_lsu_inputs_op_o,
     output logic sdtrig_lsu_inputs_valid_o,
     input logic sdtrig_load_stall_i,
     input logic sdtrig_load_cancel_i,
@@ -639,11 +640,13 @@ module ex_stage
     assign sdtrig_lsu_inputs_operand_a_o = CVA6Cfg.VLEN'(lsu_data.operand_a + lsu_data.imm);
     assign sdtrig_lsu_inputs_operand_c_o = lsu_data.operand_b;
     assign sdtrig_lsu_inputs_we_o = lsu_data.fu == STORE;
+    assign sdtrig_lsu_inputs_op_o = lsu_data.operation;
     assign sdtrig_lsu_inputs_valid_o = |lsu_valid_i;
   end else begin
     assign sdtrig_lsu_inputs_operand_a_o = '0;
     assign sdtrig_lsu_inputs_operand_c_o = '0;
     assign sdtrig_lsu_inputs_we_o = '0;
+    assign sdtrig_lsu_inputs_op_o = ADD;
     assign sdtrig_lsu_inputs_valid_o = '0;
   end
 
