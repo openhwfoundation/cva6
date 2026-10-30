@@ -175,8 +175,8 @@ full regression:
   #                          covering the device of the board
   #   $HW_SERVER_URL         hw_server driving the board, e.g. localhost:3121
   #   $UART_SERIAL           board console, a device or a socket://host:port URL
-  #   $VIVADO_CMD            vivado_lab on a runner carrying the lab edition
-  #                          only, which is enough to program a board
+  # The board is programmed with the first of vivado_lab, vivado found in
+  # PATH: the lab edition is enough.
   before_script:
     - source $CONFIG_DIR/setenv.sh
     - source $XILINX_VIVADO_BASHRC
