@@ -120,7 +120,7 @@ The following Synopsys tools must be installed with binaries accessible in `$PAT
 The FPGA recipes use AMD/Xilinx tools instead:
 
 - **Vivado** - FPGA synthesis, implementation and bitstream generation
-- **Vivado Lab** - board programming only (`--vivado-cmd vivado_lab`)
+- **Vivado Lab** - board programming only, used when found in `PATH`
 
 The Intel/Altera recipes use Quartus instead:
 
@@ -1559,7 +1559,7 @@ Load a bitstream onto a physical board (volatile configuration).
 - `--board [...]` - FPGA board (default: `genesys2`)
 - `--hw-server TEXT` - URL of the `hw_server` driving the board (default: `$HW_SERVER_URL`)
 - `--bitstream PATH` - Bitstream to load (default: the `vivado-fpga-build` output)
-- `--vivado-cmd TEXT` - Vivado executable (default: `vivado`; `vivado_lab` is enough to program)
+- `--vivado-cmd TEXT` - Vivado executable (default: the first of `vivado_lab`, `vivado` found in `PATH`)
 
 The `hw_server` is expected to be already running next to the board; the
 recipe only connects to it. The bitstream is checked to have been built
@@ -1573,11 +1573,11 @@ rather than pushed.
   -t fpga_linux_cv32a6 \
   --hw-server localhost:3121
 
-# Program an artifact built elsewhere, with the lab edition
+# Program an artifact built elsewhere, with the full edition
 ./cook.py vivado-fpga-program \
   -t fpga_linux_cv32a6 \
   --bitstream artifacts/FPGA/bitstream/ariane_xilinx.bit \
-  --vivado-cmd vivado_lab
+  --vivado-cmd vivado
 ```
 
 **Output:** `build/<target>/fpga_program/<board>/`

@@ -46,6 +46,11 @@ from flows.utils.autocompletion import FpgaBoard, autocompletion_target
 
 app = typer.Typer()
 
+# Executables able to program a board, in order of preference: the lab
+# edition is enough and the only one on some benches. Both run the same
+# hardware manager commands.
+VIVADO_CMDS = ("vivado_lab", "vivado")
+
 
 def _program_tcl(hw_server, hw_device, bitstream, hw_target=None):
     """Return the Vivado script programming the board."""
@@ -138,9 +143,10 @@ def vivado_fpga_program(
         help="Bitstream to load (default: the vivado-fpga-build output)",
     ),
     vivado_cmd: str = typer.Option(
-        "vivado",
+        None,
         "--vivado-cmd",
-        help="Vivado executable (vivado_lab is enough to program a board)",
+        help="Vivado executable (default: the first of vivado_lab, vivado "
+        "found in PATH)",
     ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
@@ -185,11 +191,12 @@ def vivado_fpga_program(
             env=True,
         )
 
-    vivado_path = shutil.which(vivado_cmd)
-    if vivado_path is not None:
-        report.success(f"{vivado_cmd}: {vivado_path}")
+    candidates = (vivado_cmd,) if vivado_cmd else VIVADO_CMDS
+    vivado_cmd = next((cmd for cmd in candidates if shutil.which(cmd)), None)
+    if vivado_cmd is not None:
+        report.success(f"{vivado_cmd}: {shutil.which(vivado_cmd)}")
     else:
-        report.error_exit(f"{vivado_cmd}: Not found", env=True)
+        report.error_exit(f"{' or '.join(candidates)}: Not found", env=True)
 
     hw_server = hw_server or os.environ.get("HW_SERVER_URL")
     if not hw_server:

@@ -1072,9 +1072,8 @@ def _job_fpga_boot(target, board, quiet):
                 hw_server=hw_server,
                 hw_target=bench(target, "HW_TARGET"),
                 bitstream=None,
-                # vivado_lab is enough to program a board, on a runner carrying
-                # the lab edition only
-                vivado_cmd=os.environ.get("VIVADO_CMD", "vivado"),
+                # the first of vivado_lab, vivado found in PATH
+                vivado_cmd=None,
                 quiet=quiet,
             )
         _recipe(

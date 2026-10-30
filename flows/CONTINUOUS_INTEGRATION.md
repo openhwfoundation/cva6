@@ -378,7 +378,7 @@ the build tree `merge-reports` reads; `pages` copies the result into
 | `MY_JOBS` | `--jobs` of the macro |
 | `MY_VCS_LICENSES`, `MY_SPYGLASS_LICENSES`, `MY_SYNTH_LICENSES`, `MY_VIVADO_LICENSES` | Licence pools of the macro |
 | `MY_DOCS_TARGETS`, `MY_SPYGLASS_TARGETS`, `MY_GTECH_TARGETS`, `MY_SYNTH_TARGETS` | `--docs-targets`, `--spyglass-targets`, `--gtech-targets`, `--synth-targets` of the macro: empty for the default of the macro, set per pipeline kind by `workflow:rules`: development branches and merge requests take the lists of the macro (anchor `.targets_dev`, to be kept in sync with `DOCS_TARGETS`, `SPYGLASS_TARGETS` and `GTECH_TARGETS`), and so does the default branch, master_candidate. Empty for a web or a scheduled pipeline unless set by hand |
-| `XILINX_VIVADO_BASHRC`, `HW_SERVER_URL`, `UART_SERIAL`, `VIVADO_CMD` | Vivado and the board, for the FPGA jobs of the macro |
+| `XILINX_VIVADO_BASHRC`, `HW_SERVER_URL`, `UART_SERIAL` | Vivado and the board, for the FPGA jobs of the macro: the board is programmed with the first of `vivado_lab`, `vivado` found in `PATH` |
 | `VERILATOR_INSTALL_DIR` | Verilator of the TestHarness jobs of the macro: `setenv.sh` puts its `bin/` in `PATH`, where the recipes look for it |
 | `PAGES_PREFIX`, `PAGES_EXPIRE` | Deployment of the dashboard, set by `workflow:rules` |
 
