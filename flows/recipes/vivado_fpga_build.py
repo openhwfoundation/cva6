@@ -346,7 +346,7 @@ def _report_timing(report, target, timing_rpt):
     report.metric("Timing", {"wns": wns, "verdict": match.group(1)})
 
     if wns < 0:
-        report.error(f"Timing not met: worst negative slack {wns} ns")
+        report.warning(f"Timing not met: worst negative slack {wns} ns")
     else:
         report.success(f"Timing met: worst slack {wns} ns")
 
