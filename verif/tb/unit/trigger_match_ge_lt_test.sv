@@ -1,5 +1,12 @@
+// Copyright 2026 huaiyin
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+
 // mcontrol6 compares the load address (unsigned) against tdata2.
 module trigger_match_ge_lt_test;
+  localparam int XLEN = cva6_config_pkg::CVA6ConfigXlen;
+  localparam logic [XLEN-1:0] MAX_VALUE = '1;
+  localparam logic [XLEN-1:0] HIGH_BIT = XLEN'(1) << (XLEN - 1);
+
   function automatic config_pkg::cva6_cfg_t test_config();
     config_pkg::cva6_cfg_t cfg;
     cfg = build_config_pkg::build_config(cva6_config_pkg::cva6_cfg);
@@ -15,17 +22,17 @@ module trigger_match_ge_lt_test;
   localparam config_pkg::cva6_cfg_t TestCfg = test_config();
   typedef struct packed {
     logic valid;
-    logic [63:0] cause, tval, tval2;
+    logic [XLEN-1:0] cause, tval, tval2;
     logic [31:0] tinst;
     logic gva, timing;
   } exception_t;
 
   logic clk = 0;
   logic rst_n = 0;
-  logic [63:0] tdata1_i = 0, tdata2_i = 0;
+  logic [XLEN-1:0] tdata1_i = 0, tdata2_i = 0;
   logic tdata1_we = 0, tdata2_we = 0;
   logic lsu_valid = 0;
-  logic [63:0] lsu_vaddr = 0;
+  logic [XLEN-1:0] lsu_vaddr = 0;
   logic trigger_cancel;
   int failures = 0;
   always #5 clk = !clk;
@@ -52,19 +59,20 @@ module trigger_match_ge_lt_test;
       .sdtrig_commit_action_o(), .sdtrig_commit_icount_nr_instr_o()
   );
 
-  task automatic set_trigger(input logic [63:0] threshold, input logic [1:0] kind);
+  task automatic set_trigger(input logic [XLEN-1:0] threshold, input logic [1:0] kind);
     @(negedge clk);
     tdata2_i = threshold;
     tdata2_we = 1;
     @(negedge clk);
     tdata2_we = 0;
-    tdata1_i = 64'h6000_0000_0000_0041 | (64'(kind) << 7);
+    tdata1_i = (XLEN == 32 ? XLEN'(32'h6000_0041) : XLEN'(64'h6000_0000_0000_0041))
+               | (XLEN'(kind) << 7);
     tdata1_we = 1;
     @(negedge clk);
     tdata1_we = 0;
   endtask
 
-  task automatic check_load(input logic [63:0] address, input logic expected);
+  task automatic check_load(input logic [XLEN-1:0] address, input logic expected);
     logic actual;
     @(negedge clk);
     lsu_vaddr = address;
@@ -93,17 +101,23 @@ module trigger_match_ge_lt_test;
     check_load(64'h8000_0800, 1);
     check_load(64'h8000_1000, 0);
     check_load(64'h8000_2000, 0);
-    set_trigger(64'h8000_0000_0000_0000, 2);
-    check_load(64'h7fff_ffff_ffff_ffff, 0);
-    check_load(64'h8000_0000_0000_0000, 1);
-    set_trigger(64'h8000_0000_0000_0000, 3);
-    check_load(64'h7fff_ffff_ffff_ffff, 1);
-    check_load(64'h8000_0000_0000_0000, 0);
+    set_trigger(HIGH_BIT, 2);
+    check_load(HIGH_BIT - XLEN'(1), 0);
+    check_load(HIGH_BIT, 1);
+    set_trigger(HIGH_BIT, 3);
+    check_load(HIGH_BIT - XLEN'(1), 1);
+    check_load(HIGH_BIT, 0);
     set_trigger(64'h0, 2);
     check_load(64'h0, 1);
-    set_trigger(64'hffff_ffff_ffff_ffff, 3);
-    check_load(64'hffff_ffff_ffff_fffe, 1);
-    check_load(64'hffff_ffff_ffff_ffff, 0);
+    set_trigger(64'h0, 3);
+    check_load(64'h0, 0);
+    check_load(64'h1, 0);
+    set_trigger(MAX_VALUE, 2);
+    check_load(MAX_VALUE - XLEN'(1), 0);
+    check_load(MAX_VALUE, 1);
+    set_trigger(MAX_VALUE, 3);
+    check_load(MAX_VALUE - XLEN'(1), 1);
+    check_load(MAX_VALUE, 0);
     set_trigger(64'h8000_1000, 0);
     check_load(64'h8000_0800, 0);
     check_load(64'h8000_1000, 1);

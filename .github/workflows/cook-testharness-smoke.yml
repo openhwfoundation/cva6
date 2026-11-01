@@ -56,6 +56,9 @@ jobs:
         uses: ./.github/cook/setup
         with:
           verilator-version: '5.050'
+      - name: Run trigger unit tests
+        id: trigger_units
+        run: make -C verif/tb/unit all
       - name: Compile, run and validate both Hello tests
         id: smoke
         env:
@@ -68,6 +71,7 @@ jobs:
         env:
           DEPENDENCY_RESULT: ${{ steps.dependencies.outcome }}
           TOOL_RESULT: ${{ steps.tools.outcome }}
+          TRIGGER_UNIT_RESULT: ${{ steps.trigger_units.outcome }}
           SMOKE_RESULT: ${{ steps.smoke.outcome }}
         run: |
           {
@@ -76,6 +80,7 @@ jobs:
             echo '| --- | --- |'
             printf '| Verification dependencies and submodule patches | %s |\n' "$DEPENDENCY_RESULT"
             printf '| Tool preparation | %s |\n' "$TOOL_RESULT"
+            printf '| Trigger unit tests (RV32 and RV64) | %s |\n' "$TRIGGER_UNIT_RESULT"
             printf '| Actual compilation, simulation and evidence checks | %s |\n' "$SMOKE_RESULT"
             echo ''
             echo 'Only a successful smoke stage establishes the two-Hello result. Skipped stages are not passes.'
