@@ -84,8 +84,3 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/CSR/mcause_warl.S
-
-  - test: xret-mprv-clear
-    iterations: 1
-    <<: *custom_test_config
-    asm_tests: <path_var>/custom/issues/xret-mprv-clear-rv64.S

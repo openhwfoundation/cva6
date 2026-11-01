@@ -30,8 +30,6 @@ module store_unit
     input logic rst_ni,
     // Flush - CONTROLLER
     input logic flush_i,
-    // TO_BE_COMPLETED - ACC_DISPATCHER
-    input logic stall_st_pending_i,
     // No store pending - COMMIT_STAGE
     output logic no_st_pending_o,
     // Store buffer is empty - LOAD_UNIT
@@ -317,7 +315,6 @@ module store_unit
       .clk_i,
       .rst_ni,
       .flush_i,
-      .stall_st_pending_i,
       .no_st_pending_o,
       .store_buffer_empty_o,
       .page_offset_i,

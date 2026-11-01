@@ -98,7 +98,7 @@ include::port_load_store_unit.adoc[]
 
 The store_unit module manages the data store operations.
 
-As stores can be speculative, the store instructions need to be committed by ISSUE_STAGE module before possibily altering the processor state.
+As stores can be speculative, the store instructions need to be committed by ISSUE_STAGE module before possibly altering the processor state.
 Store buffer keeps track of store requests.
 Outstanding store instructions (which are speculative) are differentiated from committed stores.
 When ISSUE_STAGE module commits a store instruction, outstanding stores

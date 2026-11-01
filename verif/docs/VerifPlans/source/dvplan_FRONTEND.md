@@ -53,7 +53,7 @@
 * **Requirement location:** FRONTEND sub-system/functionality/PC generation stage/Branch Predict
 * **Feature Description**
   
-  If instruction is a RET and RAS (Return Address Stack) returns a valid address and RET has already been consummed by instruction queue. Else RET is considered as a control flow instruction but next PC is not predicted. A mispredict wil be generated.
+  If instruction is a RET and RAS (Return Address Stack) returns a valid address and RET has already been consumed by instruction queue. Else RET is considered as a control flow instruction but next PC is not predicted. A mispredict wil be generated.
 * **Verification Goals**
   
   Execute test with RET instructions. Functional cov: RET is executed and RAS output is not valid.
@@ -225,7 +225,7 @@
   The Branch History table is a two-bit saturation counter that takes the virtual address of the current fetched instruction by the CACHE. It states whether the current branch request should be taken or not. The two bit counter is updated by the successive execution of the current instructions as shown in the following figure.
 * **Verification Goals**
   
-  Execute a serie of taken and not taken branch to check the saturation mechanism
+  Execute a series of taken and not taken branch to check the saturation mechanism
 * **Pass/Fail Criteria:** NDY (Not Defined Yet)
 * **Test Type:** NDY (Not Defined Yet)
 * **Coverage Method:** NDY (Not Defined Yet)

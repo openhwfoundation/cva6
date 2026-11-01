@@ -1130,7 +1130,7 @@ The value loaded into ``stval`` on an illegal-instruction exception is right-jus
                                         </ipxact:field>
                                         <ipxact:field>
                                                 <ipxact:name>USIP</ipxact:name>
-                                                <ipxact:description>A user-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt-pending (USIP) bit.``Legal Values:``0.</ipxact:description>
+                                                <ipxact:description>A user-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt-pending (USIP) bit.``Legal Values:``0.</ipxact:description>
                                                 <ipxact:bitOffset>0</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>
@@ -2066,7 +2066,7 @@ with the index of the bit position equal to the value returned in the ``mcause``
                                         </ipxact:field>
                                         <ipxact:field>
                                                 <ipxact:name>USIE</ipxact:name>
-                                                <ipxact:description>enable U-mode software interrrupts.``Legal Values:``0.</ipxact:description>
+                                                <ipxact:description>enable U-mode software interrupts.``Legal Values:``0.</ipxact:description>
                                                 <ipxact:bitOffset>0</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>
@@ -2910,7 +2910,7 @@ If ``mtval`` is written with a nonzero value when an instruction access-fault or
                                 </ipxact:register>
                                 <ipxact:register>
                                         <ipxact:name>icache</ipxact:name>
-                                        <ipxact:displayName>Instuction Cache</ipxact:displayName>
+                                        <ipxact:displayName>Instruction Cache</ipxact:displayName>
                                         <ipxact:description>Custom Register to enable/disable for Icache [bit 0]</ipxact:description>
                                         <ipxact:addressOffset>'h7C0</ipxact:addressOffset>
                                         <ipxact:size>32</ipxact:size>
@@ -3218,7 +3218,7 @@ If ``type`` is not writable, this register may be unimplemented, in which case r
                                 <ipxact:register>
                                         <ipxact:name>dcsr</ipxact:name>
                                         <ipxact:displayName>Debug Control and Status</ipxact:displayName>
-                                        <ipxact:description>Debug ontrol and status register.</ipxact:description>
+                                        <ipxact:description>Debug control and status register.</ipxact:description>
                                         <ipxact:addressOffset>'h7B0</ipxact:addressOffset>
                                         <ipxact:size>32</ipxact:size>
                                         <ipxact:volatile>true</ipxact:volatile>
@@ -3258,7 +3258,7 @@ If ``type`` is not writable, this register may be unimplemented, in which case r
                                         <ipxact:field>
                                                 <ipxact:name>ebreakm</ipxact:name>
                                                 <ipxact:displayName>Environment Breakpoint M-mode</ipxact:displayName>
-                                                <ipxact:description>Shows the behvior of the ``ebreak`` instruction in machine mode.</ipxact:description>
+                                                <ipxact:description>Shows the behavior of the ``ebreak`` instruction in machine mode.</ipxact:description>
                                                 <ipxact:bitOffset>15</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>
@@ -3284,7 +3284,7 @@ If ``type`` is not writable, this register may be unimplemented, in which case r
                                         <ipxact:field>
                                                 <ipxact:name>ebreaks</ipxact:name>
                                                 <ipxact:displayName>Environment Breakpoint S-mode</ipxact:displayName>
-                                                <ipxact:description>Shows the behvior of the ``ebreak`` instruction in supervisor mode.</ipxact:description>
+                                                <ipxact:description>Shows the behavior of the ``ebreak`` instruction in supervisor mode.</ipxact:description>
                                                 <ipxact:bitOffset>13</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>
@@ -3310,7 +3310,7 @@ If ``type`` is not writable, this register may be unimplemented, in which case r
                                         <ipxact:field>
                                                 <ipxact:name>ebreaku</ipxact:name>
                                                 <ipxact:displayName>Environment Breakpoint U-mode</ipxact:displayName>
-                                                <ipxact:description>Shows the behvior of the ``ebreak`` instruction in user mode.</ipxact:description>
+                                                <ipxact:description>Shows the behavior of the ``ebreak`` instruction in user mode.</ipxact:description>
                                                 <ipxact:bitOffset>12</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>
@@ -4614,7 +4614,7 @@ When resuming, the hart’s PC is updated to the virtual address stored in ``dpc
                                 <ipxact:register>
                                         <ipxact:name>mvendorid</ipxact:name>
                                         <ipxact:displayName>Machine Vendor ID</ipxact:displayName>
-                                        <ipxact:description>This register provids the JEDEC manufacturer ID of the provider of the core.</ipxact:description>
+                                        <ipxact:description>This register provides the JEDEC manufacturer ID of the provider of the core.</ipxact:description>
                                         <ipxact:addressOffset>'hF11</ipxact:addressOffset>
                                         <ipxact:size>32</ipxact:size>
                                         <ipxact:volatile>true</ipxact:volatile>
@@ -4637,7 +4637,7 @@ When resuming, the hart’s PC is updated to the virtual address stored in ``dpc
                                         <ipxact:field>
                                                 <ipxact:name>offset</ipxact:name>
                                                 <ipxact:displayName>Offset</ipxact:displayName>
-                                                <ipxact:description>Contain encording for the final byte discarding the parity bit.</ipxact:description>
+                                                <ipxact:description>Contain encoding for the final byte discarding the parity bit.</ipxact:description>
                                                 <ipxact:bitOffset>0</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>

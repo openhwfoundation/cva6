@@ -22,8 +22,10 @@
 
 # ===========================================================================================
 
+# Parameters of each toolchain: adapt the paths to your installation
+
 dummy1: &dummy1
-    TOOLS_PATH: "/tmp/llvm-20"
+    TOOLS_PATH: "/tmp/llvm-22"
     CLANG: "riscv32-unknown-elf-clang"
     GCC:
     OBJDUMP: "riscv32-unknown-elf-objdump"
@@ -33,122 +35,106 @@ dummy1: &dummy1
 dummy2: &dummy2
     TOOLS_PATH: "/tmp/gcc-15"
     CLANG:
-    GCC: "riscv32-unknown-elf-clang"
-    OBJDUMP: "riscv32-unknown-elf-objdump"
-    NM: "riscv32-unknown-elf-nm"
-    TARGET_TOOLCHAIN: "riscv32-unknown-elf"
+    GCC: "riscv-none-elf-gcc"
+    OBJDUMP: "riscv-none-elf-objdump"
+    NM: "riscv-none-elf-nm"
+    TARGET_TOOLCHAIN: "riscv-none-elf"
 
-# Toolchain of the targets without a my_<target>_toolchain entry below
-default_toolchain:
-  <<: *dummy2
+dummy3: &dummy3
+    TOOLS_PATH: "/tmp/zephyr-sdk/riscv64-zephyr-elf"
+    CLANG:
+    GCC: "riscv64-zephyr-elf-gcc"
+    OBJDUMP: "riscv64-zephyr-elf-objdump"
+    NM: "riscv64-zephyr-elf-nm"
+    TARGET_TOOLCHAIN: "riscv64-zephyr-elf"
+
+# Toolchains named on the command line (-c)
+llvm-22: &llvm_22
+  <<: *dummy1
 
 # Reference toolchain used to compile the benchmarks (coremark/dhrystone)
 # on every target in CI, so that performance numbers are comparable
 # across targets.
-gcc-15:
+gcc-15: &gcc_15
   <<: *dummy2
 
+# Zephyr SDK, for the Zephyr hello world of full-regression: Zephyr needs a
+# libgcc built for -mcmodel=medany
+zephyr-sdk:
+  <<: *dummy3
+
+# Toolchain of the targets without a my_<target>_toolchain entry below
+default_toolchain:
+  <<: *gcc_15
+
+# Toolchain of each target in full-regression
 my_cv32a60x_toolchain:
-  <<: *dummy1
-my_cv32a60x_no_zcmt_toolchain:
-  <<: *dummy1
-my_cv32a60x_axi_toolchain:
-  <<: *dummy1
-my_cv32a60x_no_zcmt_axi_toolchain:
-  <<: *dummy1
-my_cv32a65x_noPMP_toolchain:
-  <<: *dummy1
-my_cv32a65x_noPMP_axi_toolchain:
-  <<: *dummy1
-my_cv64a6_imafdc_sv39_hpdcache_nopmp_nommu_obi_toolchain:
-  <<: *dummy1
-my_cv64a6_imafdc_sv39_hpdcache_nopmp_nommu_axi_toolchain:
-  <<: *dummy1
-my_cv32a60x_zcmt_pmp_toolchain:
-  <<: *dummy2
-my_cv32a60x_zcmt_pmp_axi_toolchain:
-  <<: *dummy2
-my_cv32a65x_noPMP_sdtrig_toolchain:
-  <<: *dummy2
-my_cv32a65x_sv32_sdtrig_toolchain:
-  <<: *dummy2
-my_cv32a65x_sdtrig_toolchain:
-  <<: *dummy2
+  <<: *llvm_22
 my_cv32a65x_toolchain:
-  <<: *dummy2
-my_cv32a65x_axi_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_nommu_obi_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_nommu_axi_toolchain:
-  <<: *dummy2
-my_cv32a65x_sv32_toolchain:
-  <<: *dummy2
-my_cv32a65x_sv32_axi_toolchain:
-  <<: *dummy2
-my_cv32a6_imac_sv32_obi_toolchain:
-  <<: *dummy2
-my_cv32a6_imac_sv32_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_obi_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdch_sv39_hpdcache_pmp_mmu_axi_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_wb_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi_fpalt_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi_ss_toolchain:
-  <<: *dummy2
-my_cv32a65x_scalar_toolchain:
-  <<: *dummy2
-my_cv32a65x_noc_toolchain:
-  <<: *dummy2
-my_cv32a65x_noc_scalar_toolchain:
-  <<: *dummy2
-my_cv32a65x_sv32_be_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi_napot_toolchain:
-  <<: *dummy2
-my_cv32a6_ima_sv32_fpga_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_obi_sdtrig_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdch_sv39_hpdcache_pmp_mmu_axi_stlb_toolchain:
-  <<: *dummy2
-my_cv64a6_imfdc_sv39_hpdcache_pmp_mmu_obi_be_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_wtwb_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi_sdtrig_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdch_sv39_hpdcache_pmp_mmu_obi_toolchain:
-  <<: *dummy2
-my_cv32a65x_sv32_be_axi_toolchain:
-  <<: *dummy2
-my_cv32a65x_sv32_wb_axi_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi_ecc_toolchain:
-  <<: *dummy2
-my_cv32a6_imafc_sv32_toolchain:
-  <<: *dummy2
-my_cv64a6_imac_sv39_hpdcache_pmp_mmu_obi_zcmp_toolchain:
-  <<: *dummy2
-my_cv64a6_imafdch_sv39_hpdcache_pmp_mmu_axi_sdtrig_toolchain:
-  <<: *dummy2
-my_cv32a65x_zcmp_toolchain:
-  <<: *dummy2
-my_cv64a6_imac_sv39_hpdcache_pmp_nommu_obi_zcmt_toolchain:
-  <<: *dummy2
-my_cv64a6_imac_sv39_hpdcache_pmp_nommu_obi_zcmp_zcmt_toolchain:
-  <<: *dummy2
-my_cv64a6_imac_sv39_hpdcache_pmp_nommu_axi_zcmt_toolchain:
-  <<: *dummy2
-my_cv64a6_imafd_sv39_hpdcache_pmp_mmu_axi_noc_toolchain:
-  <<: *dummy2
-my_cv32a6_imafc_sv32_ss_toolchain:
-  <<: *dummy2
-my_cv32a6_imac_sv32_obi_ss_toolchain:
-  <<: *dummy2
+  <<: *llvm_22
+my_fpga_linux_cv64a6_toolchain:
+  <<: *gcc_15
+my_fpga_linux_cv32a6_toolchain:
+  <<: *gcc_15
+my_profile_rvi20u32_toolchain:
+  <<: *gcc_15
+my_profile_rvi20u64_toolchain:
+  <<: *gcc_15
+my_profile_tinyc32_toolchain:
+  <<: *gcc_15
+my_profile_rvm23u32_toolchain:
+  <<: *gcc_15
+my_profile_perf32_axi_toolchain:
+  <<: *gcc_15
+my_profile_perf32_obi_toolchain:
+  <<: *gcc_15
+my_profile_rva20s64_toolchain:
+  <<: *gcc_15
+my_profile_rva22s64_toolchain:
+  <<: *gcc_15
+my_profile_rva23s64_toolchain:
+  <<: *gcc_15
+my_profile_perf64_axi_toolchain:
+  <<: *gcc_15
+my_summit_titlis_toolchain:
+  <<: *gcc_15
+my_summit_pilatus_toolchain:
+  <<: *gcc_15
+my_summit_saentis_toolchain:
+  <<: *gcc_15
+my_summit_eiger_toolchain:
+  <<: *gcc_15
+my_summit_pizpalue_toolchain:
+  <<: *gcc_15
+my_summit_toedi_toolchain:
+  <<: *gcc_15
+my_summit_galenstock_toolchain:
+  <<: *gcc_15
+my_summit_dammastock_toolchain:
+  <<: *gcc_15
+my_summit_oldenhorn_toolchain:
+  <<: *gcc_15
+my_summit_dom_toolchain:
+  <<: *gcc_15
+my_summit_weisshorn_toolchain:
+  <<: *gcc_15
+my_summit_matterhorn_toolchain:
+  <<: *gcc_15
+my_summit_grandcombin_toolchain:
+  <<: *gcc_15
+my_summit_dentblanche_toolchain:
+  <<: *gcc_15
+my_summit_nadelhorn_toolchain:
+  <<: *gcc_15
+my_summit_grandesjorasses_toolchain:
+  <<: *gcc_15
+my_summit_finsteraarhorn_toolchain:
+  <<: *gcc_15
+my_summit_monterosa_toolchain:
+  <<: *gcc_15
+my_summit_lyskamm_toolchain:
+  <<: *gcc_15
+my_summit_barredesecrins_toolchain:
+  <<: *gcc_15
+my_summit_grandparadis_toolchain:
+  <<: *gcc_15

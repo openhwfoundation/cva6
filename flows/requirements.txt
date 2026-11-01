@@ -15,3 +15,7 @@ pylint
 sphinx>=3.1.2
 sphinx-rtd-theme
 recommonmark
+pyelftools
+pykwalify
+jsonschema
+packaging

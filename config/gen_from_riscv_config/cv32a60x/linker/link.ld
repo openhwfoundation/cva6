@@ -9,7 +9,7 @@
 
 /* The OUTPUT_ARCH command specifies the machine architecture where the
    argument is one of the names used in the BFD library. More
-   specifically one of the entires in bfd/cpu-mips.c */
+   specifically one of the entries in bfd/cpu-*.c */
 
 OUTPUT_ARCH( "riscv" )
 ENTRY(_start)
@@ -76,7 +76,7 @@ SECTIONS
     _tbss_end = .;
   }
 
-  /* End of uninitalized data segement */
+  /* End of uninitialized data segment */
   _end = .;
 }
 

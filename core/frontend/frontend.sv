@@ -40,11 +40,11 @@ module frontend
     input logic flush_bp_i,
     // Flush requested by FENCE, mis-predict and exception - CONTROLLER
     input logic flush_i,
-    // Halt requested by WFI and Accelerate port - CONTROLLER
+    // Halt requested by WFI - CONTROLLER
     input logic halt_i,
     // Halt frontend during fence.i, to avoid fetching a stale instruction - CONTROLLER
     input logic halt_frontend_i,
-    // Set COMMIT PC as next PC requested by FENCE, CSR side-effect and Accelerate port - CONTROLLER
+    // Set COMMIT PC as next PC requested by FENCE and CSR side-effect - CONTROLLER
     input logic set_pc_commit_i,
     // COMMIT PC - COMMIT
     input logic [CVA6Cfg.VLEN-1:0] pc_commit_i,

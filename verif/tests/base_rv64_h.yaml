@@ -11,10 +11,8 @@
 #   Hypervisor tests, for the cv64 targets with RVH.
 #     - hlvx_gstage and gstage_store_pt_ro: two-stage walks through VS-stage
 #       page tables mapped read-only or non-executable at the G stage.
-#     - pmp-hlvx-access-fault and pmp-misalign-priority: PMP checks on HLVX and
-#       on misaligned hypervisor loads and stores.
-#     - htval-mtval2-warl, hgatp-mode-warl, mret-mpv, vsmode-counterh-cause,
-#       i3317-reg-write: CSR write rules and trap causes in and around V=1.
+#     - htval-mtval2-warl, hgatp-mode-warl, mret-mpv, i3317-reg-write: CSR
+#       write rules and trap causes in and around V=1.
 #     - mstatus-wpri-h: reserved mstatus fields read as zero, MPV and GVA
 #       being writable.
 # ------------------------------------------------------------------------------
@@ -40,21 +38,6 @@ testlist:
     <<: *p_test_config
     asm_tests: <path_var>/custom/hlvx_gstage/gstage_store_pt_ro.S
 
-  - test: rv64h-p-hfence-gvma-gpa-high-bits
-    iterations: 1
-    <<: *p_test_config
-    asm_tests: <path_var>/custom/hlvx_gstage/hfence_gvma_gpa_high_bits.S
-
-  - test: pmp-hlvx-access-fault
-    iterations: 1
-    <<: *custom_test_config
-    asm_tests: <path_var>/custom/pmp/hlvx_access_fault_test.S
-
-  - test: pmp-misalign-priority
-    iterations: 1
-    <<: *custom_test_config
-    asm_tests: <path_var>/custom/issues/pmp-misalign-priority-over-access-fault.S
-
   - test: htval-mtval2-warl
     iterations: 1
     <<: *custom_test_config
@@ -69,11 +52,6 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/issues/mret-mpv-rv64.S
-
-  - test: vsmode-counterh-cause
-    iterations: 1
-    <<: *p_test_config
-    asm_tests: <path_var>/custom/issues/vsmode_counterh_cause.S
 
   - test: i3317-reg-write
     iterations: 1

@@ -1,0 +1,21 @@
+diff --git a/lib/uvm_components/uvmc_rvfi_reference_model/rvfi_spike.sv b/lib/uvm_components/uvmc_rvfi_reference_model/rvfi_spike.sv
+index 17b4274f..30f9936b 100644
+--- a/lib/uvm_components/uvmc_rvfi_reference_model/rvfi_spike.sv
++++ b/lib/uvm_components/uvmc_rvfi_reference_model/rvfi_spike.sv
+@@ -103,8 +103,14 @@ import "DPI-C" function void spike_put_csr(input longint unsigned proc_id,
+             boot_addr = 64'h10000;
+         end
+ 
+-        void'(spike_set_param_str("/top/", "isa", rtl_isa));
+-        void'(spike_set_param_str(base, "isa", rtl_isa));
++        // The ISA string built from the core configuration knows the base
++        // extensions only: one a configuration file gives, which names the
++        // others (Zcmp, Zcmt, Zkn...), is kept, else Spike would decode their
++        // encodings as the instructions they overlap.
++        if (config_file == "") begin
++            void'(spike_set_param_str("/top/", "isa", rtl_isa));
++            void'(spike_set_param_str(base, "isa", rtl_isa));
++        end
+         void'(spike_set_param_str("/top/", "priv", rtl_priv));
+         void'(spike_set_param_str(base, "priv", rtl_priv));
+ 

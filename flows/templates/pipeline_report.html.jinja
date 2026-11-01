@@ -82,6 +82,30 @@
                           text-transform: uppercase; padding-top: .2em; }
     .cfg-block .cfg-tags { display: flex; }
 
+    /* Categories of targets: a separator row in the matrix, a section
+       header above the target cards. One accent colour per category. */
+    .cat-row td {
+      text-align: left; background: #f1f3f5; border-left: 4px solid var(--cat-color);
+      padding: .35rem .6rem;
+    }
+    .cat-title { font-weight: 700; font-size: .95em; }
+    .cat-text { color: #5c636a; font-size: .85em; }
+    .cat-section { border-left: 4px solid var(--cat-color); padding-left: .6rem;
+                   margin: 1.25rem 0 .5rem; }
+    .cat-section h5 { margin-bottom: .1rem; }
+    .cat-official { --cat-color: #0d6efd; }
+    .cat-fpga     { --cat-color: #6f42c1; }
+    .cat-profile  { --cat-color: #198754; }
+    .cat-cross    { --cat-color: #fd7e14; }
+    .cat-other    { --cat-color: #adb5bd; }
+    .cell-target .prof-pill { margin-left: 0; font-size: .67em; line-height: 1.6; padding: 0 .55em; }
+    .prof-pill { font-size: .7em; font-weight: 600; padding: 0 .5em; border-radius: 999px;
+                 border: 1px solid transparent; white-space: nowrap; margin-left: .3em; }
+    .prof-ok   { background: #d7f2e3; color: #0f6b43; border-color: #aee3c8; }
+    .prof-part { background: #fff3cd; color: #7a5a00; border-color: #f5dc8f; }
+    .prof-miss { background: #f8d7da; color: #842029; border-color: #f1aeb5; }
+    .target-role-detail { color: #495057; font-size: .9em; margin-bottom: .6rem; }
+
     /* Specifications of a target, at the top of its detail. Cards, so the
        link has room for the title and the description of the manual. */
     .doc-links-title {
@@ -344,6 +368,71 @@ if (TARGETS.includes(CROSS_TARGET)) {  /* cross-target jobs shown first */
  * its rtl_cfg_pkg.sv by merge-reports. Absent for the cross-target group. */
 const TARGET_CONFIG = PIPELINE.target_config || {};
 
+/* Categories of the targets, read from their doc.yml by merge-reports. The
+ * order of CATEGORIES is the order of the sections; the cross-target jobs
+ * (lint, setup) come first, apart from any category. */
+const TARGET_CATEGORY = PIPELINE.target_categories || {};
+const CATEGORIES = [
+  { key: "official", title: "Official configurations",
+    text: "Maintained by an organisation: the configurations its products are built from." },
+  { key: "fpga", title: "FPGA platforms",
+    text: "Configurations that boot Linux on a board. Their parameters follow the platform, not the other targets." },
+  { key: "profile", title: "Profiles and presets",
+    text: "Ready-made configurations: the RISC-V profiles the core comes closest to, and credible reference points." },
+  { key: "cross", title: "Option crosses",
+    text: "Configurations that cross the options of the core, to check that each one keeps working whatever the others: the options must vary independently." },
+];
+function categoryOf(t) {
+  if (t === CROSS_TARGET) return null;
+  const c = (TARGET_CATEGORY[t] || {}).category;
+  return CATEGORIES.some((x) => x.key === c) ? c : "official";
+}
+function roleOf(t) { return (TARGET_CATEGORY[t] || {}).role || ""; }
+/* RISC-V profile of a target, from the `profile:` key of its doc.yml:
+ * name, version, and the extensions the core lacks or only partly
+ * implements for it. */
+function profileOf(t) { return (TARGET_CATEGORY[t] || {}).profile || null; }
+/* One pill in the matrix: the profile name, green when the core implements
+ * it entirely, red with the count of missing extensions otherwise. */
+function profilePill(t) {
+  const p = profileOf(t);
+  if (!p) return "";
+  const miss = p.missing.length, part = p.partial.length;
+  const tip = miss ? `Missing: ${p.missing.join(", ")}` + (part ? `; partial: ${p.partial.join(", ")}` : "")
+                   : (part ? `Partial: ${p.partial.join(", ")}` : "Fully implemented");
+  const cls = miss ? "prof-miss" : (part ? "prof-part" : "prof-ok");
+  const txt = miss ? `${p.name} −${miss}` : (part ? `${p.name} ~${part}` : `${p.name} ✓`);
+  return `<span class="prof-pill ${cls}" title="${esc(tip)}">${esc(txt)}</span>`;
+}
+/* Block of the target detail: the extensions the core lacks or only partly
+ * implements for its profile. */
+function profileBlock(t) {
+  const p = profileOf(t);
+  if (!p) return "";
+  const line = (list, cls, label) => list.length
+    ? `<tr><td><span class="prof-pill ${cls}">${esc(label)}</span></td>
+       <td class="mono">${list.map(esc).join(", ")}</td></tr>` : "";
+  const body = line(p.missing, "prof-miss", "missing") + line(p.partial, "prof-part", "partial");
+  const head = `<div class="doc-links-title">RISC-V profile ${esc(p.name)}
+    ${p.version ? `<span class="text-muted fw-normal">(${esc(p.version)})</span>` : ""}
+    ${profilePill(t)}</div>`;
+  const note = p.note ? `<div class="small text-muted mb-1">${esc(p.note)}</div>` : "";
+  if (!body) return `<div class="mb-2">${head}${note}
+    <div class="small">Every extension the profile requires is implemented.</div></div>`;
+  return `<div class="mb-2">${head}${note}
+    <table class="table table-sm small w-auto mb-0"><tbody>${body}</tbody></table></div>`;
+}
+/* [category or null, targets] in display order, empty groups dropped */
+function targetGroups() {
+  const groups = [];
+  if (TARGETS.includes(CROSS_TARGET)) groups.push([null, [CROSS_TARGET]]);
+  for (const c of CATEGORIES) {
+    const ts = TARGETS.filter((t) => categoryOf(t) === c.key);
+    if (ts.length) groups.push([c, ts]);
+  }
+  return groups;
+}
+
 /* Specifications of a target, published next to this page by
  * merge-reports under docs/<target>/<document>. A target no docs-build job
  * ran on gets nothing. */
@@ -393,10 +482,12 @@ function coreShort(t) {
 }
 function matrixSignature(t) {
   if (!TARGET_CONFIG[t]) return "";
-  const pills = [[isaShort(t), "xlen"], [memShort(t), "bus"], [coreShort(t), "hw"]]
-    .filter(([x]) => x);
+  /* A RISC-V profile target shows its profile in place of its ISA: the
+   * profile names the ISA, and the pill tells what the core lacks for it. */
+  const pills = [[profileOf(t) ? "" : isaShort(t), "xlen"], [memShort(t), "bus"],
+                 [coreShort(t), "hw"]].filter(([x]) => x);
   const all = (TARGET_CONFIG[t] || []).map((x) => x.text).join(" ");
-  return `<span class="cfg-sig" title="${esc(all)}">` + pills.map(([x, g]) =>
+  return `<span class="cfg-sig" title="${esc(all)}">` + profilePill(t) + pills.map(([x, g]) =>
     `<span class="cfg-tag cfg-${g}">${esc(x)}</span>`).join("") + `</span>`;
 }
 /* Detail header: ISA, Memory and Core on three labelled lines */
@@ -665,7 +756,14 @@ function matrixKpiCell(t, name, jobs) {  const found = targetKpis(t).find(([n]) 
     }
   }
   let html = `<thead><tr>${top}</tr>${hasSubRow ? `<tr>${sub}</tr>` : ""}</thead><tbody>`;
-  for (const t of TARGETS) {
+  const nCols = 1 + MATRIX_GROUPS.reduce((n, g) => n + g.cols.length, 0);
+  for (const [cat, group] of targetGroups()) {
+  if (cat) {
+    html += `<tr class="cat-row cat-${cat.key}"><td colspan="${nCols}">
+      <span class="cat-title">${esc(cat.title)}</span>
+      <div class="cat-text">${esc(cat.text)}</div></td></tr>`;
+  }
+  for (const t of group) {
     const jobs = TARGET_JOBS.get(t);
     let cells = "";
     let populated = false;
@@ -691,6 +789,7 @@ function matrixKpiCell(t, name, jobs) {  const found = targetKpis(t).find(([n]) 
       <td class="text-start cell-target"><span class="target-name" title="${esc(t)}">${esc(t)}</span>
       ${matrixSignature(t)}</td>
       ${cells}</tr>`;
+  }
   }
   document.getElementById("matrix").innerHTML = html + "</tbody>";
 
@@ -1182,7 +1281,13 @@ function targetSections(jobs) {
 }
 (function renderDetails() {
   let html = "";
-  for (const t of TARGETS) {
+  for (const [cat, group] of targetGroups()) {
+  if (cat) {
+    html += `<div class="cat-section cat-${cat.key}">
+      <h5>${esc(cat.title)}</h5>
+      <div class="cat-text">${esc(cat.text)}</div></div>`;
+  }
+  for (const t of group) {
     const jobs = TARGET_JOBS.get(t);
     const cid = `card-${t}`.replace(/[^\w-]/g, "_");
     const nPass = jobs.filter((j) => j.status === "pass").length;
@@ -1192,13 +1297,15 @@ function targetSections(jobs) {
       <div class="card-header clickable d-flex flex-wrap align-items-center gap-2"
            data-bs-toggle="collapse" data-bs-target="#${cid}">
         ${badge(worstStatus(jobs))}
-        <span class="fw-bold mono" style="word-break: break-all">${esc(t)}</span>
+        <span class="fw-bold mono" style="word-break: break-all">${esc(t)}</span>${profilePill(t)}
         <span class="text-muted small ms-auto">${nPass}/${jobs.length} jobs</span>
         ${configBlock(t)}
       </div>
       <div class="collapse" id="${cid}" data-target-name="${esc(t)}">
         <div class="card-body">
+          ${roleOf(t) ? `<p class="target-role-detail">${esc(roleOf(t))}</p>` : ""}
           ${targetIssues(t)}
+          ${profileBlock(t)}
           ${docLinks(t)}
           <div class="d-flex flex-wrap gap-4 align-items-start mb-2">
             <div>${kpiBlock(t)}</div>
@@ -1212,6 +1319,7 @@ function targetSections(jobs) {
         </div>
       </div>
     </div>`;
+  }
   }
   document.getElementById("target-details").innerHTML = html;
 })();

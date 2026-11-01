@@ -26,6 +26,7 @@ from flows.utils.manifest import (
 )
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
+from flows.utils.target_config import spike_core_name
 from flows.utils.rvfi_timing import extract_rvfi_timing, benchmark_window
 from flows.utils.tandem import check_tandem_verdict, spike_broken_extensions
 from flows.utils.autocompletion import (
@@ -349,13 +350,13 @@ def questa_uvm_run(
     options += [
         f"++{elf}",
         f"+elf_file={elf}",
-        f"+core_name={target}",
+        f"+core_name={spike_core_name(target, report)}",
         "+mhartid=0",
         f"+signature={signature}",
         "+UVM_TESTNAME=uvmt_cva6_firmware_test_c",
         f"+report_file={tandem_report}",
         f"+config_file={spike_param_file}",
-        f"+UVM_VERBOSITY=UVM_{uvm_verbosity}",
+        f"+UVM_VERBOSITY=UVM_{uvm_verbosity.value}",
         f"+tandem_enabled={int(tandem_enabled)}",
         f"+tohost_addr={add_tohost}",
         f"+GLOBAL_PATTERN_start={add_start_window}",

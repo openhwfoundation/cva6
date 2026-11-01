@@ -218,7 +218,7 @@ src/util/axi_slave_connect_rev.sv
 
 ### Added
 
-- Improved instruction fetch fronten-end
+- Improved instruction fetch front-end
 - Add RAS
 - Add support for Bender hardware management
 

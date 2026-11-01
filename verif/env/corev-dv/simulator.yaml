@@ -15,7 +15,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-###### This file is based on <cwd>/cva6-simuator.yaml
+###### This file is based on <cwd>/cva6-simulator.yaml
 
 - tool: xrun
   compile:

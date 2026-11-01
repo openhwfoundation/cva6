@@ -101,7 +101,7 @@ The following exception handlers may be called from `u_sw_irq_handler`:
   entered"
   * `unknown_handler` - called when there is no handler for the interrupt/
   exception. This is the only case where `mepc` is not incremented, because we
-  do not know the appropiate action to take.
+  do not know the appropriate action to take.
 
 Returning from the `u_sw_irq_handler`. All handlers called by `u_sw_irq_handler`
 increment `mepc` before calling `mret`, except for `unknown_handler`. Handlers

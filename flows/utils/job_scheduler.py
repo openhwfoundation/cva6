@@ -20,7 +20,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-
 # A job is submitted only once its dependencies passed AND a slot of its
 # resource is free, so a worker never sits idle holding a license. A job
 # whose dependency failed is reported as `skip`, and a failing job never

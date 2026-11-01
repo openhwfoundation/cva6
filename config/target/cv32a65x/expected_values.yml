@@ -1,7 +1,16 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
 gates: 142628
-coremark_cycle: 207279
-dhrystone_cycle: 16220
-gtech_cells: 62257
-gtech_registers: 8195
-yosys_cells: 118894
-yosys_registers: 9336
+coremark_cycle: 213436
+dhrystone_cycle: 17079
+yosys_cells: 110096
+yosys_registers: 8698
+gtech_cells: 62983
+gtech_registers: 8712

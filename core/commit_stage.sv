@@ -126,11 +126,8 @@ CVA6Cfg.NrCommitPorts
     dirty_fp_state_o = 1'b0;
     for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
       dirty_fp_state_o |= commit_ack_o[i] & ((commit_instr_i[i].fu inside {FPU, FPU_VEC} & CVA6Cfg.FpPresent & ariane_pkg::fd_changes_rd_state(
-          commit_instr_i[i].op
-      )) || (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-          commit_instr_i[i].op
-          // Check if we issued a vector floating-point instruction to the accelerator
-      ))) | (commit_instr_i[i].fu == ACCEL && commit_instr_i[i].vfp);
+          commit_instr_i[i].op)) ||
+          (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_i[i].op)));
     end
   end
 

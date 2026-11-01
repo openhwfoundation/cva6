@@ -1,0 +1,52 @@
+// Copyright 2024 Thales DIS France SAS
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Original Author: Zbigniew CHAMSKI - Thales
+
+{signal: [
+  {    name: 'clk',    wave: 'p.PlPlp.Plp|PlPlp'},
+  ['INT agent',
+    ['int active',
+      {name: 'int #0', wave: '0..........|.....'},
+      {name: 'int #n', wave: '01.x.......|.....'},
+    ]
+  ],
+  {},
+  ['RTL',
+    ['mip',
+      {name: 'bit[0]', wave: 'x..........|.....'},
+      {name: 'bit[n]', wave: '0.1........|.....',
+                       node: '..rC.............'},
+    ],
+    ['mie',
+      {name: 'bit[0]', wave: '0..........|.....'},
+      {name: 'bit[n]', wave: '01..0......|.....',
+                       node: '.e..c............'},
+    ],
+    {name: 'commit0',  wave: 'x.72723.723|4242x', data: 'i1 RM i2 RM uarch i3 RM uarch H1 RM H2 RM',
+                       node: '..XCf.....g..J...'},
+  ],
+  {                    node: '...EF.....GZ.....'},
+  ['Spike',
+    ['mip',
+      {name: 'bit[0]', wave: 'x..........|.....'},
+      {name: 'bit[n]', wave: '0..1.0.....|.....'},
+    ],
+    ['mie',
+      {name: 'bit[0]', wave: '0..........|.....'},
+      {name: 'bit[n]', wave: '0..1.0.....|.....',
+                       node: '.................'},
+    ],
+    {name: 'mcause',   wave: 'x..........|.4x..', data: 'INTn'},
+    {name: 'step',     wave: 'x..7x7x..7x|.4x4x', data: 'i1 i2 i3 H1 H2',},
+                      {node: '...RS........H...'}
+  ],
+  {},
+],
+  edge:
+   ['r|X', 'C|R', 'f|F', 'g|G', 'F<->G committed before INTn taken', 'J|H', 'R->H hold and inject MIP/MIE state associated with INTn'],
+}

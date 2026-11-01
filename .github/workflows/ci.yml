@@ -136,7 +136,7 @@
 #    strategy:
 #      matrix:
 #        testcase:  [ dv-riscv-arch-test, cv32a6_tests ]
-#        config:    [ cv32a65x_axi ]
+#        config:    [ profile_perf32_axi ]
 #        simulator: [ veri-testharness ]
 #    needs:
 #      build-riscv-tests

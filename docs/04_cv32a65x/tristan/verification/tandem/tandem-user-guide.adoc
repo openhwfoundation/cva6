@@ -1,0 +1,197 @@
+= Tandem-based Verification User Manual
+:toc:
+
+== QuickStart Guide
+
+=== Build instructions
+
+The standard build procedure of Spike supplied with the CVA6 project (https://github.com/openhwgroup/cva6/) builds a Spike binary with all necessary modifications required for DPI interfacing to the RTL testbench.
+
+Building Spike with tandem extensions requires the availability of `CMake` in version 3.16 or higher.  The `yaml-cpp` source package (https://github.com/jbeder/yaml-cpp) that is used to parse and manipulate Yaml configurations is a submodule of Spike and will be downloaded when performing a recursive clone or update of the CVA6 repository.
+
+If a rebuild is required in an existing setup, it is necessary to either select a different installation directory for Spike or to remove the current installation directory of Spike.  It is also necessary to remove Spike build directories `verif/core-v-verif/vendor/riscv/riscv-isa-sim/build` (Spike proper) and `verif/core-v-verif/vendor/riscv/riscv-isa-sim/yaml-cpp/build` (`yaml-cpp` library).
+
+=== Understanding the Spike configuration file
+
+Spike configuration files represent a Spike parameter tree in the form of nested Yaml dictionaries under a common root node `spike_param_tree`:
+
+[,yaml]
+----
+  spike_param_tree:
+    bootrom_enable: true
+    bootrom_base: 0x10000
+    bootrom_size: 0x1000
+    dram_enable: true
+    dram_base: 0x80000000
+    dram_size: 0x40000000
+    core_configs:
+      -
+        isa: rv32imczicsr_zcb_zba_zbb_zbc_zbs
+        priv: M
+        extensions: cv32a60x,cvxif
+        boot_addr: 0x80000000
+        marchid_override_mask: 0xFFFFFFFF
+        marchid_override_value: 0x3
+        misa_write_mask: 0x0
+----
+
+The first-level entries define platform properties (`bootrom_*` and `dram_*`) and the default settings for all cores of the system (`core_configs`).
+
+The configuration fragment above instructs the reference model that:
+
+* the platform contains a boot ROM of size 4 KiB starting at address 0x10000 (0+64 KiB);
+* the platform contains a DRAM memory of 1 GiB starting at the address 0x80000000 (0+2 GiB)
+* all cores:
+** implement an RV32IMC ISA with extensions `Zicsr`, `Zcb`, `Zba`, `Zbb`, `Zbc` and `Zbs`;
+** support only the Machine privilege level;
+** implement additional features modeled in Spike custom extensions `cv32a60x` (additional CSRs specific to `CV32A6*X` family of cores) and `cvxif` (the CV-X-IF interface);
+** boot from address `0x80000000` (the start address of the DRAM memory);
+** force the reset value of register `marchid` to value `0x3` (corresponding to the CVA6 architecture);
+** discard writes into `misa` CSR register by marking all its bits as non-mutable.
+
+=== Running simulations in tandem mode
+
+Currently, tandem simulations are supported out-of-the-box only for CVA6 target `cv32a65x` using RTL simulator configurations `vcs-uvm` (recommended), `vcs-testharness`, `questa-uvm` and `questa-testharness`.  Tandem simulations of target `cv32a65x` with Verilator using the `veri-testharness` configuration require Verilator v5.016 or higher.
+
+Tandem verification is enabled by setting environment variable `SPIKE_TANDEM` to a non-empty value prior to invoking any of the test scripts located in the `verif/regress` directory of the CVA6 source tree.
+
+**Example:**
+[,sh]
+----
+export SPIKE_TANDEM=1 ; bash verif/regress/dv-csr-embedded-tests.sh
+----
+
+The output of tandem simulation is sent to the log file of the RTL simulator, by default `verif/sim/out_<date>/<simconfig>_sim/<testname>.<target>.log.iss`.
+
+A machine-processable Yaml report file summarizing the mismatches detected during the simulation is stored in a separate report file, by default `verif/sim/out_<date>/<simconfig>_sim/<testname>.<target>.log.yaml`.  It contains the configuration of the simulated design, the number of mismatches that were found (if any) and a list of entries describing the successive mismatches.
+
+== How to analyze tandem verification results
+
+To simplify failure analysis, the RVFI state comparator reports mismatches between commit states of the reference model and the RTL model at all verbosity levels.  However, it produces no output if the commit states are identical and the verbosity level is `UVM_LOW`.  By controlling output verbosity, the simulation log can be reduced to the sole list of state discrepancies, or it can contain a complete log of commits and exceptions to provide additional context at failure locations.
+
+A scoreboard discrepancy is represented by a line describing the nature of the error, followed by two lines that provide a summary view of the RVFI state of the reference model and the RTL core.
+
+**Example:**
+[,text]
+----
+CSR 304  Mismatch   [REF]: 0x0                [CORE]: 0x8
+UVM_INFO @ 45992.000 ns : uvmc_rvfi_scoreboard_utils.sv(206) reporter [spike_tandem] 45992.000 ns  | RVFI |        0 |      0 | 800036ac | 30419073 | M | x3  | 00000008 | x0  | 0000000000000000 | csrrw   zero, mie, gp
+UVM_ERROR @ 45992.000 ns : uvmc_rvfi_scoreboard_utils.sv(211) reporter [spike_tandem] 45992.000 ns | RVFI |        0 |      0 | 800036ac | 30419073 | M | x3  | 00000008 | x0  | 0000000000000000 | csrrw   zero, mie, gp <- CORE
+----
+
+The first line indicates that for current instruction commit the content of the CSR with hexadecimal address `304`, i.e., `mie` ("Machine Interrupt Enable") differs between the reference model (value `0x0`) and the RTL core model (value `0x8`).  The next two lines provide details about the current instruction in both models:
+
+* the current time stamp: `45992.000 ns`,
+* the value of PC: `0x800036ac`,
+* the encoding of the instruction: hex `30419073`,
+* the current privilege mode: `M` (Machine),
+* the values of general-purpose register operands of the instruction: `x3` (`gp` in RISC-V ABI) equals `0x00000008`, `x0` equals `0x00000000`.
+
+Since the values stored into the `mie` CSR differ whereas the instruction executed is the same including the values of its input operands, the discrepancy can only come from the write behavior of the `mie` CSR.  In this specific case, bit 3 of the `mie` register is specified as "read-only zero" in the reference model, yet the RTL implementation accepts writes into this specific bit of `mie`.
+
+The following is the corresponding fragment from the Yaml report, including the configuration and status summary of the simulation run:
+
+[,yaml]
+----
+csrs_match_count: 461
+exit_cause: MISMATCH
+exit_code: 0
+instr_count: 3280
+isa: rv32imc_zba_zbb_zbs_zbc_zicsr_zifencei
+mismatch_description: 'CSR 304  Mismatch   [REF]: 0x880              [CORE]: 0x888             '
+mismatches:
+- 0: null
+  core:
+    insn: 0000000030419073
+    insn_disasm: csrrw   zero, mie, gp
+    mode: 3
+    pc_rdata: 00000000800036ac
+    pc_wdata: 0
+    rd1_addr: 0
+    rd1_rdata: 0
+    rs1_addr: 3
+    rs1_rdata: 0000000000000008
+    trap: 0
+  reference_model:
+    insn: 0000000030419073
+    insn_disasm: csrrw   zero, mie, gp
+    mode: 3
+    pc_rdata: 00000000800036ac
+    pc_wdata: 0
+    rd1_addr: 0
+    rd1_rdata: 0
+    rs1_addr: 3
+    rs1_rdata: 0000000000000008
+    trap: 0
+[...]
+mismatches_count: 5
+simulator: vcs-uvm
+target: cv32a65x
+test: csr_test
+testlist: csr_embedded
+----
+
+== Example uses of Yaml reference model parameters
+
+=== Enable (make "accessible") or disable (make "inaccessible") a CSR
+
+A Boolean parameter consisting of CSR name and suffix `_accessible`, placed in generic or per-core configuration, indicates whether the given register should be accessible or not.
+
+**Example**:
+
+[,yaml]
+----
+spike_param_tree:
+  ...
+  core_configs:
+    -
+      ...
+      tinfo_accessible: False
+----
+
+makes the `tinfo` CSR inaccessible in the reference model for all cores, meaning that any attempt to access (read or write) the `tinfo` register when executing an instruction in the reference model will trigger an illegal instruction exception.
+
+=== Force specific bits in a CSR to a constant value
+
+The reference model parameters provide two levels of control over the content of CSRs:
+
+* override the reset value of selected bits of any CSR;
+* define which bits of a CSR cannot be modified.
+
+Assuming that bit 5 of a certain CSR `<mycsr>` should always be set irrespective of the default setting in the reference model, it is necessary to indicate that:
+
+* the reset value of that bit should be 1;
+* writes to that bit should be ignored.
+
+The parameters needed to express this property are:
+
+* `<mycsr>_override_mask` which defines which bits of `<mycsr>` should be forced to a specific value at reset,
+* `<mycsr>_override_value` which indicates the reset value of the forced bits of `<mycsr>`,
+* `<mycsr>_write_mask` which indicates which bits of `<mycsr>` are writable (mask bit is set) and which are not (mask bit is cleared).
+
+Assuming that the XLEN is 32 and only bit 5 of `<mycsr>` should be fixed, the Yaml settings to use are:
+
+[,yaml]
+----
+spike_param_tree:
+  ...
+  core_configs:
+    -
+      ...
+      <mycsr>_override_mask: 0x00000020
+      <mycsr>_override_value: 0x00000020
+      <mycsr>_write_mask: 0xffffffdf
+----
+
+== Integration with the RISC-V Open Source ecosystem
+
+* The entire tandem verification infrastructure is available as Open Source under SHL 2.0+ (an Apache-type license) in OpenHW Group repositories `cva6` (https://github.com/openhwgroup/cva6/) and `core-v-verif` (https://github.com/openhwgroup/cva6/).
+
+* The OpenHW Group tandem verification infrastructure relies on Spike (https://github.com/riscv-software-src/riscv-isa-sim/) as reference model.
++
+The tandem verification approach is a general template and is not bound to a single ISS or RTL simulator.  However, it requires that the ISS provides a basic platform capable of running software matching the capabilities of the RTL testbench, including a model of memory and buses.
+Because of this constraint the current tandem framework relies on Spike which is fully Open Source and provides all necessary components.
+
+* Verilator-based tandem verification
++
+Starting with version 5.016, Verilator supports tandem simulations.  Earlier versions did not provide sufficient support for structured types in the DPI interface.

@@ -44,6 +44,7 @@ submodule_patches:
       - "verif/patches/core-v-verif-axi-amo-synchronizer.patch"
       - "verif/patches/core-v-verif-obi-assert-aid-queue-depth.patch"
       - "verif/patches/core-v-verif-obi-assert-outstanding-counter.patch"
+      - "verif/patches/core-v-verif-tandem-isa-from-config.patch"
     reason: >
       uvma_axi_amo_synchronizer passes the memory value between the read and the
       write halves of an atomic through a non persistent SystemVerilog event.
@@ -57,6 +58,10 @@ submodule_patches:
       outstanding address phase (R-5) with a 4-bit counter, which wraps to 0
       at 16 outstanding transactions and then reports a valid response as an
       error; the store port reaches that. The patch makes the counter an int.
+      The Spike tandem replaces the ISA string of the configuration file of
+      the target by one built from the base extensions of the core: with
+      Zcmp, Zcmt and F but no D, Spike decodes cm.* as the c.fsdsp they
+      overlap. The patch keeps the ISA string of the configuration file.
       All are still present on core-v-verif master: drop each patch once
       fixed upstream.
   core/cache_subsystem/hpdcache:
@@ -86,6 +91,26 @@ riscv-tests:
     - "verif/regress/riscv-tests.patch"
     - "verif/regress/riscv-tests-env.patch:env"  # Apply in env/ subdirectory
   submodules: true  # Clone submodules recursively
+
+riscv-pk:
+  # RISC-V proxy kernel: runs a user program and serves its system calls
+  # through HTIF. Built per target by the pk-build recipe.
+  repo: "https://github.com/riscv-software-src/riscv-pk.git"
+  branch: "master"
+  commit: "e5563d1044bd6790325c4602c49f89e1182fa91a"
+  destination: "tools/riscv-pk"
+  patches: []
+  submodules: false
+
+zephyr:
+  # Zephyr RTOS: kernel and build system of the applications built by the
+  # zephyr-build recipe. No module (HAL) is needed for the CVA6 boards.
+  repo: "https://github.com/zephyrproject-rtos/zephyr.git"
+  branch: "v4.3.0"
+  commit: "3568e1b6d5cdd51a6b964a2a1d6d29200fea2056"
+  destination: "tools/zephyr"
+  patches: []
+  submodules: false
 
 riscv-compliance:
   repo: "https://github.com/riscv-non-isa/riscv-arch-test.git"

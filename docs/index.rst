@@ -38,7 +38,7 @@ The naming convention for these cores is:
 ``CV <ILEN> <class> <# of pipeline stages> <product identifier>``
 
 Thus, the CV64A60 would be a 64-bit application core with a six stage pipeline.
-Note that in this example, the product identifer is "0".
+Note that in this example, the product identifier is "0".
 
 
 Organization of this Document

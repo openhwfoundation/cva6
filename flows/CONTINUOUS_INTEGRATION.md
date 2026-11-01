@@ -158,11 +158,24 @@ The TestHarness is AXI only, and AXI gets no stalling run: the AXI agent
 of the UVM testbench is held in zero delay mode whatever the run, so it
 would repeat the first one. The bus is the `hier` of `testbench_cfg.yml`.
 
-The FPGA images of `FPGA_TARGETS` are built once the RTL of their target
+The targets of `PK_TARGETS` also run Hello world under the RISC-V proxy
+kernel on the TestHarness: `pk-build` then `pk-hello-world`, and the run
+on one simulator, fpga_linux_cv32a6 on Verilator and
+fpga_linux_cv64a6 on VCS. pk needs U-mode and the
+debug module, through which it talks to HTIF.
+
+The targets of `ZEPHYR_TARGETS` run the Hello world of the Zephyr RTOS on
+the TestHarness: `zephyr-hello-world`, built with the `zephyr-sdk`
+toolchain, then the run on fpga_linux_cv32a6 on Verilator and on
+fpga_linux_cv64a6 on VCS.
+
+The bitstreams of the `FPGA_TARGETS` configurations, `fpga_linux_cv32a6`
+and `fpga_linux_cv64a6` on the Genesys 2, are built once the RTL of their target
 elaborates: a design that does not elaborate in simulation would spend
-hours of Vivado to fail in synthesis. The bootloader of the board comes
-first, then the bitstream, then one job that programs the board and boots
-Linux on it, holding the board for both. `--no-fpga` leaves them out, on a
+hours of Vivado to fail in synthesis. The bootloader of the board and the
+width comes first, then the bitstream, then one job that programs the board
+and boots Linux on it, holding the board for both: the two images of the
+board boot one after the other. `--no-fpga` leaves them out, on a
 machine without Vivado or without the board. The Intel/Altera images of
 `ALTERA_TARGETS` are run only with `--altera`, no runner carrying their
 board yet.
@@ -184,8 +197,8 @@ slang plugin of Yosys, the hierarchy is kept for the cells of each block,
 and the job fails on any latch or on cell and register counts away from
 `yosys_cells` and `yosys_registers` of `expected_values.yml`.
 
-The targets of `GTECH_TARGETS` (cv32a60x, cv32a65x_noPMP_axi and
-cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi) are synthesised on the GTECH cells
+The targets of `GTECH_TARGETS` (cv32a60x and cv32a65x) are synthesised
+on the GTECH cells
 of dc_shell (`dc-shell-synth --gtech`), which needs no PDK, once their RTL
 elaborates. The job checks their cell and register counts, and fails on
 any latch. The synthesis on a real techno, and the gate-level simulation
@@ -315,6 +328,12 @@ and reaches the board through `$HW_SERVER_URL` for the JTAG and
 `$UART_SERIAL` for the console, see the FPGA section of the
 [README](README.md).
 
+The job creates the Python 3.12 virtual environment of the flows with
+[uv](https://docs.astral.sh/uv/), installed with `pip3 install --user` when
+the image lacks it: uv downloads the interpreter, so the image needs no
+Python 3.12 of its own. The environment is kept in the working directory
+of the runner, and the interpreter and the packages in the cache of uv.
+
 ### Artifacts
 
 Everything the regression does happens in the single `full regression`
@@ -358,7 +377,7 @@ the build tree `merge-reports` reads; `pages` copies the result into
 | `CONFIG_DIR` | Directory holding `setenv.sh`, `compiler.yml` and `techno.yml`; to be set in the CI project variables |
 | `MY_JOBS` | `--jobs` of the macro |
 | `MY_VCS_LICENSES`, `MY_SPYGLASS_LICENSES`, `MY_SYNTH_LICENSES`, `MY_VIVADO_LICENSES` | Licence pools of the macro |
-| `MY_DOCS_TARGETS`, `MY_SPYGLASS_TARGETS`, `MY_GTECH_TARGETS`, `MY_SYNTH_TARGETS` | `--docs-targets`, `--spyglass-targets`, `--gtech-targets`, `--synth-targets` of the macro: empty for the default of the macro, set per pipeline kind by `workflow:rules`: development branches and merge requests take the lists of the macro (anchor `.targets_dev`, to be kept in sync with `DOCS_TARGETS`, `SPYGLASS_TARGETS` and `GTECH_TARGETS`), the default branch, master_candidate, takes the same lists but runs the GTECH synthesis on every target. Empty for a web or a scheduled pipeline unless set by hand |
+| `MY_DOCS_TARGETS`, `MY_SPYGLASS_TARGETS`, `MY_GTECH_TARGETS`, `MY_SYNTH_TARGETS` | `--docs-targets`, `--spyglass-targets`, `--gtech-targets`, `--synth-targets` of the macro: empty for the default of the macro, set per pipeline kind by `workflow:rules`: development branches and merge requests take the lists of the macro (anchor `.targets_dev`, to be kept in sync with `DOCS_TARGETS`, `SPYGLASS_TARGETS` and `GTECH_TARGETS`), and so does the default branch, master_candidate. Empty for a web or a scheduled pipeline unless set by hand |
 | `XILINX_VIVADO_BASHRC`, `HW_SERVER_URL`, `UART_SERIAL`, `VIVADO_CMD` | Vivado and the board, for the FPGA jobs of the macro |
 | `VERILATOR_INSTALL_DIR` | Verilator of the TestHarness jobs of the macro: `setenv.sh` puts its `bin/` in `PATH`, where the recipes look for it |
 | `PAGES_PREFIX`, `PAGES_EXPIRE` | Deployment of the dashboard, set by `workflow:rules` |
@@ -367,7 +386,7 @@ the build tree `merge-reports` reads; `pages` copies the result into
 
 `.github/workflows/cook-testharness-smoke.yml` runs on the pull requests
 to `master_candidate`. With Verilator, no commercial tool is involved, so
-it runs on a hosted runner. It builds the TestHarness of `cv32a65x_axi`,
+it runs on a hosted runner. It builds the TestHarness of `profile_perf32_axi`,
 runs two Hello tests one at a time, then again as the testlist
 `verif/tests/testlist_verilator_testharness_smoke.yaml`, and checks every
 result.
@@ -390,7 +409,7 @@ result.
   `context` matches, and that the `Test results` table has one passing row
   per test, pointing at the run directory.
 
-It refuses a checkout that already holds `build/cv32a65x_axi`, so that
+It refuses a checkout that already holds `build/profile_perf32_axi`, so that
 earlier build products can never pass for the current ones.
 
 Everything lands in `ci-results/`, uploaded as an artifact:

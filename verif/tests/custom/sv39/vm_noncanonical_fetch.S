@@ -4,11 +4,11 @@
 # With Sv39 translation, bits 63:39 of a virtual address must equal bit 38.
 # An access to an address that does not satisfy this raises the page fault
 # of the access type: INSTR_PAGE_FAULT (12) for a fetch, LOAD_PAGE_FAULT
-# (13) for a load.
+# (13) for a load, STORE_PAGE_FAULT (15) for a store.
 #
 # The code runs in S-mode from a 1 GiB identity gigapage. It jumps to a
-# non-canonical address, then loads from it. The trap handler checks
-# mcause and mepc of each trap and resumes at the next step.
+# non-canonical address, then loads from it and stores to it. The trap
+# handler checks mcause and mepc of each trap and resumes at the next step.
 # A failure writes 3 to tohost.
 #=======================================================================
 
@@ -71,8 +71,13 @@ after_fetch:
     li   t1, NONCANON_VA
 fault_load:
     ld   t0, 0(t1)
-    # 3. done
+    # 3. store to a non-canonical address
     li   s2, 3
+    li   t1, NONCANON_VA
+fault_store:
+    sd   zero, 0(t1)
+    # 4. done
+    li   s2, 4
     ecall
 
     # s2 = step, s3 = resume address of step 1
@@ -84,6 +89,8 @@ trap_handler:
     li   t2, 2
     beq  s2, t2, check_load
     li   t2, 3
+    beq  s2, t2, check_store
+    li   t2, 4
     beq  s2, t2, check_end
     j    trap_bad
 
@@ -99,6 +106,15 @@ check_load:
     li   t2, CAUSE_LOAD_PAGE_FAULT
     bne  t0, t2, trap_bad
     la   t2, fault_load
+    bne  t1, t2, trap_bad
+    addi t1, t1, 4
+    csrw mepc, t1
+    mret
+
+check_store:
+    li   t2, CAUSE_STORE_PAGE_FAULT
+    bne  t0, t2, trap_bad
+    la   t2, fault_store
     bne  t1, t2, trap_bad
     addi t1, t1, 4
     csrw mepc, t1

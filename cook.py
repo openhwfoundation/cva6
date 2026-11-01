@@ -10,11 +10,22 @@
 
 # Please refer to flows/README.md to add target
 
+import sys
+
+# Ahead of the other imports, which a too old interpreter fails on first
+PYTHON_MIN = (3, 12)
+if sys.version_info < PYTHON_MIN:
+    sys.exit(
+        f"cook.py needs Python {PYTHON_MIN[0]}.{PYTHON_MIN[1]} or later, "
+        f"{sys.executable} is {sys.version.split()[0]}: see the Python "
+        f"Environment section of flows/README.md"
+    )
+
+# pylint: disable=wrong-import-position
 import importlib
 from pathlib import Path
 import pkgutil
 import subprocess
-import sys
 import typer
 
 app = typer.Typer()

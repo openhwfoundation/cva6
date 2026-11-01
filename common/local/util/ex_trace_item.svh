@@ -70,6 +70,7 @@ class ex_trace_item #(
             riscv::INSTR_PAGE_FAULT:      this.cause_s = "Instruction Page Fault";
             riscv::LOAD_PAGE_FAULT:       this.cause_s = "Load Page Fault";
             riscv::STORE_PAGE_FAULT:      this.cause_s = "Store Page Fault";
+            riscv::HARDWARE_ERROR:        this.cause_s = "Hardware Error";
             INTERRUPTS.S_SW:              this.cause_s = "Supervisor Software Interrupt";
             INTERRUPTS.M_SW:              this.cause_s = "Machine Software Interrupt";
             INTERRUPTS.S_TIMER:           this.cause_s = "Supervisor Timer Interrupt";

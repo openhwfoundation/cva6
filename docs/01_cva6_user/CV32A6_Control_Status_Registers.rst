@@ -24,7 +24,7 @@ access a CSR with a higher privilege level than the core is currently running
 in will throw an illegal instruction exception.  This is largely a moot point
 for the CV32E40P as it only supports machine and debug modes.  The remaining
 letters indicate the read and/or write behavior of the CSR when accessed by
-the indicated or higher privilge level:
+the indicated or higher privilege level:
 
 * **RW**: CSR is **read-write**.  That is, CSR instructions (e.g. csrrw) may
   write any value and that value will be returned on a subsequent read (unless
@@ -86,7 +86,7 @@ Register Summary
    "``pmpcfg2``", "0x3A2", "32", "RW", "0x00000000", "Physical Memory Protection Config 2"
    "``pmpcfg3``", "0x3A3", "32", "RW", "0x00000000", "Physical Memory Protection Config 3"
    "``pmpaddr[16]``", "0x3B0 [+ i*0x1]", "32", "RW", "0x00000000", "Physical Memory Protection Address"
-   "``icache``", "0x700", "32", "RW", "0x00000001", "Instuction Cache"
+   "``icache``", "0x700", "32", "RW", "0x00000001", "Instruction Cache"
    "``dcache``", "0x701", "32", "RW", "0x00000001", "Data Cache"
    "``tselect``", "0x7A0", "32", "RW", "0x00000000", "Trigger Select"
    "``tdata1``", "0x7A1", "32", "RW", "0x00000000", "Trigger Data 1"
@@ -596,7 +596,7 @@ Supervisor Interrupt Pending (``sip``)
 
 :Supervisor-level Software Interrupt Pending (``SSIP``): SSIP is the interrupt-pending bit for supervisor-level software interrupts.
 
-:``USIP``: A user-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt-pending (USIP) bit
+:``USIP``: A user-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt-pending (USIP) bit
 
 
 Supervisor Address Translation and Protection (``satp``)
@@ -878,7 +878,7 @@ Machine Interrupt Enable (``mie``)
 
 :S-mode Software Interrupt Enable (``SSIE``): Enables supervisor mode software interrupts.
 
-:``USIE``: enable U-mode software interrrupts
+:``USIE``: enable U-mode software interrupts
 
 
 Machine Trap Vector (``mtvec``)
@@ -1255,8 +1255,8 @@ Physical Memory Protection Address (``pmpaddr[16]``)
 :Address (``address``): Encodes bits 33-2 of a 34-bit physical address.
 
 
-Instuction Cache (``icache``)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Instruction Cache (``icache``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 :Address Offset: 0x700
 :Width (bits): 32
@@ -1432,7 +1432,7 @@ Debug Control and Status (``dcsr``)
 :Width (bits): 32
 :Access Type: RW
 :Reset Value: 0x00000000
-:Description: Debug ontrol and status register.
+:Description: Debug control and status register.
 
 .. csv-table::
    :widths: auto
@@ -1465,7 +1465,7 @@ Debug Control and Status (``dcsr``)
        "0b0000", "no_ext_debug", "There is no external debug support."
        "0b0100", "ext_debug_spec", "External debug support exists as it is described in the riscv-debug-release document."
        "0b1111", "ext_debug_no_spec", "There is external debug support, but it does not conform to any available version of the riscv-debug-release spec."
-:Environment Breakpoint M-mode (``ebreakm``): Shows the behvior of the ``ebreak`` instruction in machine mode.
+:Environment Breakpoint M-mode (``ebreakm``): Shows the behavior of the ``ebreak`` instruction in machine mode.
 
     .. csv-table:: The following table shows the bitfield encoding
        :widths: auto
@@ -1474,7 +1474,7 @@ Debug Control and Status (``dcsr``)
 
        "0", "break_as_spec", "``ebreak`` instructions in M-mode behave as described in the Privileged Spec."
        "1", "break_to_debug", "``ebreak`` instructions in M-mode enter Debug Mode."
-:Environment Breakpoint S-mode (``ebreaks``): Shows the behvior of the ``ebreak`` instruction in supervisor mode.
+:Environment Breakpoint S-mode (``ebreaks``): Shows the behavior of the ``ebreak`` instruction in supervisor mode.
 
     .. csv-table:: The following table shows the bitfield encoding
        :widths: auto
@@ -2303,7 +2303,7 @@ Machine Vendor ID (``mvendorid``)
 :Width (bits): 32
 :Access Type: RO
 :Reset Value: 0x00000000
-:Description: This register provids the JEDEC manufacturer ID of the provider of the core.
+:Description: This register provides the JEDEC manufacturer ID of the provider of the core.
 
 .. csv-table::
    :widths: auto
@@ -2315,7 +2315,7 @@ Machine Vendor ID (``mvendorid``)
 
 :Bank (``bank``): Contain encoding for number of one-byte continuation codes discarding the parity bit.
 
-:Offset (``offset``): Contain encording for the final byte discarding the parity bit.
+:Offset (``offset``): Contain encoding for the final byte discarding the parity bit.
 
 
 Machine Architecture ID (``marchid``)

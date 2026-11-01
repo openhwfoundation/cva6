@@ -9,7 +9,7 @@ Traps, Interrupts, Exceptions
 =============================
 Traps are composed of interrupts and exceptions.
 Interrupts are asynchronous events whereas exceptions are synchronous ones.
-On one hand, interrupts are occuring independently of the instructions
+On one hand, interrupts are occurring independently of the instructions
 (mainly raised by peripherals or debug module).
 On the other hand, an instruction may raise exceptions synchronously.
 

@@ -28,7 +28,7 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
 | 10:9 | VS | Vector extension state | 0x0 | read-only,WARL  | V extension is not supported\.``Legal Values``:0\.|
 | 8 | SPP | Supervisor mode prior privilege | 0x0 | read-write  | Holds the previous privilege mode for supervisor mode\. // ``Enumerated Values``( "U-mode" :0 ) ( "Otherwise" :1 ) |
 | 7 | MPIE | Machine mode prior interrupt enable | 0x0 | read-write  | Indicates whether machine interrupts were enabled prior to trapping into machine mode\. // ``Enumerated Values``( "Disabled" :0 ) ( "Enabled" :1 ) |
-| 6 | UBE | User mode bit endianess | 0x0 | read-write,WARL  | UBE controls whether explicit load and store memory accesses made from U\-mode are little\-endian or big\-endian\.``Legal Values``:0\. // ``Enumerated Values``( "Little-endian" :0 ) ( "Big-endian" :1 ) |
+| 6 | UBE | User mode bit endianness | 0x0 | read-write,WARL  | UBE controls whether explicit load and store memory accesses made from U\-mode are little\-endian or big\-endian\.``Legal Values``:0\. // ``Enumerated Values``( "Little-endian" :0 ) ( "Big-endian" :1 ) |
 | 5 | SPIE | Supervisor mode prior interrupt enable | 0x0 | read-write  | Indicates whether supervisor interrupts were enabled prior to trapping into supervisor mode\. // ``Enumerated Values``( "Disabled" :0 ) ( "Enabled" :1 ) |
 | 4 | reserved_1 | Reserved | 0x0 | read-write,WPRI  | Reserved|
 | 3 | MIE | Machine mode interrupt enable | 0x0 | read-write  | Global interrupt\-enable bit for Machine mode\. // ``Enumerated Values``( "Disabled" :0 ) ( "Enabled" :1 ) |
@@ -64,7 +64,7 @@ This register contains machine interrupt enable bits.
 | 3 | MSIE | M-mode software interrupt enable | 0x0 | read-write  | Enables machine mode software interrupts\.|
 | 2 | Reserved_2 | Reserved | 0x0 | read-write,WARL  | Reserved\.``Legal Values:``0\.|
 | 1 | SSIE | S-mode software interrupt enable | 0x0 | read-write,WARL  | Enables supervisor mode software interrupts\.|
-| 0 | USIE |  | 0x0 | read-write,WARL  | enable U\-mode software interrrupts\.``Legal Values:``0\.|
+| 0 | USIE |  | 0x0 | read-write,WARL  | enable U\-mode software interrupts\.``Legal Values:``0\.|
 
 ## MTVEC : Machine Trap Vector Register 
 ### *AddressOffset*: 'h305 
@@ -82,8 +82,8 @@ The ``mstatush`` is the upper 32-bits of Machine status only for RV32.
 | BIT |  NAME       | displayName        |Reset| RIGHT  | Description                                                          |
 | --- | ----------- | ------------       |-----| ------ | -------------------------------------------------------------------- |
 | 3:0 | reserved_0 | Reserved | 0x0 | read-write,WPRI  | Reserved|
-| 4 | SBE | Supervisor mode bit endianess | 0x0 | read-write,WARL  | SBE controls whether explicit load and store memory accesses made from S\-mode are little\-endian or big\-endian\.``Legal Values``:0\. // ``Enumerated Values``( "Little-endian" :0 ) ( "Big-endian" :1 ) |
-| 5 | MBE | Machine mode bit endianess | 0x0 | read-write,WARL  | MBE controls whether explicit load and store memory accesses made from M\-mode are little\-endian or big\-endian\.``Legal Values``:0\. // ``Enumerated Values``( "Little-endian" :0 ) ( "Big-endian" :1 ) |
+| 4 | SBE | Supervisor mode bit endianness | 0x0 | read-write,WARL  | SBE controls whether explicit load and store memory accesses made from S\-mode are little\-endian or big\-endian\.``Legal Values``:0\. // ``Enumerated Values``( "Little-endian" :0 ) ( "Big-endian" :1 ) |
+| 5 | MBE | Machine mode bit endianness | 0x0 | read-write,WARL  | MBE controls whether explicit load and store memory accesses made from M\-mode are little\-endian or big\-endian\.``Legal Values``:0\. // ``Enumerated Values``( "Little-endian" :0 ) ( "Big-endian" :1 ) |
 | 31:6 | reserved_1 | Reserved | 0x0 | read-write,WPRI  | Reserved|
 
 ## MHPMEVENT3 : Machine Hardware Performance-Monitoring Event Selector Register 
@@ -1115,11 +1115,11 @@ Instructions-retired counter for RDINSTRET instruction. Shadow of minstreth.
 ## MVENDORID : Machine Vendor ID Register 
 ### *AddressOffset*: 'hF11 
 ### *Description*:
-This register provids the JEDEC manufacturer ID of the provider of the core.
+This register provides the JEDEC manufacturer ID of the provider of the core.
 | BIT |  NAME       | displayName        |Reset| RIGHT  | Description                                                          |
 | --- | ----------- | ------------       |-----| ------ | -------------------------------------------------------------------- |
 | 31:7 | bank | Bank | 0xC | read-only  | Contain encoding for number of one\-byte continuation codes discarding the parity bit\.|
-| 6:0 | offset | Offset | 0x2 | read-only  | Contain encording for the final byte discarding the parity bit\.|
+| 6:0 | offset | Offset | 0x2 | read-only  | Contain encoding for the final byte discarding the parity bit\.|
 
 ## MARCHID : Machine Architecture ID Register 
 ### *AddressOffset*: 'hF12 

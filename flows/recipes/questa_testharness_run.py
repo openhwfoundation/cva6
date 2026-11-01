@@ -39,8 +39,10 @@ from flows.utils.manifest import (
     require_prerequisite,
     write_manifest,
 )
+from flows.utils.pk_run import HarnessProgram
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
+from flows.utils.target_config import spike_core_name
 
 app = typer.Typer()
 
@@ -207,15 +209,9 @@ def questa_testharness_run(
     # OPTIONS
     # ==========================================================
 
-    # Symbol address extracted at compile time (sw-compile manifest):
-    # tohost drives the end-of-test detection
-    symbols = get_manifest_option(compile_manifest, "symbols", {})
-    add_tohost = symbols.get("tohost")
-    if add_tohost is None:
-        report.error_exit(
-            f"No tohost symbol recorded in the sw-compile manifest of {compile_dir}",
-            env=True,
-        )
+    # Program loaded by the harness, and the tohost that ends the test:
+    # the ones of the proxy kernel for a test built to run under it
+    program = HarnessProgram(compile_dir, test_name, compile_manifest, report)
 
     # ==========================================================
     # BUILD VSIM COMMAND
@@ -248,17 +244,14 @@ def questa_testharness_run(
         # and `++` marks the ELF as the program to load. The window is left
         # open: closing it with `+permissive-off` brings the rejection back.
         "+permissive",
-        f"++{elf}",
-        f"+elf_file={elf}",
-        f"+core_name={target}",
+        *program.plusargs(),
+        f"+elf_file={program.binary}",
+        f"+core_name={spike_core_name(target, report)}",
         f"+config_file={spike_yaml}",
-        f"+tohost_addr={add_tohost}",
+        f"+tohost_addr={program.tohost}",
         f"+signature={elf}.signature_output",
         "+UVM_TESTNAME=uvmt_cva6_firmware_test_c",
-        # Nothing drives the debug module: left enabled, the SimDTM of the
-        # harness halts a core built with DebugEn into its debug ROM
-        # 500 cycles after reset, and the program crawls through it.
-        "+debug_disable=1",
+        *program.run_plusargs(),
         f"+report_file={simulation_dir / 'report.yaml'}",
         f"+UVM_VERBOSITY=UVM_{uvm_verbosity.value}",
         # uvm_dpi first: the UVM of Questa imports its command line and its

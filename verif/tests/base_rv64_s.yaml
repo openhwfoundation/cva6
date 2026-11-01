@@ -1,0 +1,25 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv64_s.yaml
+#
+#   Supervisor mode tests, for the cv64 targets with RVS.
+#     - xret-mprv-clear: MRET to S-mode and SRET to U-mode clear
+#       mstatus.MPRV, MRET to M-mode keeps it.
+# ------------------------------------------------------------------------------
+
+custom_test_config: &custom_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common -lgcc"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
+
+testlist:
+  - test: xret-mprv-clear
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/issues/xret-mprv-clear-rv64.S

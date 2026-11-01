@@ -8,12 +8,10 @@
 # ------------------------------------------------------------------------------
 #   base_rv64_pmp.yaml
 #
-#   PMP tests that only build for RV64, for the cv64 targets with PMP entries.
-#   They check that the LSU hands PMP the metadata of the access that the
-#   response answers, without translation, and that an AMO to a
-#   write-protected region raises a store access fault. pmp-tor-grain checks
-#   TOR matching at an eight-byte PMP granularity. The same metadata check
-#   through the MMU is in base_rv64_pmp_mmu.
+#   PMP tests that only build for RV64 and run in S-mode, for the cv64 targets
+#   with PMP entries and RVS. pmp-tor-grain checks TOR matching at an
+#   eight-byte PMP granularity. The tests that check mtval are in
+#   base_rv64_pmp_tval.
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -22,16 +20,6 @@ custom_test_config: &custom_test_config
   llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
 
 testlist:
-
-  - test: pmp-lsu-transaction-no-mmu
-    iterations: 1
-    <<: *custom_test_config
-    asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_no_mmu_test.S
-
-  - test: pmp-amo-access-fault
-    iterations: 1
-    <<: *custom_test_config
-    asm_tests: <path_var>/custom/pmp/amo_access_fault_test.S
 
   - test: pmp-tor-grain
     iterations: 1

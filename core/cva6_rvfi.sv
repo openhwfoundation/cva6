@@ -272,8 +272,9 @@ module cva6_rvfi
   fu_t lsu_ctrl_fu;
   logic [(CVA6Cfg.XLEN/8)-1:0] lsu_ctrl_be;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] lsu_ctrl_trans_id;
+  logic [CVA6Cfg.XLEN-1:0] lsu_wdata;
 
-  logic [((CVA6Cfg.CvxifEn || CVA6Cfg.RVV) ? 5 : 4)-1:0][CVA6Cfg.XLEN-1:0] wbdata;
+  logic [CVA6Cfg.NrWbPorts-1:0][CVA6Cfg.XLEN-1:0] wbdata;
   logic [CVA6Cfg.NrCommitPorts-1:0] commit_ack;
   logic [CVA6Cfg.PLEN-1:0] mem_paddr;
   logic debug_mode;
@@ -352,6 +353,10 @@ module cva6_rvfi
   assign lsu_rmask = instr.lsu_ctrl_fu == LOAD ? instr.lsu_ctrl_be : '0;
   assign lsu_wmask = instr.lsu_ctrl_fu == STORE ? instr.lsu_ctrl_be : '0;
   assign lsu_addr_trans_id = instr.lsu_ctrl_trans_id;
+  // Store data of the access presented this cycle. The store result port
+  // carries the same value but NrStorePipeRegs cycles later, when lsu_ctrl
+  // already presents another access.
+  assign lsu_wdata = instr.lsu_ctrl_data;
   assign branch_trans_id = instr.branch_trans_id;
 
 
@@ -483,7 +488,7 @@ module cva6_rvfi
     end else if (lsu_wmask != 0) begin
       mem_n[lsu_addr_trans_id].lsu_addr  = lsu_addr;
       mem_n[lsu_addr_trans_id].lsu_wmask = lsu_wmask;
-      mem_n[lsu_addr_trans_id].lsu_wdata = wbdata[STORE_WB];
+      mem_n[lsu_addr_trans_id].lsu_wdata = lsu_wdata;
     end
     if (CVA6Cfg.MmuPresent) begin
       if (lsu_wmask_q != 0 || lsu_rmask_q != 0) begin
@@ -678,7 +683,6 @@ module cva6_rvfi
     `CONNECT_RVFI_SAME(1'b1, dcache)
     `CONNECT_RVFI_SAME(1'b1, icache)
 
-    `CONNECT_RVFI_SAME(CVA6Cfg.EnableAccelerator, acc_cons)
     `CONNECT_RVFI_SAME(CVA6Cfg.RVZCMT, jvt)
     `CONNECT_RVFI_FULL(1'b1, pmpcfg0, csr.pmpcfg_q[CVA6Cfg.XLEN/8-1:0])
     `CONNECT_RVFI_FULL(CVA6Cfg.IS_XLEN32, pmpcfg1, csr.pmpcfg_q[7:4])

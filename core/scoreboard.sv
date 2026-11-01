@@ -189,6 +189,12 @@ module scoreboard #(
     for (int unsigned i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
       // The FU is NONE -> this instruction is valid immediately
       if (mem_q[i].sbe.fu == ariane_pkg::NONE && mem_q[i].issued) mem_n[i].sbe.valid = 1'b1;
+      // A cancelled first Zcmp micro-op is only marked valid by its last one,
+      // which the branch miss kept from issuing: mark it valid so that the
+      // commit stage drops it.
+      if (CVA6Cfg.SpeculativeSb && CVA6Cfg.RVZCMP && mem_q[i].issued && mem_q[i].cancelled &&
+          mem_q[i].sbe.is_macro_instr && !mem_q[i].sbe.is_last_macro_instr)
+        mem_n[i].sbe.valid = 1'b1;
     end
 
     // ------------
@@ -204,9 +210,10 @@ module scoreboard #(
             // The first micro-op is the entry just before this one, wrapping
             // from entry 0 to the last one.
             mem_n[CVA6Cfg.TRANS_ID_BITS'(trans_id_i[i]-1'b1)].sbe.valid = 1'b1;
-          end else begin
-            mem_n[trans_id_i[i]].sbe.valid = 1'b0;
           end
+          // The first micro-op waits for the last one, which marks both
+          // valid: it is left as is, as the last one may have written back
+          // in this same cycle on another port.
         end else begin
           mem_n[trans_id_i[i]].sbe.valid = 1'b1;
         end

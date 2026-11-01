@@ -235,7 +235,6 @@ module cva6_pipeline
     logic is_macro_instr;  // is an instruction executed as predefined sequence of instructions called macro definition
     logic is_last_macro_instr;  // is last decoded 32bit instruction of macro definition
     logic is_double_rd_macro_instr;  // is double move decoded 32bit instruction of macro definition
-    logic vfp;  // is this a vector floating-point instruction?
     logic is_zcmt;  //is a zcmt instruction
   };
   localparam type writeback_t = struct packed {
@@ -462,7 +461,6 @@ module cva6_pipeline
   riscv::xs_t vfs;
   logic [2:0] frm_csr_id_issue_ex;
   logic [6:0] fprec_csr_ex;
-  riscv::xs_t vs;
   logic enable_translation_csr_ex;
   logic enable_g_translation_csr_ex;
   logic en_ld_st_translation_csr_ex;
@@ -659,7 +657,6 @@ CVA6Cfg.NrCommitPorts
       .fs_i                (fs),
       .vfs_i               (vfs),
       .frm_i               (frm_csr_id_issue_ex),
-      .vs_i                (vs),
       .irq_i               (irq_i),
       .irq_ctrl_i          (irq_ctrl_csr_id),
       .debug_mode_i        (debug_mode),
@@ -711,7 +708,7 @@ CVA6Cfg.NrCommitPorts
   assign ex_ex_ex_id[FPU_WB]    = fpu_exception_ex_id;
   assign wt_valid_ex_id[FPU_WB] = fpu_valid_ex_id;
 
-  always_comb begin : gen_cvxif_input_assignement
+  always_comb begin : gen_cvxif_input_assignment
     x_compressed_ready = cvxif_resp_i.compressed_ready;
     x_compressed_resp  = cvxif_resp_i.compressed_resp;
     x_issue_ready      = cvxif_resp_i.issue_ready;
@@ -721,7 +718,7 @@ CVA6Cfg.NrCommitPorts
     x_result           = cvxif_resp_i.result;
   end
   if (CVA6Cfg.CvxifEn) begin
-    always_comb begin : gen_cvxif_output_assignement
+    always_comb begin : gen_cvxif_output_assignment
       cvxif_req.compressed_valid = x_compressed_valid;
       cvxif_req.compressed_req   = x_compressed_req;
       cvxif_req.issue_valid      = x_issue_valid;
@@ -767,8 +764,6 @@ CVA6Cfg.NrCommitPorts
       .sb_full_o               (sb_full),
       .flush_unissued_instr_i  (flush_unissued_instr_ctrl_id),
       .flush_i                 (flush_ctrl_id),
-      // Accelerator
-      .stall_i                 (('0  /*FIXME*/)),
       // ID Stage
       .decoded_instr_i         (issue_entry_id_issue),
       .decoded_instr_i_prev    (issue_entry_id_issue_prev),
@@ -824,9 +819,6 @@ CVA6Cfg.NrCommitPorts
       .x_commit_valid_o        (x_commit_valid),
       .x_commit_o              (x_commit),
       .x_transaction_rejected_o(x_transaction_rejected),
-      // Accelerator
-      .issue_instr_o           (  /*FIXME*/),
-      .issue_instr_hs_o        (  /*FIXME*/),
       // Commit
       .trans_id_i              (trans_id_ex_id),
       .resolved_branch_i       (resolved_branch),
@@ -936,8 +928,6 @@ CVA6Cfg.NrCommitPorts
       .lsu_commit_ready_o      (lsu_commit_ready_ex_commit),     // to commit
       .commit_tran_id_i        (lsu_commit_trans_id),            // from commit
       .commit_drop_i           (commit_drop_id_commit[0]),       // from scoreboard
-      // Accelerator
-      .stall_st_pending_i      ('0  /*FIXME*/),
       .no_st_pending_o         (no_st_pending_ex),               //
       .mbe_i                   (mbe),                            // from CSR
       .shared_tlb_flush_busy_o (shared_tlb_flush_busy_ex),
@@ -970,8 +960,6 @@ CVA6Cfg.NrCommitPorts
       .x_result_valid_i        (x_result_valid),
       .x_result_i              (x_result),
       .x_result_ready_o        (x_result_ready),
-      // Accelerator
-      .acc_valid_i             ('0  /*FIXME*/),
       // Performance counters
       .itlb_miss_o             (itlb_miss_ex_perf),
       .dtlb_miss_o             (dtlb_miss_ex_perf),
@@ -1051,7 +1039,7 @@ CVA6Cfg.NrCommitPorts
       .flush_dcache_i(dcache_flush_o),
       .exception_o(ex_commit),
       .dirty_fp_state_o(dirty_fp_state),
-      .single_step_i(single_step_csr_commit),  // // Accelerator /*FIXME*/
+      .single_step_i(single_step_csr_commit),
       .commit_instr_i(commit_instr_id_commit),
       .commit_drop_i(commit_drop_id_commit),
       .commit_ack_o(commit_ack_commit_id),
@@ -1129,8 +1117,6 @@ CVA6Cfg.NrCommitPorts
       .csr_rdata_o                        (csr_rdata_csr_commit),
       .dirty_fp_state_i                   (dirty_fp_state),
       .csr_write_fflags_i                 (csr_write_fflags_commit_cs),
-      // Accelerator
-      .dirty_v_state_i                    ('0  /*FIXME*/),
       .pc_i                               (pc_commit),
       .csr_exception_o                    (csr_exception_csr_commit),
       .epc_o                              (epc_commit_pcgen),
@@ -1139,15 +1125,11 @@ CVA6Cfg.NrCommitPorts
       .priv_lvl_o                         (priv_lvl),
       .mbe_o                              (mbe),
       .v_o                                (v),
-      // Accelerator
-      .acc_fflags_ex_i                    ('0  /*FIXME*/),
-      .acc_fflags_ex_valid_i              ('0  /*FIXME*/),
       .fs_o                               (fs),
       .vfs_o                              (vfs),
       .fflags_o                           (fflags_csr_commit),
       .frm_o                              (frm_csr_id_issue_ex),
       .fprec_o                            (fprec_csr_ex),
-      .vs_o                               (vs),
       .irq_ctrl_o                         (irq_ctrl_csr_id),
       .en_translation_o                   (enable_translation_csr_ex),
       .en_g_translation_o                 (enable_g_translation_csr_ex),
@@ -1186,8 +1168,6 @@ CVA6Cfg.NrCommitPorts
       .dcache_dat_unc_err_i               (dcache_dat_unc_err_i),
       .dcache_dir_cor_err_i               (dcache_dir_cor_err_i),
       .dcache_dir_unc_err_i               (dcache_dir_unc_err_i),
-      // Accelerator
-      .acc_cons_en_o                      (  /*FIXME*/),
       .perf_addr_o                        (addr_csr_perf),
       .perf_data_o                        (data_csr_perf),
       .perf_data_i                        (data_perf_csr),
@@ -1309,8 +1289,6 @@ CVA6Cfg.NrCommitPorts
       .flush_tlb_vvma_o      (flush_tlb_vvma_ctrl_ex),
       .flush_tlb_gvma_o      (flush_tlb_gvma_ctrl_ex),
       .halt_csr_i            (halt_csr_ctrl),
-      // Accelerator
-      .halt_acc_i            ('0  /*FIXME*/),
       .halt_o                (halt_ctrl),
       .halt_frontend_o       (halt_frontend_ctrl),
       // control ports
@@ -1324,9 +1302,7 @@ CVA6Cfg.NrCommitPorts
       .sfence_vma_i          (sfence_vma_commit_controller),
       .hfence_vvma_i         (hfence_vvma_commit_controller),
       .hfence_gvma_i         (hfence_gvma_commit_controller),
-      .flush_commit_i        (flush_commit),
-      // Accelerator
-      .flush_acc_i           ('0  /*FIXME*/)
+      .flush_commit_i        (flush_commit)
   );
 
   // -------------------
@@ -1538,14 +1514,5 @@ CVA6Cfg.NrCommitPorts
       .rvfi_probes_o(rvfi_probes_o)
 
   );
-
-  //pragma translate_off
-  initial begin
-    assert (!(CVA6Cfg.SuperscalarEn && CVA6Cfg.EnableAccelerator))
-    else $fatal(1, "Accelerator is not supported by superscalar pipeline");
-  end
-  //pragma translate_on
-
-
 
 endmodule  // ariane

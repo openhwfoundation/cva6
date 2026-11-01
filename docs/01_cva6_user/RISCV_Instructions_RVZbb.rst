@@ -205,7 +205,7 @@ RV64 specific instructions
 
 
 
-Integer minumum/maximum
+Integer minimum/maximum
 --------------------------
 The integer minimum/maximum instructions are arithmetic R-type instructions that return the smaller/larger of two operands.
 

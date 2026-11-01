@@ -72,8 +72,6 @@ module decoder
     input riscv::xs_t vfs_i,
     // Floating-point dynamic rounding mode - CSR_REGFILE
     input logic [2:0] frm_i,
-    // Vector extension status - CSR_REGFILE
-    input riscv::xs_t vs_i,
     // Trap virtual memory - CSR_REGFILE
     input logic tvm_i,
     // Timeout wait - CSR_REGFILE
@@ -138,38 +136,6 @@ module decoder
   logic [CVA6Cfg.XLEN-1:0] imm_u_type;
   logic [CVA6Cfg.XLEN-1:0] imm_uj_type;
 
-  // ---------------------------------------
-  // Accelerator instructions' first-pass decoder
-  // ---------------------------------------
-  logic is_accel;
-  scoreboard_entry_t acc_instruction;
-  logic acc_illegal_instr;
-  logic acc_is_control_flow_instr;
-
-  if (CVA6Cfg.EnableAccelerator) begin : gen_accel_decoder
-    // This module is responsible for a light-weight decoding of accelerator instructions,
-    // identifying them, but also whether they read/write scalar registers.
-    // Accelerators are supposed to define this module.
-    cva6_accel_first_pass_decoder #(
-        .CVA6Cfg(CVA6Cfg),
-        .scoreboard_entry_t(scoreboard_entry_t)
-    ) i_accel_decoder (
-        .instruction_i(instruction_i),
-        .fs_i(fs_i),
-        .vs_i(vs_i),
-        .is_accel_o(is_accel),
-        .instruction_o(acc_instruction),
-        .illegal_instr_o(acc_illegal_instr),
-        .is_control_flow_instr_o(acc_is_control_flow_instr)
-    );
-  end : gen_accel_decoder
-  else begin
-    assign is_accel                  = 1'b0;
-    assign acc_instruction           = '0;
-    assign acc_illegal_instr         = 1'b1;  // this should never propagate
-    assign acc_is_control_flow_instr = 1'b0;
-  end
-
   always_comb begin : decoder
 
     imm_select                             = NOIMM;
@@ -194,7 +160,6 @@ module decoder
     instruction_o.is_double_rd_macro_instr = is_double_rd_macro_instr_i;
     instruction_o.use_zimm                 = 1'b0;
     instruction_o.bp                       = branch_predict_i;
-    instruction_o.vfp                      = 1'b0;
     instruction_o.is_zcmt                  = is_zcmt_i;
     ecall                                  = 1'b0;
     ebreak                                 = 1'b0;
@@ -210,7 +175,7 @@ module decoder
 
           unique case (instr.itype.funct3)
             3'b000: begin
-              // check if the RD and and RS1 fields are zero, this may be reset for the SENCE.VMA instruction
+              // check if the RD and and RS1 fields are zero, this may be reset for the SFENCE.VMA instruction
               if (instr.itype.rs1 != '0 || instr.itype.rd != '0) begin
                 if (CVA6Cfg.RVH && v_i) begin
                   virtual_illegal_instr = 1'b1;
@@ -1756,21 +1721,6 @@ module decoder
                                  instr.rtype.opcode == riscv::OpcodeNmsub ? RS3 : MUX_RD_RS3;
       end
     end
-
-    // Accelerator instructions.
-    // These can overwrite the previous decoding entirely.
-    if (CVA6Cfg.EnableAccelerator) begin // only generate decoder if accelerators are enabled (static)
-      if (is_accel) begin
-        instruction_o.fu        = acc_instruction.fu;
-        instruction_o.vfp       = acc_instruction.vfp;
-        instruction_o.rs1       = acc_instruction.rs1;
-        instruction_o.rs2       = acc_instruction.rs2;
-        instruction_o.rd        = acc_instruction.rd;
-        instruction_o.op        = acc_instruction.op;
-        illegal_instr           = acc_illegal_instr;
-        is_control_flow_instr_o = acc_is_control_flow_instr;
-      end
-    end
   end
 
   // --------------------------------
@@ -1843,13 +1793,6 @@ module decoder
         instruction_o.use_imm = 1'b0;
       end
     endcase
-
-    if (CVA6Cfg.EnableAccelerator) begin
-      if (is_accel) begin
-        instruction_o.result  = acc_instruction.result;
-        instruction_o.use_imm = acc_instruction.use_imm;
-      end
-    end
   end
 
   // ---------------------

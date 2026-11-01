@@ -433,9 +433,6 @@ TIED_PORTS = [
             "hfence_gvma_i", "vmid_to_be_flushed_i", "gpaddr_to_be_flushed_i",
         ],
     }),
-    ("RVV", False, None, {
-        "0": ["vs_i", "vs_o"],
-    }),
     ("RVS", False, None, {
         "0": [
             "en_translation_o", "enable_translation_o", "enable_translation_i",
@@ -444,9 +441,6 @@ TIED_PORTS = [
             "vaddr_to_be_flushed_i", "asid_to_be_flushed_o", "asid_to_be_flushed_i",
             "mxr_o", "mxr_i", "asid_o", "asid_i", "sfence_vma_o", "sfence_vma_i",
         ],
-    }),
-    ("EnableAccelerator", "0", "0", {
-        "0": ["ACC_DISPATCHER"],
     }),
     ("RVF", "0", "0", {
         "0": [
@@ -555,7 +549,7 @@ READTHEDOC_CHAPTER_PAGE = {
 # with: `cv64a6_mmu` moved under `deprecated_packages/` upstream. It is
 # documented from the closest supported configuration instead.
 READTHEDOC_CONFIGS = {
-    "cv64a6_mmu": "cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi",
+    "cv64a6_mmu": "fpga_linux_cv64a6",
 }
 
 # Manuals a configuration can be documented by. `source` is where their

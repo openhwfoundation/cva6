@@ -109,5 +109,6 @@ def dhrystone(
         preprocessor_directives=preprocessor_directives,
         benchmark_iterations=iterations,
         test_name=test_name,
+        pk_dir=None,
         quiet=quiet,
     )

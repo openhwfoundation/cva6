@@ -12,8 +12,8 @@
   If PTE has valid and non-reserved RWX permissions, but the translated Physical address (pte.ppn of leaf PTE + offset) does not have (r,w,x) PMP permissions, then accessing the translated Physical address would raise access fault exception.  
   When satp.mode=sv32, and PTE has valid and non-reserved RWX permissions then test the following in supervisor and user privilege mode for level1 and level0 PTE.  
     
-  - Remove read PMP permission of translated Physical Address in pmpcfg and test the read acces.  
-  - Remvoe write PMP permission of translated Physical Address in pmpcfg and test the write access.  
+  - Remove read PMP permission of translated Physical Address in pmpcfg and test the read access.  
+  - Remove write PMP permission of translated Physical Address in pmpcfg and test the write access.  
   - Remove execute PMP permission of translated Physical Address in pmpcfg and test the execute access.
 * **Verification Goals**
   
@@ -42,8 +42,8 @@
   
   If PTE does not have (r,w,x) PMP permissions, then accessing it would raise access fault exception of the corresponding access type.   
   When satp.mode=sv32, then test the following in supervisor and user privilege mode for level0 and level1 PTE.  
-  - Remove read PMP permission of PTE address in pmpcfg and test the read acces.  
-  - Remvoe write PMP permission of PTE address in pmpcfg and test the write access.  
+  - Remove read PMP permission of PTE address in pmpcfg and test the read access.  
+  - Remove write PMP permission of PTE address in pmpcfg and test the write access.  
   - Remove execute PMP permission of PTE address in pmpcfg and test the execute access.
 * **Verification Goals**
   
@@ -72,7 +72,7 @@
   
   If PTE does not have Valid (pte.V=0) permission, then accessing it would raise page fault exception of the corresponding access type.   
   When satp.mode=sv32 and PTE has (r,w,x) PMP permissions, then test the following in supervisor and user privilege mode for level0 and level1 PTE.  
-  - Set PTE.V = 0 and test the read acces.  
+  - Set PTE.V = 0 and test the read access.  
   - Set PTE.V = 0 and test the write access.  
   - Set PTE.V = 0 and test the execute access.  
     
@@ -105,7 +105,7 @@
   
   If PTE has reserved RWX encodings (pte.w=1 & pte.r=0), then accessing it would raise page fault exception of the corresponding access type.   
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE.  
-  - Set pte.w=1 & pte.r=0 and test the read acces.  
+  - Set pte.w=1 & pte.r=0 and test the read access.  
   - Set pte.w=1 & pte.r=0 and test the write access.  
   - Set pte.w=1 & pte.r=0 and test the execute access.  
     
@@ -138,7 +138,7 @@
   
   If PTE at level0 has non-leaf RWX permissions (pte.x=0 & pte.r=0), then accessing it would raise page fault exception of the corresponding access type.   
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then test the following in supervisor and user privilege mode for level0 PTE.  
-  - Set pte.x=0 & pte.r=0 & pte.w=0 and test the read acces.  
+  - Set pte.x=0 & pte.r=0 & pte.w=0 and test the read access.  
   - Set pte.x=0 & pte.r=0 & pte.w=0 and test the write access.  
   - Set pte.x=0 & pte.r=0 & pte.w=0 and test the execute access.  
     
@@ -204,7 +204,7 @@
   
   If PTE belongs to supervisor mode i.e. its U permission bit is clear (pte.u = 0), then accessing that PTE in user mode would raise page fault exception of the corresponding access type.   
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, PTE has non-reserved RWX encoding, and pte.v=1, then test the following user privilege mode for level0 and level1 PTE.  
-  - Set pte.u=0 and test the read acces.  
+  - Set pte.u=0 and test the read access.  
   - Set pte.u=0 and test the write access.  
   - Set pte.u=0 and test the execute access.  
     
@@ -233,7 +233,7 @@
   
   If PTE belongs to user mode i.e. its U permission bit is set (pte.u = 1) and m/sstatus.SUM = 0, then accessing that PTE in supervisor mode would raise page fault exception of the corresponding access type.   
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, PTE has non-reserved RWX encoding, and pte.v=1, then test the following in supervisor mode for level 0 and level 1 PTE.  
-  - Set pte.u=1 & s/mstatus.SUM = 0 and test the read acces.  
+  - Set pte.u=1 & s/mstatus.SUM = 0 and test the read access.  
   - Set pte.u=1 & s/mstatus.SUM = 0 and test the write access.  
   - Set pte.u=1 & s/mstatus.SUM = 0 and test the execute access.  
     
@@ -265,14 +265,14 @@
   
   If PTE belongs to user mode i.e. its U permission bit is set (pte.u = 1) and m/sstatus.SUM = 1, then RW access to that PTE in supervisor mode would be successful but eXecute access would raise instruction page fault exception in s-mode.  
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, PTE has non-reserved RWX encoding, and pte.v=1, then test the following in supervisor mode for level0 and level1 PTE.  
-  - Set pte.r=1 & pte.u=1 & s/mstatus.SUM = 1 and test the read acces.  
+  - Set pte.r=1 & pte.u=1 & s/mstatus.SUM = 1 and test the read access.  
   - Set pte.w=1 & pte.u=1 & s/mstatus.SUM = 1 and test the write access.  
   - Set pte.x=1 & pte.u=1 & s/mstatus.SUM = 1 and test the execute access.  
     
   * For testing at level0, set all the pte permissions at level1 to 0 except pte.v, so that level1 points to level0.
 * **Verification Goals**
   
-  Read and Write access to the PTE should be successful. So, check that the load and store works without page fault and expected data is stored to and loaded from the memory, repectively.  
+  Read and Write access to the PTE should be successful. So, check that the load and store works without page fault and expected data is stored to and loaded from the memory, respectively.  
     
   Execute access should raise instruction page fault. Check that:  
   - m/scause must contain the exception number of instruction instruction access fault.   
@@ -330,7 +330,7 @@
   
   If PTE has only execute permission (pte.x = 1) and s/mstatus.MXR=0, then read access on that PTE should raise load page fault exception.  
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE.  
-  - Set pte.r=0 & pte.w=0 & pte.x=1 & s/mstatus.MXR=0 and test the read acces.  
+  - Set pte.r=0 & pte.w=0 & pte.x=1 & s/mstatus.MXR=0 and test the read access.  
     
   * For testing at level0, set all the pte permissions at level1 to 0 except pte.v, so that level1 points to level0.  
   * Set pte.U=0 when test in Supervisor mode and Set pte.U=1 when testing in user mode
@@ -358,7 +358,7 @@
   
   If PTE has only execute permission (pte.x = 1) and s/mstatus.MXR=1, then read access on that PTE should be successful without having explicit read permission (pte.r=0).  
   When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE.  
-  - Set pte.r=0 & pte.w=0 & pte.x=1 & s/mstatus.MXR=1 and test the read acces.  
+  - Set pte.r=0 & pte.w=0 & pte.x=1 & s/mstatus.MXR=1 and test the read access.  
     
   * For testing at level0, set all the pte permissions at level1 to 0 except pte.v, so that level1 points to level0.  
   * Set pte.U=0 when test in Supervisor mode and Set pte.U=1 when testing in user mode
@@ -404,8 +404,8 @@
 * **Feature Description**
   
   If implementation does not sets the pte.A on accessing the PTE, and PTE has pte.A=0, then accessing it would raise page fault exception of the corresponding access type.   
-  When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE. Execute sfence.vma before accessign the PTE.  
-  - Set pte.r=1 & pte.a=0 and test the read acces.   
+  When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE. Execute sfence.vma before accessing the PTE.  
+  - Set pte.r=1 & pte.a=0 and test the read access.   
   - Set pte.w=1 & pte.a=0 and test the write access.  
   - Set pte.x=1 & pte.a=0 and test the execute access.  
     
@@ -437,7 +437,7 @@
 * **Feature Description**
   
   If implementation does not sets the pte.D when PTE is written, and PTE has pte.D=0, then attempting to store on that PTE would raise Store/AMO page fault exception.  
-  When satp.mode=sv32, PTE has (r,w,x) PMP permissions, pte.a=1 and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE. Execute sfence.vma before accessign the PTE.  
+  When satp.mode=sv32, PTE has (r,w,x) PMP permissions, pte.a=1 and pte.v=1, then test the following in supervisor and user privilege mode for level0 and level1 PTE. Execute sfence.vma before accessing the PTE.  
   - Set pte.w=1 & pte.d=0 and test the write access.  
     
   * For testing at level0, set all the pte permissions at level1 to 0 except pte.v, so that level1 points to level0.  
@@ -563,10 +563,10 @@
 * **Requirement location:** ISA Volume II: Privilege Architecture Version 20211203, Chapter 5.1.11
 * **Feature Description**
   
-  Selecting MODE=Bare the remaining feild should be zero. Other encoding for remaining feild in satp is reserved
+  Selecting MODE=Bare the remaining field should be zero. Other encoding for remaining field in satp is reserved
 * **Verification Goals**
   
-  Show wirting {zero, non-zero} value to satp when mode=bare the behaviour follows the design implemention
+  Show writing {zero, non-zero} value to satp when mode=bare the behaviour follows the design implementation
 * **Pass/Fail Criteria:** Check RM
 * **Test Type:** RISC-V Arch-test
 * **Coverage Method:** Testcase

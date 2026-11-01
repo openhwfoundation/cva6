@@ -55,7 +55,7 @@
 * **Requirement location:** https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CV32A6_Control_Status_Registers.html
 * **Feature Description**
   
-  Check the correctness of RISCV CVA6 Read-Only CSRs by writing CSRs in a random order values: Inverted reset, 0xaaaaaaaa, 0x555555, random values. Then confirm that write into RO CSRs generates illegal exception. Finaly read back the CSR and check register value has not changed and matchs reference model.
+  Check the correctness of RISCV CVA6 Read-Only CSRs by writing CSRs in a random order values: Inverted reset, 0xaaaaaaaa, 0x555555, random values. Then confirm that write into RO CSRs generates illegal exception. Finally read back the CSR and check register value has not changed and matches reference model.
 * **Verification Goals**
   
   1.Attempt to write a RO CSR.  

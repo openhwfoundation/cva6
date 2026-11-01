@@ -68,8 +68,6 @@ module id_stage #(
     input riscv::xs_t vfs_i,
     // Floating point dynamic rounding mode - CSR_REGFILE
     input logic [2:0] frm_i,
-    // Vector extension status - CSR_REGFILE
-    input riscv::xs_t vs_i,
     // Level sensitive (async) interrupts - SUBSYSTEM
     input logic [1:0] irq_i,
     // Interrupt control status - CSR_REGFILE
@@ -201,6 +199,7 @@ module id_stage #(
           .is_macro_instr_i          (is_macro_instr[0]),
           .clk_i                     (clk_i),
           .rst_ni                    (rst_ni),
+          .flush_i                   (flush_i),
           .instr_o                   (instruction_zcmp),
           .illegal_instr_i           (is_illegal_rvc[0]),
           .is_compressed_i           (is_compressed_rvc[0]),
@@ -384,7 +383,6 @@ module id_stage #(
         .fs_i,
         .vfs_i,
         .frm_i,
-        .vs_i,
         .tvm_i,
         .tw_i,
         .vtw_i,

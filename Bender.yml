@@ -1,5 +1,5 @@
 package:
-  name: ariane
+  name: cva6
   authors:
     - "Florian Zaruba <zarubaf@iis.ee.ethz.ch>"
     - "Michael Schaffner <schaffner@iis.ee.ethz.ch>"
@@ -29,49 +29,153 @@ sources:
         files:
           - config/target/cv32a60x/rtl_cfg_pkg.sv
 
-      - target: cv32a60x_no_zcmt
-        files:
-          - config/target/cv32a60x_no_zcmt/rtl_cfg_pkg.sv
-
       - target: cv32a65x
         files:
           - config/target/cv32a65x/rtl_cfg_pkg.sv
 
-      - target: cv32a65x_sv32
+      - target: fpga_linux_cv64a6
         files:
-          - config/target/cv32a65x_sv32/rtl_cfg_pkg.sv
+          - config/target/fpga_linux_cv64a6/rtl_cfg_pkg.sv
 
-      - target: cv32a6_imac_sv32
+      - target: fpga_linux_cv32a6
         files:
-          - config/target/cv32a6_imac_sv32/rtl_cfg_pkg.sv
+          - config/target/fpga_linux_cv32a6/rtl_cfg_pkg.sv
 
-      - target: cv32a6_ima_sv32_fpga
+      - target: profile_rvi20u32
         files:
-          - config/target/cv32a6_ima_sv32_fpga/rtl_cfg_pkg.sv
+          - config/target/profile_rvi20u32/rtl_cfg_pkg.sv
 
-      - target: cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi
+      - target: profile_rvi20u64
         files:
-          - config/target/cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi/rtl_cfg_pkg.sv
+          - config/target/profile_rvi20u64/rtl_cfg_pkg.sv
 
-      - target: cv64a6_imafdc_sv39_hpdcache_wb
+      - target: profile_tinyc32
         files:
-          - config/target/cv64a6_imafdc_sv39_hpdcache_wb/rtl_cfg_pkg.sv
+          - config/target/profile_tinyc32/rtl_cfg_pkg.sv
+
+      - target: profile_rvm23u32
+        files:
+          - config/target/profile_rvm23u32/rtl_cfg_pkg.sv
+
+      - target: profile_perf32_axi
+        files:
+          - config/target/profile_perf32_axi/rtl_cfg_pkg.sv
+
+      - target: profile_perf32_obi
+        files:
+          - config/target/profile_perf32_obi/rtl_cfg_pkg.sv
+
+      - target: profile_rva20s64
+        files:
+          - config/target/profile_rva20s64/rtl_cfg_pkg.sv
+
+      - target: profile_rva22s64
+        files:
+          - config/target/profile_rva22s64/rtl_cfg_pkg.sv
+
+      - target: profile_rva23s64
+        files:
+          - config/target/profile_rva23s64/rtl_cfg_pkg.sv
+
+      - target: profile_perf64_axi
+        files:
+          - config/target/profile_perf64_axi/rtl_cfg_pkg.sv
+
+      - target: summit_titlis
+        files:
+          - config/target/summit_titlis/rtl_cfg_pkg.sv
+
+      - target: summit_pilatus
+        files:
+          - config/target/summit_pilatus/rtl_cfg_pkg.sv
+
+      - target: summit_saentis
+        files:
+          - config/target/summit_saentis/rtl_cfg_pkg.sv
+
+      - target: summit_eiger
+        files:
+          - config/target/summit_eiger/rtl_cfg_pkg.sv
+
+      - target: summit_pizpalue
+        files:
+          - config/target/summit_pizpalue/rtl_cfg_pkg.sv
+
+      - target: summit_toedi
+        files:
+          - config/target/summit_toedi/rtl_cfg_pkg.sv
+
+      - target: summit_galenstock
+        files:
+          - config/target/summit_galenstock/rtl_cfg_pkg.sv
+
+      - target: summit_dammastock
+        files:
+          - config/target/summit_dammastock/rtl_cfg_pkg.sv
+
+      - target: summit_oldenhorn
+        files:
+          - config/target/summit_oldenhorn/rtl_cfg_pkg.sv
+
+      - target: summit_dom
+        files:
+          - config/target/summit_dom/rtl_cfg_pkg.sv
+
+      - target: summit_weisshorn
+        files:
+          - config/target/summit_weisshorn/rtl_cfg_pkg.sv
+
+      - target: summit_matterhorn
+        files:
+          - config/target/summit_matterhorn/rtl_cfg_pkg.sv
+
+      - target: summit_grandcombin
+        files:
+          - config/target/summit_grandcombin/rtl_cfg_pkg.sv
+
+      - target: summit_dentblanche
+        files:
+          - config/target/summit_dentblanche/rtl_cfg_pkg.sv
+
+      - target: summit_nadelhorn
+        files:
+          - config/target/summit_nadelhorn/rtl_cfg_pkg.sv
+
+      - target: summit_grandesjorasses
+        files:
+          - config/target/summit_grandesjorasses/rtl_cfg_pkg.sv
+
+      - target: summit_finsteraarhorn
+        files:
+          - config/target/summit_finsteraarhorn/rtl_cfg_pkg.sv
+
+      - target: summit_monterosa
+        files:
+          - config/target/summit_monterosa/rtl_cfg_pkg.sv
+
+      - target: summit_lyskamm
+        files:
+          - config/target/summit_lyskamm/rtl_cfg_pkg.sv
+
+      - target: summit_barredesecrins
+        files:
+          - config/target/summit_barredesecrins/rtl_cfg_pkg.sv
+
+      - target: summit_grandparadis
+        files:
+          - config/target/summit_grandparadis/rtl_cfg_pkg.sv
 
       # General config infrastructure
       - core/include/riscv_pkg.sv
       - core/include/ariane_pkg.sv
       - core/include/build_config_pkg.sv
 
-      - target: not(exclude_first_pass_decoder)
-        files:
-          - core/cva6_accel_first_pass_decoder_stub.sv
-
-      # MMU
-      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdc_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdch_sv39_wb, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32)
-        files:
-          - core/cva6_mmu/cva6_tlb.sv
-          - core/cva6_mmu/cva6_mmu.sv
-          - core/cva6_mmu/cva6_ptw.sv
+      # MMU: instantiated only when MmuPresent, compiled for every target
+      # like core/Flist.cva6
+      - core/cva6_mmu/cva6_tlb.sv
+      - core/cva6_mmu/cva6_shared_tlb.sv
+      - core/cva6_mmu/cva6_mmu.sv
+      - core/cva6_mmu/cva6_ptw.sv
 
       # Packages
       - core/include/wt_cache_pkg.sv

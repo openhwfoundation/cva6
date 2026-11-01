@@ -1,6 +1,6 @@
 #include "riscv_test.h"
 
-RVTEST_RV32U
+RVTEST_RV32M
 RVTEST_CODE_BEGIN
 
 	la t0, trap_handler

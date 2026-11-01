@@ -19,7 +19,7 @@ env:
   TERM: dumb
 jobs:
   hello:
-    name: cv32a65x_axi / two Hello tests / RTL-only
+    name: profile_perf32_axi / two Hello tests / RTL-only
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -39,7 +39,7 @@ jobs:
           printf '%s\n' "$BASE_SHA" > ci-results/event-base.txt
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - name: Install Cook dependencies
         run: |
           python3 -m pip install -c .github/cook/constraints.txt -r flows/requirements.txt
@@ -79,22 +79,22 @@ jobs:
             printf '| Actual compilation, simulation and evidence checks | %s |\n' "$SMOKE_RESULT"
             echo ''
             echo 'Only a successful smoke stage establishes the two-Hello result. Skipped stages are not passes.'
-            echo 'RTL-only, cv32a65x_axi, notrace. No ISS/tandem or full ISA regression.'
-            echo 'Download cook-testharness-smoke-cv32a65x_axi from this run for commands and logs.'
+            echo 'RTL-only, profile_perf32_axi, notrace. No ISS/tandem or full ISA regression.'
+            echo 'Download cook-testharness-smoke-profile_perf32_axi from this run for commands and logs.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload available evidence, including on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cook-testharness-smoke-cv32a65x_axi
+          name: cook-testharness-smoke-profile_perf32_axi
           retention-days: 14
           if-no-files-found: error
           path: |
             ci-results/
             build/git_dependencies/
-            build/cv32a65x_axi/compile/hello-original_0/
-            build/cv32a65x_axi/compile/hello-uart_0/
-            build/cv32a65x_axi/simulation/
-            build/cv32a65x_axi/elab/sim_rtl_verilator_testharness/compilation.*
-            build/cv32a65x_axi/elab/sim_rtl_verilator_testharness/cook_manifest.yml
-            build/cv32a65x_axi/elab/sim_rtl_verilator_testharness/verilator.version
+            build/profile_perf32_axi/compile/hello-original_0/
+            build/profile_perf32_axi/compile/hello-uart_0/
+            build/profile_perf32_axi/simulation/
+            build/profile_perf32_axi/elab/sim_rtl_verilator_testharness/compilation.*
+            build/profile_perf32_axi/elab/sim_rtl_verilator_testharness/cook_manifest.yml
+            build/profile_perf32_axi/elab/sim_rtl_verilator_testharness/verilator.version

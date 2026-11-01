@@ -1,3 +1,12 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
 # Header of the documentation generated for this target by
 # `./cook.py docs-build`. See flows/README.md.
 #
@@ -5,3 +14,10 @@
 # the header: an organisation, the people it delegates to, or both.
 authors:
   - "Original Author: Jean-Roch COULON - Thales"
+
+# Category of this target in the dashboard (config/README.md): official,
+# fpga, profile or cross
+category: official
+
+# One-line description of this target, shown in the dashboard
+role: "Superscalar embedded core maintained by Thales: OBI, PMP. Its configuration of the cv32a60x-v6.0.0 tag reached TRL5, verified within the TRISTAN project."

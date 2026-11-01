@@ -747,7 +747,7 @@ _Write Strobe width is equal to (AXI_DATA_WIDTH/8) (n = (AXI_DATA_WIDTH/8)-1)._
 
 _The size of transactions performed by cva6 is equal to the number of data byte lanes containing valid information._ 
 _This means 1, 2, 4, ... or (AXI_DATA_WIDTH/8) byte lanes containing valid information._ 
-_CVA6 doesn't perform unaligned memory acces, therefore the WSTRB take only combination of aligned access_ 
+_CVA6 doesn't perform unaligned memory access, therefore the WSTRB take only combination of aligned access_
 _If(RV32) WSTRB < 255 (Since AWSIZE lower than 3, so the data bus cannot have more than 4 valid byte lanes)_
 
 *Unaligned transfers*

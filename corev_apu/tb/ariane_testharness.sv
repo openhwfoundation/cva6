@@ -141,7 +141,10 @@ module ariane_testharness #(
   assign debug_resp_ready    = (jtag_enable[0]) ? jtag_resp_ready    : dmi_resp_ready;
   assign debug_req           = (jtag_enable[0]) ? jtag_dmi_req       : dmi_req;
   if (ariane_pkg::RVFI) begin
-    assign exit_o              = (jtag_enable[0]) ? jtag_exit          : rvfi_exit;
+    // A program under the proxy kernel ends through HTIF, reported by the
+    // SimDTM, and never writes the tohost the RVFI tracer watches
+    assign exit_o              = (jtag_enable[0]) ? jtag_exit          :
+                                 (dmi_exit[0])    ? dmi_exit           : rvfi_exit;
   end else begin
     assign exit_o              = (jtag_enable[0]) ? jtag_exit          : dmi_exit;
   end

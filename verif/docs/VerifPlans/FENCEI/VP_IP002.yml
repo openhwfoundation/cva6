@@ -196,8 +196,8 @@ subfeatures: !!omap
         cores: 56
         coverage_loc: ''
         comments: ''
-- 007_AckWithold: !Subfeature
-    name: 007_AckWithold
+- 007_AckWithhold: !Subfeature
+    name: 007_AckWithhold
     tag: VP_FENCEI_F002_S007
     next_elt_id: 1
     display_order: 7
@@ -212,7 +212,7 @@ subfeatures: !!omap
         ref_page: ''
         ref_section: ''
         ref_viewer: firefox
-        verif_goals: Upon a req, try witholding ack for a long time and see that the
+        verif_goals: Upon a req, try withholding ack for a long time and see that the
           fence.i can be stalled arbitrarily long (should have covers for ack delays
           of at least {[0:5]}).
         pfc: 4

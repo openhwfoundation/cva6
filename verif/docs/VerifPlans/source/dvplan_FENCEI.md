@@ -80,7 +80,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
   After a fence.i instruction has been executed, all preceding store instructions shall have their effects visible to the instruction fetch of the instructions that are to be executed after the fence.i instruction.
 * **Verification Goals**
   
-  Let the instruction right before a fence.i write a different instruction to the address following the fence.i, then observe that the written instruction is executed instead of the original one and that no side-effects (csr updates or otherwise) occur (can possibly mix 16bit/32bit instructions to force a noticable difference).
+  Let the instruction right before a fence.i write a different instruction to the address following the fence.i, then observe that the written instruction is executed instead of the original one and that no side-effects (csr updates or otherwise) occur (can possibly mix 16bit/32bit instructions to force a noticeable difference).
 * **Pass/Fail Criteria:** Self-Check
 * **Test Type:** Directed SelfChk
 * **Coverage Method:** Testcase
@@ -259,7 +259,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
   
   *(none)*  
   
-### Sub-feature: 007_AckWithold
+### Sub-feature: 007_AckWithhold
 
 #### Item: 000
 
@@ -269,7 +269,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
   If req is high, but ack never comes, then the core keeps on stalling and the fence.i is blocked from completing.
 * **Verification Goals**
   
-  Upon a req, try witholding ack for a long time and see that the fence.i can be stalled arbitrarily long (should have covers for ack delays of at least {[0:5]}).
+  Upon a req, try withholding ack for a long time and see that the fence.i can be stalled arbitrarily long (should have covers for ack delays of at least {[0:5]}).
 * **Pass/Fail Criteria:** Assertion
 * **Test Type:** ENV Capability
 * **Coverage Method:** Functional Coverage
@@ -308,7 +308,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
 * **Requirement location:** CVA6 User Manual; https://cva6.readthedocs.io/en/latest/01_cva6_user/RISCV_Instructions.html#rv32zifencei-instruction-fetch-fence
 * **Feature Description**
   
-  If the fence.i ends up not retiring because it was preceeded by a taken branch or a jump, then the fencei_flush_req_o shall not go high
+  If the fence.i ends up not retiring because it was preceded by a taken branch or a jump, then the fencei_flush_req_o shall not go high
 * **Verification Goals**
   
   Take a branch or do a jump to skip a fence.i, and ensure that fencei_flush_req_o doesn't go high.
@@ -354,7 +354,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
 * **Requirement location:** CVA6 User Manual; https://cva6.readthedocs.io/en/latest/01_cva6_user/RISCV_Instructions.html#rv32zifencei-instruction-fetch-fenceThis is a pointer to the source Requirements document of the Features in question.  The pointer should state the version of the target document.  It is free-form, so it can also indicate the specific section/page/paragraph.
 * **Feature Description**
   
-  Any store instruction that is successfully executed before a fence.i will fully complete and have its effect visible (this is not about syncronization with instruction fetch, but rather seeing that the stores are not aborted).
+  Any store instruction that is successfully executed before a fence.i will fully complete and have its effect visible (this is not about synchronization with instruction fetch, but rather seeing that the stores are not aborted).
 * **Verification Goals**
   
   Check that all stores (either to next pc or other places) preceding a fence.i will complete on the bus (excluding exceptions/interrupts/etc) and be readable afterwards (particularly, ensure that the write buffer isn't just purged).
@@ -375,7 +375,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
 * **Requirement location:** CVA6 User Manual; https://cva6.readthedocs.io/en/latest/01_cva6_user/RISCV_Instructions.html#rv32zifencei-instruction-fetch-fence
 * **Feature Description**
   
-  Any store instruction that is successfully executed before a fence.i will fully complete and have its effect visible (this is not about syncronization with instruction fetch, but rather seeing that the stores are not aborted).
+  Any store instruction that is successfully executed before a fence.i will fully complete and have its effect visible (this is not about synchronization with instruction fetch, but rather seeing that the stores are not aborted).
 * **Verification Goals**
   
   Check that all stores (either to next pc or other places) preceding a fence.i will complete on the bus (excluding exceptions/interrupts/etc) and be readable afterwards (particularly, ensure that the write buffer isn't just purged).
@@ -398,7 +398,7 @@ https://riscv.org/wp-content/uploads/2019/12/riscv-spec-20191213.pdf
 * **Requirement location:** CVA6 User Manual; https://cva6.readthedocs.io/en/latest/01_cva6_user/RISCV_Instructions.html#rv32zifencei-instruction-fetch-fence
 * **Feature Description**
   
-  When fence.i is executed, then any prefetched instructions shall be flushed; meaning that pipeline stages are flushed, prefetcher is flushed, write buffer is flushed, and data_req_o is eventually supressed.
+  When fence.i is executed, then any prefetched instructions shall be flushed; meaning that pipeline stages are flushed, prefetcher is flushed, write buffer is flushed, and data_req_o is eventually suppressed.
 * **Verification Goals**
   
   Check that a fence.i will cause flushing of the pipeline, prefetcher, write buffer, and data_req_o.

@@ -171,7 +171,7 @@ The ``sip`` register contains information on pending interrupts.
 | 4 | UTIP |  | read-write,WARL  | A user\-level timer interrupt is pending if the UTIP bit in the sip register is set\.``Legal Values:``0\.|
 | 3:2 | Reserved_2 | Reserved | read-write,WARL  | Reserved\.``Legal Values:``0\.|
 | 1 | SSIP | Supervisor-level software interrupt pending | read-only,WARL  | SSIP is the interrupt\-pending bit for supervisor\-level software interrupts\.|
-| 0 | USIP |  | read-write,WARL  | A user\-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt\-pending \(USIP\) bit\.``Legal Values:``0\.|
+| 0 | USIP |  | read-write,WARL  | A user\-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt\-pending \(USIP\) bit\.``Legal Values:``0\.|
 
 ## Supervisor Address Translation and Protection Register 
 ### *AddressOffset*: 'h180 
@@ -259,7 +259,7 @@ This register contains machine interrupt enable bits.
 | 3 | MSIE | M-mode software interrupt enable | read-write  | Enables machine mode software interrupts\.|
 | 2 | Reserved_2 | Reserved | read-write,WARL  | Reserved\.``Legal Values:``0\.|
 | 1 | SSIE | S-mode software interrupt enable | read-write,WARL  | Enables supervisor mode software interrupts\.|
-| 0 | USIE |  | read-write,WARL  | enable U\-mode software interrrupts\.``Legal Values:``0\.|
+| 0 | USIE |  | read-write,WARL  | enable U\-mode software interrupts\.``Legal Values:``0\.|
 
 ## Machine Trap Vector Register 
 ### *AddressOffset*: 'h305 
@@ -487,13 +487,13 @@ Shows trigger information.
 ## Debug Control and Status Register 
 ### *AddressOffset*: 'h7B0 
 ### *Description*:
-Debug ontrol and status register.
+Debug control and status register.
 | BIT |  NAME       | displayName        | RIGHT  | Description                                                          |
 | --- | ----------- | ------------       | ------ | -------------------------------------------------------------------- |
 | 31:28 | xdebugver | Debug version | read-only  | Shows the version of the debug support\. // ``Enumerated Values``( "no_ext_debug" :0 ) ( "ext_debug_spec" :4 ) ( "ext_debug_no_spec" :15 ) |
-| 15 | ebreakm | Environment breakpoint m-mode | read-write  | Shows the behvior of the ``ebreak`` instruction in machine mode\. // ``Enumerated Values``( "break_as_spec" :0 ) ( "break_to_debug" :1 ) |
-| 13 | ebreaks | Environment breakpoint s-mode | read-write  | Shows the behvior of the ``ebreak`` instruction in supervisor mode\. // ``Enumerated Values``( "break_as_spec" :0 ) ( "break_to_debug" :1 ) |
-| 12 | ebreaku | Environment breakpoint u-mode | read-write  | Shows the behvior of the ``ebreak`` instruction in user mode\. // ``Enumerated Values``( "break_as_spec" :0 ) ( "break_to_debug" :1 ) |
+| 15 | ebreakm | Environment breakpoint m-mode | read-write  | Shows the behavior of the ``ebreak`` instruction in machine mode\. // ``Enumerated Values``( "break_as_spec" :0 ) ( "break_to_debug" :1 ) |
+| 13 | ebreaks | Environment breakpoint s-mode | read-write  | Shows the behavior of the ``ebreak`` instruction in supervisor mode\. // ``Enumerated Values``( "break_as_spec" :0 ) ( "break_to_debug" :1 ) |
+| 12 | ebreaku | Environment breakpoint u-mode | read-write  | Shows the behavior of the ``ebreak`` instruction in user mode\. // ``Enumerated Values``( "break_as_spec" :0 ) ( "break_to_debug" :1 ) |
 | 11 | stepie | Stepping interrupt enable | read-write,WARL  | Enables/disables interrupts for single stepping\.  The debugger must not change the value of this bit while the hart is running\. // ``Enumerated Values``( "disabled" :0 ) ( "enabled" :1 ) |
 | 10 | stopcount | Stop counters | read-write,WARL  | Starts/stops incrementing counters in debug mode\. // ``Enumerated Values``( "increment_counters" :0 ) ( "dont_increment_counters" :1 ) |
 | 9 | stoptime | Stop timers | read-write,WARL  | Starts/stops incrementing timers in debug mode\. // ``Enumerated Values``( "increment_timers" :0 ) ( "dont_increment_timers" :1 ) |
@@ -844,11 +844,11 @@ Instructions-retired counter for RDINSTRET instruction
 ## Machine Vendor ID Register 
 ### *AddressOffset*: 'hF11 
 ### *Description*:
-This register provids the JEDEC manufacturer ID of the provider of the core.
+This register provides the JEDEC manufacturer ID of the provider of the core.
 | BIT |  NAME       | displayName        | RIGHT  | Description                                                          |
 | --- | ----------- | ------------       | ------ | -------------------------------------------------------------------- |
 | 31:7 | bank | Bank | read-only  | Contain encoding for number of one\-byte continuation codes discarding the parity bit\.|
-| 6:0 | offset | Offset | read-only  | Contain encording for the final byte discarding the parity bit\.|
+| 6:0 | offset | Offset | read-only  | Contain encoding for the final byte discarding the parity bit\.|
 
 ## Machine Architecture ID Register 
 ### *AddressOffset*: 'hF12 

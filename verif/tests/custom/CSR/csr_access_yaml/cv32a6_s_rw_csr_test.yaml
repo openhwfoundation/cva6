@@ -51,7 +51,7 @@
       lsb: 15
     - field_name: FS
       description: >
-        Floationd point State
+        Floating point State
       type: RW
       reset_val: 0
       msb: 14
@@ -79,7 +79,7 @@
       lsb: 6
     - field_name: SPIE
       description: >
-        The SPIE bit indicates whether supervisor interrupts were enabled prior to trappin into supervisor mode.
+        The SPIE bit indicates whether supervisor interrupts were enabled prior to trapping into supervisor mode.
       type: RW
       reset_val: 0
       msb: 5
@@ -248,7 +248,7 @@
 
 - csr: CSR_SSCRATCH
   description: >
-    Scartch Register for supervisor trap handlers
+    Scratch Register for supervisor trap handlers
   address: 0x140
   privilege_mode: S
   rv32:
@@ -373,7 +373,7 @@
       lsb: 1
     - field_name: USIP
       description: >
-        A user-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt-pending (USIP) bit 
+        A user-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt-pending (USIP) bit 
       type: R
       reset_val: 0
       msb: 0

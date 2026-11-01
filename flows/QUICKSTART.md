@@ -6,7 +6,7 @@ of every option is in [README.md](README.md), writing a new flow is in
 [CONTRIBUTING.md](CONTRIBUTING.md), running them from a CI engine is in
 [CONTINUOUS_INTEGRATION.md](CONTINUOUS_INTEGRATION.md).
 
-The commands use `cv32a60x` and the `llvm-20-1-8` toolchain of the example
+The commands use `cv32a60x` and the `llvm-22` toolchain of the example
 `compiler.yml`; substitute the target and the toolchain name of your own
 configuration.
 
@@ -27,13 +27,14 @@ git submodule update --init --recursive
 
 **2. Install the Python dependencies**
 
-```bash
-pip3 install -r flows/requirements.txt
-```
+Python 3.12 or later, in a virtual environment. [uv](https://docs.astral.sh/uv/)
+creates it with an interpreter of its own, whatever the Python of the system:
 
-Without write access to the system packages, use `pip3 install --user`
-and add `~/.local/bin` to the `PATH`, or work in a virtual environment
-(`python3 -m venv .venv && . .venv/bin/activate`).
+```bash
+pip3 install --user uv
+uv venv -p 3.12 .venv && . .venv/bin/activate
+uv pip install -r flows/requirements.txt
+```
 
 **3. Install a RISC-V toolchain**
 
@@ -108,7 +109,7 @@ simulator is verified on which testbench, are in
 
 ```bash
 # 1. Compile a pattern
-./cook.py hello-world -t cv32a60x -c llvm-20-1-8
+./cook.py hello-world -t cv32a60x -c llvm-22
 
 # 2. Elaborate the design
 ./cook.py vcs-uvm-comp -t cv32a60x
@@ -135,7 +136,7 @@ Xcelium take the same options, `questa-uvm-comp`/`questa-uvm-run` and
 ./cook.py git-dependencies --repo riscv-tests
 
 # 1. Compile every test of the list
-./cook.py sw-compile-testlist -t cv32a60x -c llvm-20-1-8 \
+./cook.py sw-compile-testlist -t cv32a60x -c llvm-22 \
   -l verif/tests/base_rv32_p.yaml
 
 # 2. Elaborate once
@@ -153,15 +154,15 @@ without the commercial tools:
 
 ```bash
 # 1. Compile the two Hello tests of the smoke testlist
-./cook.py sw-compile-testlist -t cv32a65x_axi -c gcc-15 \
+./cook.py sw-compile-testlist -t profile_perf32_axi -c gcc-15 \
   -l verif/tests/testlist_verilator_testharness_smoke.yaml
 
 # 2. Build the Verilator model
-./cook.py verilator-testharness-comp -t cv32a65x_axi
+./cook.py verilator-testharness-comp -t profile_perf32_axi
 
 # 3. Run one test, then the whole list
-./cook.py verilator-testharness-run -t cv32a65x_axi -n hello-uart_0
-./cook.py testharness-run-testlist --simulator verilator -t cv32a65x_axi \
+./cook.py verilator-testharness-run -t profile_perf32_axi -n hello-uart_0
+./cook.py testharness-run-testlist --simulator verilator -t profile_perf32_axi \
   -l verif/tests/testlist_verilator_testharness_smoke.yaml
 ```
 
@@ -173,8 +174,8 @@ verified.
 
 ```bash
 # 1. Compile them
-./cook.py coremark -t cv32a65x -c gcc-14
-./cook.py dhrystone -t cv32a65x -c gcc-14
+./cook.py coremark -t cv32a65x -c gcc-15
+./cook.py dhrystone -t cv32a65x -c gcc-15
 
 # 2. Elaborate with the performance counters
 ./cook.py vcs-uvm-comp -t cv32a65x --stats
@@ -198,7 +199,7 @@ recorded in the report of each run.
 ./cook.py macro-vcs-generator-testlist \
   -t cv32a60x \
   -l verif/tests/<generator-testlist>.yaml \
-  -c llvm-20-1-8 \
+  -c llvm-22 \
   --batch-size 8 \
   --trace-mode compact \
   --tandem-enabled
@@ -217,7 +218,7 @@ written to `build/cv32a60x/synthesis/reports/`.
 
 ```bash
 # 2. Compile a test and elaborate the netlist with its timing
-./cook.py hello-world -t cv32a60x -c llvm-20-1-8
+./cook.py hello-world -t cv32a60x -c llvm-22
 ./cook.py vcs-uvm-comp -t cv32a60x --comp-mode gate_wc_timing --trace-mode gui
 
 # 3. Run it
@@ -261,17 +262,17 @@ carrying a Linux image built with the CVA6 SDK.
 ```bash
 # 1. Build the bootloader: one ROM per board and per register width,
 #    shared by every target of that width
-./cook.py fpga-bootrom -t cv32a6_imac_sv32 -c gcc-15 --board genesys2
+./cook.py fpga-bootrom -t fpga_linux_cv32a6 -c gcc-15 --board genesys2
 
 # 2. Build the bitstream (the first build also generates the Vivado IPs,
 #    reused by every later build)
-./cook.py vivado-fpga-build -t cv32a6_imac_sv32 --board genesys2
+./cook.py vivado-fpga-build -t fpga_linux_cv32a6 --board genesys2
 
 # 3. Load it on the board driven by a running hw_server
-./cook.py vivado-fpga-program -t cv32a6_imac_sv32 --hw-server localhost:3121
+./cook.py vivado-fpga-program -t fpga_linux_cv32a6 --hw-server localhost:3121
 
 # 4. Watch the console until Linux boots
-./cook.py fpga-linux-boot -t cv32a6_imac_sv32 --uart /dev/ttyUSB1
+./cook.py fpga-linux-boot -t fpga_linux_cv32a6 --uart /dev/ttyUSB1
 ```
 
 Steps 3 and 4 can be replayed on their own: the bitstream is a
@@ -283,12 +284,12 @@ The same four steps, with the Quartus recipes. The bootloader is shared,
 `fpga-bootrom` taking a board of either vendor.
 
 ```bash
-./cook.py fpga-bootrom -t cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi \
+./cook.py fpga-bootrom -t fpga_linux_cv64a6 \
   -c gcc-15 --board agilex7
-./cook.py quartus-fpga-build -t cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi \
+./cook.py quartus-fpga-build -t fpga_linux_cv64a6 \
   --board agilex7
-./cook.py quartus-fpga-program -t cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi
-./cook.py fpga-linux-boot -t cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi \
+./cook.py quartus-fpga-program -t fpga_linux_cv64a6
+./cook.py fpga-linux-boot -t fpga_linux_cv64a6 \
   --uart /dev/ttyUSB1
 ```
 

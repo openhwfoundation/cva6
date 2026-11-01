@@ -137,7 +137,7 @@ Jean-Roch Coulon - Thales
 * **Requirement location:** https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CV32A6_Control_Status_Registers.html
 * **Feature Description**
   
-  Check the correctness of RISCV CVA6 Read-Only CSRs by writing CSRs in a random order values: Inverted reset, 0xaaaaaaaa, 0x555555, random values. Then confirm that write into RO CSRs generates illegal exception. Finaly read back the CSR and check register value has not changed and matchs reference model.
+  Check the correctness of RISCV CVA6 Read-Only CSRs by writing CSRs in a random order values: Inverted reset, 0xaaaaaaaa, 0x555555, random values. Then confirm that write into RO CSRs generates illegal exception. Finally read back the CSR and check register value has not changed and matches reference model.
 * **Verification Goals**
   
   1.Attempt to write a RO CSR.  
@@ -159,7 +159,7 @@ Jean-Roch Coulon - Thales
 * **Requirement location:** https://docs.openhwgroup.org/projects/cva6-user-manual/01_cva6_user/CV32A6_Control_Status_Registers.html
 * **Feature Description**
   
-  Check the correctness of RISCV CVA6 all CSR addresses write and read operations by writing random value to CSR address from 0 to 0xFFF in a random order. Then confirm that write into unmapped addresses generates illegal exception. Finaly read the CSRs in a random order and check that it also generates illegal exception in unmapped addresses.
+  Check the correctness of RISCV CVA6 all CSR addresses write and read operations by writing random value to CSR address from 0 to 0xFFF in a random order. Then confirm that write into unmapped addresses generates illegal exception. Finally read the CSRs in a random order and check that it also generates illegal exception in unmapped addresses.
 * **Verification Goals**
   
   1.Write and read all CSR addresses.  

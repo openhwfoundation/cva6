@@ -201,6 +201,10 @@ module cva6
   // The hypervisor extension is only implemented on RV64 (Sv39x4).
   `CVA6_CFG_CHECK(rvh_rv64, !(CVA6Cfg.RVH && CVA6Cfg.IS_XLEN32),
                   "The hypervisor extension (RVH) is only supported on RV64")
+  // The core does not execute vector instructions: V is provided by a
+  // coprocessor on the CV-X-IF.
+  `CVA6_CFG_CHECK(rvv_cvxif, !CVA6Cfg.RVV || CVA6Cfg.CvxifEn,
+                  "The vector extension (RVV) needs a CV-X-IF coprocessor (CvxifEn)")
 
   // -------------------
   // Pipeline

@@ -230,6 +230,19 @@ def read_config_or_exit_isa(target, report, march=None, mabi=None):
     return march or isa["march"], mabi or isa["mabi"]
 
 
+def spike_core_name(target, report):
+    """
+    Core name given to the testbench (`+core_name=`) for a target.
+
+    The Spike DPI picks its 32 or 64-bit defaults from the prefix of this
+    name (`cv32a`, `cv64a`), before the spike.yaml of the target sets the
+    rest. Target names do not all start with that prefix, so the name is
+    derived from the register width of the ISA of the target.
+    """
+    march, _ = read_config_or_exit_isa(target, report)
+    return "cv64a6" if str(march).lower().startswith("rv64") else "cv32a6"
+
+
 def read_config_expected_values(target, report):
     """
     Return the KPI baselines of `target` (`expected_values.yml`), or {}.

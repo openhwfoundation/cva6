@@ -26,7 +26,7 @@ import sys
 
 import yaml
 
-TARGET = "cv32a65x_axi"
+TARGET = "profile_perf32_axi"
 TESTLIST = "verif/tests/testlist_verilator_testharness_smoke.yaml"
 TESTS = ("hello-original_0", "hello-uart_0")
 GREETING = "0: Hello World !"
@@ -229,7 +229,7 @@ def write_summary(evidence, destination):
         "",
         f"- Actual checkout: `{evidence.get('source_revision', 'unavailable')}`",
         f"- Event head: `{evidence.get('event_head', 'unavailable')}`",
-        "- Target: `cv32a65x_axi`; RTL-only, notrace, no ISS/tandem.",
+        "- Target: `profile_perf32_axi`; RTL-only, notrace, no ISS/tandem.",
         "",
         "| Execution | Original Hello: normal exit | UART Hello: normal exit + text |",
         "| --- | --- | --- |",

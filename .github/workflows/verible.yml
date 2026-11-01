@@ -17,3 +17,8 @@
 #          verible_version: v0.0-4084-gf3e4d98b
 #          files: '$(find core -regex ".*\.\(v\|sv\)$" | grep -v "^core/include/.*_config_pkg\.sv$")'
 #          fail_on_formatting_suggestions: true
+#      - name: CVA6Cfg's XLEN attribute usage verificatory script
+#        if: always()
+#        run: |
+#          chmod +x util/sanitize/systemverilog/xlen_misuse.sh
+#          util/sanitize/systemverilog/xlen_misuse.sh

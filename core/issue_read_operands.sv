@@ -37,8 +37,6 @@ module issue_read_operands
     input logic rst_ni,
     // Prevent from issuing - CONTROLLER
     input logic flush_i,
-    // Stall inserted by Acc dispatcher - ACC_DISPATCHER
-    input logic stall_i,
     // Entry about the instruction to issue - SCOREBOARD
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i_prev,
@@ -145,7 +143,7 @@ module issue_read_operands
   localparam OPERANDS_PER_INSTR = CVA6Cfg.NrRgprPorts / CVA6Cfg.NrIssuePorts;
 
   typedef struct packed {
-    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, accel, aes;
+    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, aes;
   } fus_busy_t;
 
   logic [CVA6Cfg.NrIssuePorts-1:0] stall_raw, stall_rs1, stall_rs2, stall_rs3;
@@ -576,10 +574,10 @@ module issue_read_operands
   // forward corresponding register
   always_comb begin : operands_available
     alu_bypass  = '0;
-    stall_raw   = '{default: stall_i};
-    stall_rs1   = '{default: stall_i};
-    stall_rs2   = '{default: stall_i};
-    stall_rs3   = '{default: stall_i};
+    stall_raw   = '0;
+    stall_rs1   = '0;
+    stall_rs2   = '0;
+    stall_rs3   = '0;
     // operand forwarding signals
     forward_rs1 = '0;
     forward_rs2 = '0;
@@ -712,9 +710,9 @@ module issue_read_operands
         // zero extend operand a
         fu_data_n[i].operand_a = {{CVA6Cfg.XLEN - 5{1'b0}}, issue_instr_i[i].rs1[4:0]};
       end
-      // or is it an immediate (including PC), this is not the case for a store, control flow, and accelerator instructions
+      // or is it an immediate (including PC), this is not the case for a store and control flow instructions
       // also make sure operand B is not already used as an FP operand
-      if (issue_instr_i[i].use_imm && (issue_instr_i[i].fu != STORE) && (issue_instr_i[i].fu != CTRL_FLOW) && (issue_instr_i[i].fu != ACCEL) && !(CVA6Cfg.FpPresent && is_rs2_fpr(
+      if (issue_instr_i[i].use_imm && (issue_instr_i[i].fu != STORE) && (issue_instr_i[i].fu != CTRL_FLOW) && !(CVA6Cfg.FpPresent && is_rs2_fpr(
               issue_instr_i[i].op
           ))) begin
         fu_data_n[i].operand_b = issue_instr_i[i].result;

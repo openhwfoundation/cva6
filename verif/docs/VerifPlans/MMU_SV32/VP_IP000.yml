@@ -20,7 +20,7 @@ subfeatures: !!omap
           \ and non-reserved RWX permissions then test the following in supervisor\
           \ and user privilege mode for level1 and level0 PTE.\n\n- Remove read PMP\
           \ permission of translated Physical Address in pmpcfg and test the read\
-          \ acces.\n- Remvoe write PMP permission of translated Physical Address in\
+          \ access.\n- Remove write PMP permission of translated Physical Address in\
           \ pmpcfg and test the write access.\n- Remove execute PMP permission of\
           \ translated Physical Address in pmpcfg and test the execute access."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -54,7 +54,7 @@ subfeatures: !!omap
           \ it would raise access fault exception of the corresponding access type.\
           \ \nWhen satp.mode=sv32, then test the following in supervisor and user\
           \ privilege mode for level0 and level1 PTE.\n- Remove read PMP permission\
-          \ of PTE address in pmpcfg and test the read acces.\n- Remvoe write PMP\
+          \ of PTE address in pmpcfg and test the read access.\n- Remove write PMP\
           \ permission of PTE address in pmpcfg and test the write access.\n- Remove\
           \ execute PMP permission of PTE address in pmpcfg and test the execute access."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -88,12 +88,12 @@ subfeatures: !!omap
           \ it would raise page fault exception of the corresponding access type.\
           \ \nWhen satp.mode=sv32 and PTE has (r,w,x) PMP permissions, then test the\
           \ following in supervisor and user privilege mode for level0 and level1\
-          \ PTE.\n- Set PTE.V = 0 and test the read acces.\n- Set PTE.V = 0 and test\
+          \ PTE.\n- Set PTE.V = 0 and test the read access.\n- Set PTE.V = 0 and test\
           \ the write access.\n- Set PTE.V = 0 and test the execute access.\n\n* For\
-          \ testing at level0, set all the pte perimssions at level1 to 0 except pte.v,\
+          \ testing at level0, set all the pte permissions at level1 to 0 except pte.v,\
           \ so that level1 points to level0.\n* Set pte.U=0 when test in Supervisor\
           \ mode and Set pte.U=1 when testing in user mode"
-        reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chpter
+        reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
           5.3.2'
         ref_mode: ''
         ref_page: ''
@@ -124,10 +124,10 @@ subfeatures: !!omap
           \ accessing it would raise page fault exception of the corresponding access\
           \ type. \nWhen satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1,\
           \ then test the following in supervisor and user privilege mode for level0\
-          \ and level1 PTE.\n- Set pte.w=1 & pte.r=0 and test the read acces.\n- Set\
+          \ and level1 PTE.\n- Set pte.w=1 & pte.r=0 and test the read access.\n- Set\
           \ pte.w=1 & pte.r=0 and test the write access.\n- Set pte.w=1 & pte.r=0\
           \ and test the execute access.\n\n* For testing at level0, set all the pte\
-          \ perimssions at level1 to 0 except pte.v, so that level1 points to level0.\n\
+          \ permissions at level1 to 0 except pte.v, so that level1 points to level0.\n\
           * Set pte.U=0 when test in Supervisor mode and Set pte.U=1 when testing\
           \ in user mode"
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -161,10 +161,10 @@ subfeatures: !!omap
           \ then accessing it would raise page fault exception of the corresponding\
           \ access type. \nWhen satp.mode=sv32, PTE has (r,w,x) PMP permissions, and\
           \ pte.v=1, then test the following in supervisor and user privilege mode\
-          \ for level0 PTE.\n- Set pte.x=0 & pte.r=0 & pte.w=0 and test the read acces.\n\
+          \ for level0 PTE.\n- Set pte.x=0 & pte.r=0 & pte.w=0 and test the read access.\n\
           - Set pte.x=0 & pte.r=0 & pte.w=0 and test the write access.\n- Set pte.x=0\
           \ & pte.r=0 & pte.w=0 and test the execute access.\n\n* For testing at level0,\
-          \ set all the pte perimssions at level1 to 0 except pte.v, so that level1\
+          \ set all the pte permissions at level1 to 0 except pte.v, so that level1\
           \ points to level0.\n* Set pte.U=0 when test in Supervisor mode and Set\
           \ pte.U=1 when testing in user mode"
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -203,7 +203,7 @@ subfeatures: !!omap
           \ privilege mode for level 0 and level 1 PTE.\n- Test the read access for\
           \ both pte.r=1 and for pte.r=0\n- Test the write access for both pte.w=1\
           \ and for pte.w=0\n- Test the execute access for both pte.x=1 and for pte.x=0\n\
-          \n* For testing at level0, set all the pte perimssions at level1 to 0 except\
+          \n* For testing at level0, set all the pte permissions at level1 to 0 except\
           \ pte.v, so that level1 points to level0."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
           5.3.1'
@@ -240,9 +240,9 @@ subfeatures: !!omap
           \ page fault exception of the corresponding access type. \nWhen satp.mode=sv32,\
           \ PTE has (r,w,x) PMP permissions, PTE has non-reserved RWX encoding, and\
           \ pte.v=1, then test the following user privilege mode for level0 and level1\
-          \ PTE.\n- Set pte.u=0 and test the read acces.\n- Set pte.u=0 and test the\
+          \ PTE.\n- Set pte.u=0 and test the read access.\n- Set pte.u=0 and test the\
           \ write access.\n- Set pte.u=0 and test the execute access.\n\n* For testing\
-          \ at level0, set all the pte perimssions at level1 to 0 except pte.v, so\
+          \ at level0, set all the pte permissions at level1 to 0 except pte.v, so\
           \ that level1 points to level0."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
           5.3.2'
@@ -276,9 +276,9 @@ subfeatures: !!omap
           \ \nWhen satp.mode=sv32, PTE has (r,w,x) PMP permissions, PTE has non-reserved\
           \ RWX encoding, and pte.v=1, then test the following in supervisor mode\
           \ for level 0 and level 1 PTE.\n- Set pte.u=1 & s/mstatus.SUM = 0 and test\
-          \ the read acces.\n- Set pte.u=1 & s/mstatus.SUM = 0 and test the write\
+          \ the read access.\n- Set pte.u=1 & s/mstatus.SUM = 0 and test the write\
           \ access.\n- Set pte.u=1 & s/mstatus.SUM = 0 and test the execute access.\n\
-          \n* For testing at level0, set all the pte perimssions at level1 to 0 except\
+          \n* For testing at level0, set all the pte permissions at level1 to 0 except\
           \ pte.v, so that level1 points to level0."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
           3.1.6.3, 5.3.2'
@@ -313,10 +313,10 @@ subfeatures: !!omap
           \ fault exception in s-mode.\nWhen satp.mode=sv32, PTE has (r,w,x) PMP permissions,\
           \ PTE has non-reserved RWX encoding, and pte.v=1, then test the following\
           \ in supervisor mode for level0 and level1 PTE.\n- Set pte.r=1 & pte.u=1\
-          \ & s/mstatus.SUM = 1 and test the read acces.\n- Set pte.w=1 & pte.u=1\
+          \ & s/mstatus.SUM = 1 and test the read access.\n- Set pte.w=1 & pte.u=1\
           \ & s/mstatus.SUM = 1 and test the write access.\n- Set pte.x=1 & pte.u=1\
           \ & s/mstatus.SUM = 1 and test the execute access.\n\n* For testing at level0,\
-          \ set all the pte perimssions at level1 to 0 except pte.v, so that level1\
+          \ set all the pte permissions at level1 to 0 except pte.v, so that level1\
           \ points to level0."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
           3.1.6.3, 5.3.2'
@@ -326,7 +326,7 @@ subfeatures: !!omap
         ref_viewer: ''
         verif_goals: "Read and Write access to the PTE should be successful. So, check\
           \ that the load and store works without page fault and expected data is\
-          \ stored to and loaded from the memory, repectively.\n\nExecute access should\
+          \ stored to and loaded from the memory, respectively.\n\nExecute access should\
           \ raise instruction page fault. Check that:\n- m/scause must contain the\
           \ exception number of instruction instruction access fault. \n- m/sepc must\
           \ contain the virtual address of the instruction at which the trap occurs."
@@ -354,7 +354,7 @@ subfeatures: !!omap
           \ and level1 PTE.\n- Test the read access for both pte.r=1 and for pte.r=0\n\
           - Test the write access for both pte.w=1 and for pte.w=0\n- Test the execute\
           \ access for both pte.x=1 and for pte.x=0\n\n* For testing at level0, set\
-          \ all the pte perimssions at level1 to 0 except pte.v, so that level1 points\
+          \ all the pte permissions at level1 to 0 except pte.v, so that level1 points\
           \ to level0."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
           5.3.2'
@@ -390,7 +390,7 @@ subfeatures: !!omap
           When satp.mode=sv32, PTE has (r,w,x) PMP permissions, and pte.v=1, then\
           \ test the following in supervisor and user privilege mode for level0 and\
           \ level1 PTE.\n- Set pte.r=0 & pte.w=0 & pte.x=1 & s/mstatus.MXR=0 and test\
-          \ the read acces.\n\n* For testing at level0, set all the pte perimssions\
+          \ the read access.\n\n* For testing at level0, set all the pte permissions\
           \ at level1 to 0 except pte.v, so that level1 points to level0.\n* Set pte.U=0\
           \ when test in Supervisor mode and Set pte.U=1 when testing in user mode"
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -423,7 +423,7 @@ subfeatures: !!omap
           \ read permission (pte.r=0).\nWhen satp.mode=sv32, PTE has (r,w,x) PMP permissions,\
           \ and pte.v=1, then test the following in supervisor and user privilege\
           \ mode for level0 and level1 PTE.\n- Set pte.r=0 & pte.w=0 & pte.x=1 & s/mstatus.MXR=1\
-          \ and test the read acces.\n\n* For testing at level0, set all the pte perimssions\
+          \ and test the read access.\n\n* For testing at level0, set all the pte permissions\
           \ at level1 to 0 except pte.v, so that level1 points to level0.\n* Set pte.U=0\
           \ when test in Supervisor mode and Set pte.U=1 when testing in user mode"
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -484,10 +484,10 @@ subfeatures: !!omap
           \ of the corresponding access type. \nWhen satp.mode=sv32, PTE has (r,w,x)\
           \ PMP permissions, and pte.v=1, then test the following in supervisor and\
           \ user privilege mode for level0 and level1 PTE. Execute sfence.vma before\
-          \ accessign the PTE.\n- Set pte.r=1 & pte.a=0 and test the read acces. \n\
+          \ accessing the PTE.\n- Set pte.r=1 & pte.a=0 and test the read access. \n\
           - Set pte.w=1 & pte.a=0 and test the write access.\n- Set pte.x=1 & pte.a=0\
           \ and test the execute access.\n\n* For testing at level0, set all the pte\
-          \ perimssions at level1 to 0 except pte.v, so that level1 points to level0.\n\
+          \ permissions at level1 to 0 except pte.v, so that level1 points to level0.\n\
           * Set pte.U=0 when test in Supervisor mode and Set pte.U=1 when testing\
           \ in user mode."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter
@@ -522,8 +522,8 @@ subfeatures: !!omap
           \ Store/AMO page fault exception.\nWhen satp.mode=sv32, PTE has (r,w,x)\
           \ PMP permissions, pte.a=1 and pte.v=1, then test the following in supervisor\
           \ and user privilege mode for level0 and level1 PTE. Execute sfence.vma\
-          \ before accessign the PTE.\n- Set pte.w=1 & pte.d=0 and test the write\
-          \ access.\n\n* For testing at level0, set all the pte perimssions at level1\
+          \ before accessing the PTE.\n- Set pte.w=1 & pte.d=0 and test the write\
+          \ access.\n\n* For testing at level0, set all the pte permissions at level1\
           \ to 0 except pte.v, so that level1 points to level0.\n* Set pte.U=0 when\
           \ test in Supervisor mode and Set pte.U=1 when testing in user mode."
         reqt_doc: 'ISA Volume II: Privilege Architecture Version 20211203, Chapter

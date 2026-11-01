@@ -36,7 +36,7 @@ This is illustrated below for the `12'h7C0`-`12'h7FF` range.
 |`CSR_SIP`|`12’h144`|Supervisor interrupt pending|Yes|Yes|Supervisor
 |`CSR_STVEC`|`12’h105`|Supervisor trap handler base address|Yes|Yes|Supervisor
 |`CSR_SCOUNTEREN`|`12’h106`|Supervisor counter enable|Yes|Yes|Supervisor
-|`CSR_SSCRATCH`|`12’h140`|Scartch Register for supervisor trap handlers|Yes|Yes|Supervisor
+|`CSR_SSCRATCH`|`12’h140`|Scratch Register for supervisor trap handlers|Yes|Yes|Supervisor
 |`CSR_SEPC`|`12’h141`|Supervisor exception program counter|Yes|Yes|Supervisor
 |`CSR_SCAUSE`|`12’h142`|Supervisor trap cause|Yes|Yes|Supervisor
 |`CSR_STVAL`|`12’h143`|Supervisor bad address or instruction|Yes|Yes|Supervisor

@@ -20,7 +20,7 @@
 +incdir+common/local/util/
 +incdir+corev_apu/register_interface/include/
 
-config/target/cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi/rtl_cfg_pkg.sv
+config/target/fpga_linux_cv64a6/rtl_cfg_pkg.sv
 core/include/riscv_pkg.sv
 corev_apu/riscv-dbg/src/dm_pkg.sv
 vendor/openhwgroup/cvfpu/src/fpnew_pkg.sv
@@ -35,7 +35,6 @@ core/include/cvxif_pkg.sv
 vendor/pulp-platform/common_cells/src/cf_math_pkg.sv
 core/include/instr_tracer_pkg.sv
 core/cvxif_example/include/cvxif_instr_pkg.sv
-core/acc_dispatcher.sv
 corev_apu/rv_plic/rtl/rv_plic_reg_pkg.sv
 common/local/util/sram.sv
 vendor/pulp-platform/common_cells/src/deprecated/rrarbiter.sv

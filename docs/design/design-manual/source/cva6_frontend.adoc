@@ -57,8 +57,8 @@ cases are considered:
 ________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 1.  When the instruction is a JALR which corresponds to a return (rs1 = x1 or rs1 = x5).
 RAS provides next PC as a prediction.
-2.  When the instruction is a JALR which *does not* correspond to areturn.
-If BTB (Branch Target Buffer) returns a valid address, then BTBpredicts next PC.
+2.  When the instruction is a JALR which *does not* correspond to a return.
+If BTB (Branch Target Buffer) returns a valid address, then BTB predicts next PC.
 Else JALR is not considered as a control flow instruction, which will generate a mispredict.
 3.  When the instruction is a conditional branch.
 If BHT (Branch History table) returns a valid address, then BHT predicts next PC.
@@ -250,9 +250,9 @@ include::port_instr_realign.adoc[]
 Instr_queue submodule
 +++++++++++++++++++++
 
-The instr_queue receives mutliple instructions from instr_realign submodule to create a valid stream to be executed.
+The instr_queue receives multiple instructions from instr_realign submodule to create a valid stream to be executed.
 Frontend pushes instructions and all related information into the FIFO for storage, including details needed in case of a misprediction or exception: the instructions themselves, instruction control flow type, exception, exception address, and predicted address.
-DECODE pops them when decode stage is ready and indicates to the FRONTEND the instruction has been consummed.
+DECODE pops them when decode stage is ready and indicates to the FRONTEND the instruction has been consumed.
 
 
 The instruction queue contains two FIFOs: one for instructions and one for addresses, which stores addresses in case of a prediction.
@@ -272,7 +272,7 @@ Instr_scan submodule
 As compressed extension is enabled, {instr-per-fetch} instr_scan are instantiated to handle up to {instr-per-fetch} instructions per cycle.
 
 Each instr_scan submodule pre-decodes the fetched instructions coming from the instr_realign module, also calculate the immediate, instructions could be compressed or not.
-The instr_scan submodule is a flow controller which provides the intruction type: branch, jump, return, jalr, imm, call or others.
+The instr_scan submodule is a flow controller which provides the instruction type: branch, jump, return, jalr, imm, call or others.
 These outputs are used by the branch prediction feature.
 
 include::port_instr_scan.adoc[]

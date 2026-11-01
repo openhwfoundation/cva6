@@ -34,7 +34,7 @@ class uvma_interrupt_cfg_c extends uvm_object;
    // Select obi mem
    rand bit                      mem_obi_sel;
 
-   // enbale/disable clear mechanism
+   // enable/disable clear mechanism
    rand bit                      enable_clear_irq;
 
    // Number of cycle before Timeout if the agent failed to write into irq_add

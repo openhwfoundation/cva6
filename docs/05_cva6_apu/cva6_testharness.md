@@ -128,7 +128,7 @@ Only the signals related to the test_harness have been shown in the above diagra
 
 ## PLIC
 
-PLIC is a slave in this SoC. The hiearchy through which the request is propagated to the plic_top module is as follows:
+PLIC is a slave in this SoC. The hierarchy through which the request is propagated to the plic_top module is as follows:
 
 ![plic_hierarchy](_static/plic.png )
 

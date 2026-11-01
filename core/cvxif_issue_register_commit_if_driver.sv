@@ -38,8 +38,8 @@ module cvxif_issue_register_commit_if_driver #(
     input [(CVA6Cfg.NrRgprPorts/CVA6Cfg.NrIssuePorts)-1:0][CVA6Cfg.XLEN-1:0] register_i,
     input logic [(CVA6Cfg.NrRgprPorts/CVA6Cfg.NrIssuePorts)-1:0] rs_valid_i
 );
-  // X_ISSUE_REGISTER_SPLIT = 0 : Issue and register transactions are synchrone
-  // Mandatory assignement
+  // X_ISSUE_REGISTER_SPLIT = 0 : Issue and register transactions are synchronous
+  // Mandatory assignment
   assign register_valid_o  = issue_valid_o;
   assign register_o.hartid = issue_req_o.hartid;
   assign register_o.id     = issue_req_o.id;

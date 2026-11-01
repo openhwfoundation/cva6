@@ -42,7 +42,7 @@ check_questa_home:
 FLIST_TB   := $(CVA6_TB_DIR)/Flist.cva6_tb
 
 # target takes one of the following cva6 hardware configuration:
-# cv64a6_imafdc_sv39, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32
+# cv64a6_imafdc_sv39, cv32a6_imac_sv0, fpga_linux_cv32a6
 target     ?= cv64a6_imafdc_sv39
 FLIST_CORE = $(if $(gate),$(CVA6_REPO_DIR)/core/Flist.cva6_gate,$(CVA6_REPO_DIR)/core/Flist.cva6)
 th_top_level      := $(if $(gate),ariane_gate_tb,ariane_tb)

@@ -175,8 +175,6 @@ ${CVA6_REPO_DIR}/core/amo_buffer.sv
 ${CVA6_REPO_DIR}/core/store_unit.sv
 ${CVA6_REPO_DIR}/core/commit_stage.sv
 ${CVA6_REPO_DIR}/core/axi_shim.sv
-${CVA6_REPO_DIR}/core/cva6_accel_first_pass_decoder_stub.sv
-${CVA6_REPO_DIR}/core/acc_dispatcher.sv
 ${CVA6_REPO_DIR}/core/cva6_fifo_v3.sv
 
 // What is "frontend"?

@@ -117,8 +117,6 @@ module ex_stage
     input logic [CVA6Cfg.TRANS_ID_BITS-1:0] commit_tran_id_i,
     // The committing instruction is dropped (speculative scoreboard) - COMMIT_STAGE
     input logic commit_drop_i,
-    // TO_BE_COMPLETED - ACC_DISPATCHER
-    input logic stall_st_pending_i,
     // No store pending - COMMIT_STAGE
     output logic no_st_pending_o,
     // Shared TLB is busy processing a multi-cycle flush
@@ -187,8 +185,6 @@ module ex_stage
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_load_data_action_i,
     input logic sdtrig_store_stall_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_store_action_i,
-    // accelerate port result is valid - ACC_DISPATCHER
-    input logic acc_valid_i,
     // Enable virtual memory translation - CSR_REGFILE
     input logic enable_translation_i,
     // Enable G-Stage memory translation - CSR_REGFILE
@@ -568,7 +564,6 @@ module ex_stage
       .clk_i,
       .rst_ni,
       .flush_i,
-      .stall_st_pending_i,
       .no_st_pending_o,
       .shared_tlb_flush_busy_o(shared_tlb_flush_busy_o),
       .mbe_i,

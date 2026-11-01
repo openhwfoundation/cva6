@@ -1,0 +1,8 @@
+= [PLACEHOLDER] UVM Tandem Support: the Reference Manual
+:toc:
+
+== Architectue of UVM Tandem Support
+
+== UVM Programmer's View
+
+== Adapting tandem support to new targets

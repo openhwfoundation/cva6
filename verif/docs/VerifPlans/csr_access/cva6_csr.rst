@@ -540,7 +540,7 @@ The ``sip`` register contains information on pending interrupts.
      - USIP
      - 
      - read-write
-     - A user\-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt\-pending \(USIP\) bit
+     - A user\-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt\-pending \(USIP\) bit
 
 Supervisor Address Translation and Protection Register 
 --------------------------
@@ -1338,7 +1338,7 @@ Address register for Physical Memory Protection.
      - read-write
      - Address register for Physical Memory Protection\.
 
-Instuction Cache Register 
+Instruction Cache Register 
 --------------------------
 AddressOffset: 'h700 
 --------------------------
@@ -2561,7 +2561,7 @@ AddressOffset: 'hF11
 --------------------------
 Description:
 --------------------------
-This register provids the JEDEC manufacturer ID of the provider of the core.
+This register provides the JEDEC manufacturer ID of the provider of the core.
 
 .. list-table::
    :widths: 20 20 15 15 40
@@ -2581,7 +2581,7 @@ This register provids the JEDEC manufacturer ID of the provider of the core.
      - offset
      - Offset
      - read-only
-     - Contain encording for the final byte discarding the parity bit\.
+     - Contain encoding for the final byte discarding the parity bit\.
 
 Machine Architecture ID Register 
 --------------------------

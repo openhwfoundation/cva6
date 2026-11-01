@@ -1,5 +1,0 @@
-################################################################################
-# Not baselined yet: this target was just created and SpyGlass has never been
-# run on it. Left empty on purpose rather than carrying over the report of the
-# non-H target it was derived from, which the hypervisor extension makes wrong.
-################################################################################

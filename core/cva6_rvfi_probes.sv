@@ -96,6 +96,7 @@ module cva6_rvfi_probes
     instr.lsu_ctrl_fu = lsu_ctrl_i.fu;
     instr.lsu_ctrl_be = lsu_ctrl_i.be;
     instr.lsu_ctrl_trans_id = lsu_ctrl_i.trans_id;
+    instr.lsu_ctrl_data = lsu_ctrl_i.data;
 
     instr.wbdata = wbdata_i;
     instr.mem_paddr = mem_paddr_i;

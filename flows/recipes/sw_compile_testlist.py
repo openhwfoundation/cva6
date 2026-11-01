@@ -193,6 +193,7 @@ def sw_compile_testlist(
                     preprocessor_directives=preprocessor_directives,
                     benchmark_iterations=None,
                     test_name=test_file_name,
+                    pk_dir=None,
                     quiet=quiet,
                 )
                 results.add_row(

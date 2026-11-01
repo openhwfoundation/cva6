@@ -21,7 +21,7 @@ source verif/regress/install-riscv-arch-test.sh
 source ./verif/sim/setup-env.sh
 
 if ! [ -n "$DV_TARGET" ]; then
-  DV_TARGET=cv32a6_imac_sv32
+  DV_TARGET=fpga_linux_cv32a6
 fi
 
 if ! [ -n "$DV_SIMULATORS" ]; then

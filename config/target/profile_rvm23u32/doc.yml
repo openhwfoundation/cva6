@@ -1,0 +1,59 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Header of the documentation generated for this target by
+# `./cook.py docs-build`. See flows/README.md.
+#
+# `authors` lists who is responsible for it, one entry per line of
+# the header: an organisation, the people it delegates to, or both.
+authors:
+  - "Looking for a maintainer"
+
+# Category of this target in the dashboard (config/README.md): official,
+# fpga, profile or cross
+category: profile
+
+# Role of this target among the reference points of the configuration
+# matrix (config/README.md)
+role: "Profile RVM23 (microcontroller, draft), as close as the core supports"
+
+# RISC-V profile this target is closest to, and what the core lacks for
+# it. Kept in sync with the support table of config/README.md.
+profile:
+  name: RVM23U32
+  version: "draft"
+  missing: []
+  partial: []
+  note: "Checked against the draft; to review when RVM23 is ratified."
+
+# Point of the configuration matrix (config/README.md). Axes:
+matrix:
+  XLEN: "32"
+  C: "C"
+  SS: "2c"
+  Zc: "pt"
+  Cvxif: "noX"
+  Priv: "MU"
+  MMU: "nommu"
+  Mem: "OBI"
+  FP: "none"
+  ISA: "B"
+  Cnt: "Pch"
+  Trig: "off"
+  Debug: "D"
+  BP: "BHT"
+  Endian: "LE"
+  Dcls: "-"
+  Ecc: "-"
+  PMP: "pmp"
+  Tval: "tval"
+  LdBuf: "2-15"
+  LdPipe: "0"
+  StPipe: "0"
+  description: "cv32a6_imac_zcmp_zcmt_pmp_obi_c2_mu_nox_dbg_tval_cnt_ldp0"

@@ -8,3 +8,4 @@
 "../../core/include"
 "../register_interface/include"
 "../"
+"../../core/cache_subsystem/hpdcache/rtl/src/utils/ecc"

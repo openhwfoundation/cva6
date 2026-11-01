@@ -39,8 +39,8 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--debugFile", help=" debug_gen yaml input file")
     parser.add_argument("-m", "--modif", help="ISA /CSR Formatter if exist")
     parser.add_argument("-i", "--temp", help="Full ISA /SPIKETemplate")
-    parser.add_argument("-t", "--target", help="Specifiy Config Name")
-    parser.add_argument("-f", "--format", help="Specifiy format output")
+    parser.add_argument("-t", "--target", help="Specify Config Name")
+    parser.add_argument("-f", "--format", help="Specify format output")
     args, unknown_args = parser.parse_known_args()
 
     if args.format in ['rst']:

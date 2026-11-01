@@ -1,0 +1,25 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Lint baseline of summit_oldenhorn: diagnostics per tool, severity and rule.
+# Written by `./cook.py rtl-lint -t <target> --update-baseline`, read
+# by rtl-lint, which fails on a new rule or a higher count.
+slang:
+  warning:
+    finish-num: 10
+    seq-no-match: 1
+verilator:
+  warning:
+    CMPCONST: 1
+    LITENDIAN: 63
+    SELRANGE: 58
+    UNSIGNED: 3
+    WIDTHCONCAT: 2
+    WIDTHEXPAND: 79
+    WIDTHTRUNC: 33

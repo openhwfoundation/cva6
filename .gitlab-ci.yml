@@ -42,12 +42,12 @@
 # Targets of each job category of the macro, per pipeline kind (see the
 # MY_*_TARGETS variables below). Development branches and merge requests
 # keep the lists of the macro (DOCS_TARGETS, SPYGLASS_TARGETS and
-# GTECH_TARGETS of flows/macros/full_regression.py, to be kept in sync);
-# master_candidate takes the same lists but synthesises every target.
+# GTECH_TARGETS of flows/macros/full_regression.py, to be kept in sync), and
+# so does master_candidate.
 .targets_dev: &targets_dev
   MY_DOCS_TARGETS: "cv32a60x"
-  MY_SPYGLASS_TARGETS: "cv32a60x,cv32a60x_no_zcmt,cv32a65x_noPMP"
-  MY_GTECH_TARGETS: "cv32a60x,cv32a65x_noPMP_axi,cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi"
+  MY_SPYGLASS_TARGETS: "cv32a60x,cv32a65x"
+  MY_GTECH_TARGETS: "cv32a60x,cv32a65x"
   MY_SYNTH_TARGETS: "all"
 
 # PAGES_PREFIX is set here, next to the pipeline kind it belongs to: it
@@ -80,9 +80,7 @@ workflow:
       variables:
         PAGES_PREFIX: ""
         PAGES_EXPIRE: never
-        # The reference run (master_candidate) synthesises every target
         <<: *targets_dev
-        MY_GTECH_TARGETS: "all"
     - if: $CI_COMMIT_BRANCH =~ /^dev.*/
       variables:
         <<: *targets_dev
@@ -189,7 +187,14 @@ full regression:
     # restore a consistent VCS_HOME (a mismatch makes VCS abort at
     # elaboration without writing anything to its log).
     - source $SYN_VCS_BASHRC
-    - pip3 install -r flows/requirements.txt
+    # The flows need Python 3.12, whatever the Python of the image: uv
+    # creates the virtual environment with an interpreter of its own,
+    # downloaded once into its cache on the runner.
+    - command -v uv || pip3 install --user uv
+    - export PATH=$HOME/.local/bin:$PATH
+    - uv venv --allow-existing -p 3.12 .venv
+    - . .venv/bin/activate
+    - uv pip install -r flows/requirements.txt
     # Point at the Spike built by the `build spike` job: it lives in a
     # shared directory keyed by the core-v-verif commit, so nothing has to
     # transit through artifacts.

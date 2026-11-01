@@ -18,7 +18,7 @@
 
 # Gen From Risc-V Config
 
-This software takes a `Risc -V Config Yaml` description of CSR Registers, and generates  ReStructuredText documents and Mardown Documents for CSR Registers and ISA Extensions. In the example/tb directory there is an example of how to generate
+This software takes a `Risc-V Config Yaml` description of CSR Registers, and generates  ReStructuredText documents and Markdown Documents for CSR Registers and ISA Extensions. In the example/tb directory there is an example of how to generate
 the packages.
  
 For more details about RISC-V Config Yaml, see [Annexes](##Annexes) section
@@ -39,7 +39,7 @@ python3 <scripts/riscv_config_gen>.py -s <../riscv-config/Config_Name/generated/
 #Generate Restructured-text documentation for ISA extensions
 python3 <scripts/riscv_config_gen>.py -s <../riscv-config/Config_Name/generated/isa_gen>.yaml -i <templates/isa_template>.yaml -m <updaters/Config_Name/isa_updater>.yaml -t < Config_Name>
 
-#Generate  the Yaml spike configuration file 
+#Generate the Yaml spike configuration file 
 python3 <scripts/riscv_config_gen>.py -s <../riscv-config/Config_Name/generated/isa_gen>.yaml -c <../riscv-config/Config_Name/generated/custom_gen>.yaml  -i <templates/spike>.mako -m <updaters/Config_Name/spike_updater>.yaml -t < Config_Name>
 
 ```
@@ -53,7 +53,7 @@ python3 scripts/riscv_config_gen.py -s ../riscv-config/cv32a65x/generated/isa_ge
 #Generate  the Restructured-text documentation for ISA extensions
 python3 scripts/riscv_config_gen.py -s ../riscv-config/cv32a65x/generated/isa_gen.yaml -i templates/isa_template.yaml -m updaters/cv32a65x/isa_updater.yaml -t cv32a65x
 
-#Generate  the Yaml spike configuration file  
+#Generate the Yaml spike configuration file  
 python3 scripts/riscv_config_gen.py -s ../riscv-config/cv32a65x/generated/isa_gen.yaml -c ../riscv-config/cv32a65x/generated/custom_gen.yaml -i templates/spike.mako -m updaters/cv32a65x/spike_updater.yaml -t cv32a65x
 
 ```
@@ -167,7 +167,7 @@ Example : ISA_Updater.yaml
                         sub_key : sub_value (if exist if not dont include it )
                         
                         cond: value
-- Exemple : 
+- Example : 
                
                 exclude : 
                 
@@ -185,7 +185,7 @@ Example : ISA_Updater.yaml
                   Register Name :
             
                         range : number
-- Exemple : 
+- Example : 
            
                     pmpaddr :
                     
@@ -217,10 +217,10 @@ CSR/ISA Updater read RISC-CONFIG.yaml and update the registers so if you want to
                 cores:
                         
                        <parameter name> : <parameter value> 
-- Exemple : 
+- Example : 
 
                 Bootroom : true
-- Exemple : 
+- Example : 
                
                 cores: 
                    isa: rv32imc_zba_zbb_zbs_zbc_zicsr_zifencei
@@ -260,7 +260,7 @@ Risc-V Config Yaml file is generated based on Risc-Config tool which include all
 You can execute the tool from `../config/riscv-config` repo  :
 
 
-- It needs python dependancies with : 
+- It needs python dependencies with : 
 
     'pip3 install -r ../../vendor/riscv-config/Requirements.txt' .
 
@@ -311,7 +311,7 @@ __Format__ :
                         Pseudocode: 
                         Invalid_Values: 
                         Exception_Raised:
-__Exemple__:
+__Example__:
         
           RV32I Base Integer Instructions:
             Description : |

@@ -242,7 +242,11 @@ machine without them still builds the CVA6 documentation.
 - **riscv-arch-test** - Official RISC-V architecture tests
 - **riscv-compliance** - Compliance test suite
 - **riscv-dv** - Random instruction generator
-- **Proxy kernel** - system calls (optional)
+- **riscv-pk** - RISC-V proxy kernel, built per target by `pk-build`
+  (optional, see [Proxy kernel](#proxy-kernel))
+- **Zephyr** - RTOS sources, for `zephyr-build` (optional, see
+  [`zephyr-build`](#zephyr-build)); also needs the RISC-V toolchain of the
+  Zephyr SDK
 
 ## Installation
 
@@ -300,16 +304,19 @@ patch: until then, `cook.py` stops with the list of the patches not applied.
 
 ### Python Environment
 
-**Python 3.9 or later.** Everything the flows import is listed in
-`flows/requirements.txt`, installed in one go:
+**Python 3.12 or later**, which `cook.py` checks before anything else.
+Everything the flows import is listed in `flows/requirements.txt`. The
+virtual environment does not depend on the Python of the system:
+[uv](https://docs.astral.sh/uv/) downloads the interpreter it is created
+with.
 
 ```bash
-pip3 install -r flows/requirements.txt
+pip3 install --user uv     # or any other way of installing uv
+uv venv -p 3.12 .venv && . .venv/bin/activate
+uv pip install -r flows/requirements.txt
 
-# Without write access to the system site-packages, either
-pip3 install --user -r flows/requirements.txt   # then add ~/.local/bin to PATH
-# or, preferred, in a virtual environment
-python3 -m venv .venv && . .venv/bin/activate
+# With a Python 3.12 already installed, the standard tools do the same
+python3.12 -m venv .venv && . .venv/bin/activate
 pip3 install -r flows/requirements.txt
 ```
 
@@ -321,8 +328,9 @@ worked on. Leave `VENV_PATH` unset to manage the interpreter yourself.
 What it covers: the CLI itself (`typer`, `rich`), the configuration and
 report files (`pyyaml`, `jinja2`), the charts of the reports (`plotly`,
 `pandas`, `matplotlib`, `scipy`), the serial console of the FPGA boot
-(`pyserial`), the code quality recipes (`black`, `pylint`) and the
-documentation (`sphinx`, `sphinx-rtd-theme`, `recommonmark`).
+(`pyserial`), the code quality recipes (`black`, `pylint`), the
+documentation (`sphinx`, `sphinx-rtd-theme`, `recommonmark`) and the build
+scripts of Zephyr (`pyelftools`, `pykwalify`, `jsonschema`, `packaging`).
 
 The set is what ReadTheDocs installs on its own (`flows/requirements.txt`
 is the `requirements` of its config), so a machine set up for the flows
@@ -400,29 +408,29 @@ Spike install. The rest only matter through `PATH`.
 Example configuration:
 
 ```yaml
-# LLVM 20 configuration
-llvm-20-1-8:
-    TOOLS_PATH: "/opt/riscv/llvm-20"
+# LLVM 22 configuration
+llvm-22:
+    TOOLS_PATH: "/opt/riscv/llvm-22"
     CLANG: "riscv32-unknown-elf-clang"
     GCC: None
     OBJDUMP: "riscv32-unknown-elf-objdump"
     NM: "riscv32-unknown-elf-nm"
     TARGET_TOOLCHAIN: "riscv32-unknown-elf"
 
-# GCC 14 configuration
-gcc-14:
-    TOOLS_PATH: "/opt/riscv/gcc-14"
+# GCC 15 configuration
+gcc-15:
+    TOOLS_PATH: "/opt/riscv/gcc-15"
     CLANG: None
-    GCC: "riscv32-unknown-elf-gcc"
-    OBJDUMP: "riscv32-unknown-elf-objdump"
-    NM: "riscv32-unknown-elf-nm"
-    TARGET_TOOLCHAIN: "riscv32-unknown-elf"
+    GCC: "riscv-none-elf-gcc"
+    OBJDUMP: "riscv-none-elf-objdump"
+    NM: "riscv-none-elf-nm"
+    TARGET_TOOLCHAIN: "riscv-none-elf"
 ```
 
 **Notes:**
 - `TOOLS_PATH`: Directory containing the toolchain
 - Set `None` for `GCC` if using Clang, and vice versa
-- Configuration name (e.g., `llvm-20-1-8`) is used with `-c` option in commands
+- Configuration name (e.g., `llvm-22`) is used with `-c` option in commands
 - `full-regression` compiles the software of a target with the
   `my_<target>_toolchain` entry, or with the `default_toolchain` entry when the target
   has none, so a configuration created on the fly needs no new entry
@@ -495,7 +503,7 @@ Build a simple "Hello World" test program.
 
 **Required Options:**
 - `-t, --target TEXT` - CVA6 user configuration (e.g., cv32a60x, cv32a65x)
-- `-c, --toolchain [llvm-20-1-8|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 
 **Optional:**
 - `--march TEXT` - Custom RISC-V architecture string (overrides target default)
@@ -503,7 +511,7 @@ Build a simple "Hello World" test program.
 
 **Example:**
 ```bash
-./cook.py hello-world -t cv32a60x -c llvm-20-1-8
+./cook.py hello-world -t cv32a60x -c llvm-22
 ```
 
 #### `coremark`
@@ -516,7 +524,7 @@ Build the CoreMark performance benchmark.
 
 **Required Options:**
 - `-t, --target TEXT` - CVA6 user configuration
-- `-c, --toolchain [llvm-20-1-8|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 
 **Optional:**
 - `--march TEXT` - Custom march string
@@ -524,7 +532,7 @@ Build the CoreMark performance benchmark.
 
 **Example:**
 ```bash
-./cook.py coremark -t cv32a60x -c llvm-20-1-8 --march rv32imac
+./cook.py coremark -t cv32a60x -c llvm-22 --march rv32imac
 ```
 
 **Output:** Generates `build/<target>/compile/coremark/*.elf` and reports
@@ -539,7 +547,7 @@ Build the Dhrystone performance benchmark.
 
 **Required Options:**
 - `-t, --target TEXT` - CVA6 user configuration
-- `-c, --toolchain [llvm-20-1-8|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 
 **Optional:**
 - `--march TEXT` - Custom march string
@@ -547,14 +555,92 @@ Build the Dhrystone performance benchmark.
 
 **Example:**
 ```bash
-./cook.py dhrystone -t cv32a65x -c gcc-14
+./cook.py dhrystone -t cv32a65x -c gcc-15
 ```
+
+#### `pk-hello-world`
+
+Build the Hello world program to run under the RISC-V proxy kernel (see
+[Proxy kernel](#proxy-kernel)). It is a plain user program of the
+toolchain: newlib start files and default linker script, `printf` going
+through the `write` system call of pk.
+
+```bash
+./cook.py pk-hello-world [OPTIONS]
+```
+
+**Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration, with `pk-build` run first
+- `-c, --toolchain [gcc-15|...]` - GCC toolchain defined in `$CONFIG_DIR/compiler.yml`
+
+The program is compiled for the march/mabi pk was built for, and its
+manifest records the pk-build directory: the TestHarness run recipes then
+load pk and give it the program as its argument.
+
+**Example:**
+```bash
+./cook.py pk-build -t fpga_linux_cv32a6 -c gcc-15
+./cook.py pk-hello-world -t fpga_linux_cv32a6 -c gcc-15
+./cook.py verilator-testharness-run -t fpga_linux_cv32a6 -n pk-hello-world
+```
+
+**Output:** `build/<target>/compile/pk-hello-world/`
+
+#### `zephyr-hello-world`
+
+Build the Hello world application of the Zephyr RTOS
+(`verif/tests/custom/zephyr/hello_world`) with `zephyr-build`. It prints
+through the UART and ends the simulation by writing `tohost`, so that the
+TestHarness run recipes run it as any other test.
+
+```bash
+./cook.py zephyr-hello-world -t fpga_linux_cv32a6 -c zephyr-sdk
+./cook.py verilator-testharness-run -t fpga_linux_cv32a6 -n zephyr-hello-world
+```
+
+**Output:** `build/<target>/compile/zephyr-hello-world/`
 
 ---
 
 ### Software Compilation
 
 Compile C/Assembly programs for CVA6 targets.
+
+#### `zephyr-build`
+
+Build a Zephyr application for a target, with the sources `git-dependencies
+--repo zephyr` clones in `tools/zephyr`. Zephyr supports the CVA6 SoC of
+the Genesys 2 board, whose memory map is the one of the TestHarness (DRAM
+at 0x8000_0000, ns16550 UART at 0x1000_0000, CLINT, PLIC); the board
+follows from the target:
+
+| Target | Zephyr board |
+| --- | --- |
+| 32-bit, with A | `cv32a6_genesys_2` (rv32ima) |
+| 64-bit, with A, F and D | `cv64a6_genesys_2` (rv64imafdc) |
+
+Other targets are refused. Zephyr runs in M-mode and needs no MMU.
+
+```bash
+./cook.py zephyr-build [OPTIONS]
+```
+
+**Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration
+- `-c, --toolchain TEXT` - GCC toolchain of `$CONFIG_DIR/compiler.yml` whose
+  libgcc is built for `-mcmodel=medany`, which the code above 2 GB needs:
+  the RISC-V toolchain of the [Zephyr SDK](https://github.com/zephyrproject-rtos/sdk-ng/releases)
+  (`toolchain_linux-x86_64_riscv64-zephyr-elf`), declared for instance as
+  `zephyr-sdk` with `GCC: riscv64-zephyr-elf-gcc`
+- `--app TEXT` - Application directory, with its `CMakeLists.txt`
+- `--out TEXT` - Test name
+
+The build runs CMake and Ninja with the Python of `cook.py`, without west
+and without any Zephyr module. The application must define and write
+`tohost` to end the simulation. The output is laid out as the one of
+`sw-compile`, so the run recipes take the test name.
+
+**Output:** `build/<target>/compile/<test>/`
 
 #### `sw-compile`
 
@@ -569,7 +655,7 @@ Compile software from source files and generate ELF binary with reports.
 
 **Required Options:**
 - `-t, --target TEXT` - CVA6 user configuration
-- `-c, --toolchain [llvm-20-1-8|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 - `--linker TEXT` - Linker script file path
 - `--out TEXT` - Test name (used throughout the flow)
 
@@ -584,7 +670,7 @@ Compile software from source files and generate ELF binary with reports.
 ```bash
 ./cook.py sw-compile \
   -t cv32a60x \
-  -c llvm-20-1-8 \
+  -c llvm-22 \
   --linker config/target/cv32a60x/link.ld \
   --out my_test \
   --inc verif/tests/custom/common \
@@ -612,7 +698,7 @@ Build tests from a YAML testlist file.
 
 **Required Options:**
 - `-t, --target TEXT` - CVA6 user configuration
-- `-c, --toolchain [llvm-20-1-8|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 - `-l, --testlist TEXT` - Testlist YAML file in `verif/tests`
 
 **Optional:**
@@ -629,10 +715,10 @@ riscv-tests`.
 **Example:**
 ```bash
 # Compile all tests in the list
-./cook.py sw-compile-testlist -t cv32a60x -c llvm-20-1-8 -l verif/tests/base_rv32_p.yaml
+./cook.py sw-compile-testlist -t cv32a60x -c llvm-22 -l verif/tests/base_rv32_p.yaml
 
 # Compile only one test from the list
-./cook.py sw-compile-testlist -t cv32a60x -c llvm-20-1-8 -l verif/tests/base_rv32_p.yaml -n rv32ui-p-add
+./cook.py sw-compile-testlist -t cv32a60x -c llvm-22 -l verif/tests/base_rv32_p.yaml -n rv32ui-p-add
 ```
 
 ---
@@ -921,6 +1007,26 @@ In both cases a log carrying `*** FAILED ***`, `SIMULATION FAILED`,
 Verilator and VCS are verified; the Questa and Xcelium recipes are
 **not verified**.
 
+#### Proxy kernel
+
+A test built to run under the RISC-V proxy kernel (`pk-hello-world`) runs
+on the TestHarness only, on Verilator and VCS. pk runs in M-mode, loads
+the program in U-mode and serves its system calls through HTIF, which
+reaches the core through the debug module (SimDTM):
+
+- the target needs U-mode (`RVU`) and the debug module (`DebugEn`);
+- the run loads pk, gives it the program as argument, keeps the debug
+  module enabled (no `+debug_disable`) and raises the RVFI tracer cycle
+  limit to 20M (`+time_out`): pk boots before it runs the program;
+- the test ends with the `exit` system call of the program, which the
+  SimDTM reports to the harness;
+- VCS loads the SimDTM library of `pk-build` ahead of the Spike ones, so
+  that HTIF does not write the preloaded pk again through the debug
+  module, eight bytes per debug session. Questa and Xcelium refuse such a
+  test.
+
+Hello world takes about 2.5M cycles: 2 minutes on Verilator, 4 on VCS.
+
 Common to all of them:
 
 - **AXI targets only**: those whose configuration declares `hier: axi`.
@@ -994,6 +1100,28 @@ With tandem enabled, the mode directory is
 comparison result to `testharness.log.yaml` in the run directory.
 
 **Output:** `build/<target>/simulation/sim_rtl_verilator_testharness/<run>/`
+
+#### `pk-build`
+
+Build the RISC-V proxy kernel of a target, from the sources `git-dependencies
+--repo riscv-pk` clones in `tools/riscv-pk`, for the march/mabi of the
+target. It also builds `libpk_dtm.so`, the SimDTM library VCS loads under
+pk (`corev_apu/tb/dpi/pk_dtm.cc`, against the fesvr library of
+`tools/spike`).
+
+```bash
+./cook.py pk-build [OPTIONS]
+```
+
+**Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration, with U-mode
+- `-c, --toolchain [gcc-15|...]` - GCC toolchain defined in `$CONFIG_DIR/compiler.yml`
+
+**Optional:**
+- `-j, --jobs INTEGER` - Parallel make jobs (default: 8)
+
+**Output:** `build/<target>/pk/`: `install/<host>/bin/pk`, `libpk_dtm.so`,
+and the manifest the run recipes read (pk, its `tohost`, the library)
 
 #### `vcs-testharness-comp`
 
@@ -1085,15 +1213,15 @@ name; the individual runs use `sim_rtl_verilator_testharness_tandem/`.
 #### Example
 
 ```bash
-./cook.py sw-compile-testlist -t cv32a65x_axi -c gcc-15 \
+./cook.py sw-compile-testlist -t profile_perf32_axi -c gcc-15 \
   -l verif/tests/testlist_verilator_testharness_smoke.yaml
-./cook.py verilator-testharness-comp -t cv32a65x_axi
-./cook.py testharness-run-testlist -s verilator -t cv32a65x_axi \
+./cook.py verilator-testharness-comp -t profile_perf32_axi
+./cook.py testharness-run-testlist -s verilator -t profile_perf32_axi \
   -l verif/tests/testlist_verilator_testharness_smoke.yaml
 
 # The same tests on VCS
-./cook.py vcs-testharness-comp -t cv32a65x_axi
-./cook.py testharness-run-testlist -s vcs -t cv32a65x_axi \
+./cook.py vcs-testharness-comp -t profile_perf32_axi
+./cook.py testharness-run-testlist -s vcs -t profile_perf32_axi \
   -l verif/tests/testlist_verilator_testharness_smoke.yaml
 ```
 
@@ -1361,16 +1489,16 @@ level reads `bootrom_<XLEN>.sv`, so the same binary serves every target of
 that width. This is why the ISA is pinned to `rv<XLEN>im_zicsr` instead of
 following the `march` of the target: a shared ROM may only use what every
 configuration decodes, and their ISA strings have no common superset (the
-`cv32a60x` family carries `zba_zbb_zbs_zbc`, `cv32a6_imac_sv32` carries
-`zbkb`, `cv32a6_ima_sv32_fpga` has `RVB: 0`). Upstream pinned it down for
+`cv32a60x` family carries `zba_zbb_zbs_zbc`, `fpga_linux_cv32a6` carries
+`zbkb`, `profile_rvi20u32` has no bitmanip). Upstream pinned it down for
 that reason (openhwgroup/cva6#2121).
 
 **Example:**
 ```bash
-./cook.py fpga-bootrom -t cv32a6_imac_sv32 -c gcc-15 --board genesys2
+./cook.py fpga-bootrom -t fpga_linux_cv32a6 -c gcc-15 --board genesys2
 ```
 
-**Output:** `build/bootrom/<board>/bootrom_<XLEN>.sv` (plus the resolved
+**Output:** `build/bootrom/<board>/rv<XLEN>/bootrom_<XLEN>.sv` (plus the resolved
 `.dts`, the `.dtb` and the intermediate binaries)
 
 #### `vivado-fpga-build`
@@ -1415,11 +1543,11 @@ sources after the include to overload the common list.
 **Example:**
 ```bash
 # Bitstream for the default board
-./cook.py vivado-fpga-build -t cv32a6_imac_sv32
+./cook.py vivado-fpga-build -t fpga_linux_cv32a6
 
 # Another board, with the flash image, reusing the generated IPs
 ./cook.py vivado-fpga-build \
-  -t cv32a6_imac_sv32 \
+  -t fpga_linux_cv32a6 \
   --board nexys_video \
   --mcs \
   --no-bootrom
@@ -1463,12 +1591,12 @@ rather than pushed.
 ```bash
 # Program the board driven by a local hw_server
 ./cook.py vivado-fpga-program \
-  -t cv32a6_imac_sv32 \
+  -t fpga_linux_cv32a6 \
   --hw-server localhost:3121
 
 # Program an artifact built elsewhere, with the lab edition
 ./cook.py vivado-fpga-program \
-  -t cv32a6_imac_sv32 \
+  -t fpga_linux_cv32a6 \
   --bitstream artifacts/FPGA/bitstream/ariane_xilinx.bit \
   --vivado-cmd vivado_lab
 ```
@@ -1514,7 +1642,7 @@ failure.
 
 **Example:**
 ```bash
-./cook.py fpga-linux-boot -t cv32a6_imac_sv32 --uart /dev/ttyUSB1
+./cook.py fpga-linux-boot -t fpga_linux_cv32a6 --uart /dev/ttyUSB1
 ```
 
 **Output:** `build/<target>/fpga_boot/<board>/boot.log` (the full console
@@ -1666,8 +1794,8 @@ failure.
 
 ```bash
 # Board cabled to bench-pc, flows running on the Linux server
-./cook.py vivado-fpga-program -t cv32a6_imac_sv32 --hw-server bench-pc:3121
-./cook.py fpga-linux-boot -t cv32a6_imac_sv32 --uart socket://bench-pc:4001
+./cook.py vivado-fpga-program -t fpga_linux_cv32a6 --hw-server bench-pc:3121
+./cook.py fpga-linux-boot -t fpga_linux_cv32a6 --uart socket://bench-pc:4001
 ```
 
 If the two machines are not on the same network, forward the two ports
@@ -1675,8 +1803,8 @@ through SSH rather than exposing them:
 
 ```bash
 ssh -N -L 3121:localhost:3121 -L 4001:localhost:4001 user@bench-pc
-./cook.py vivado-fpga-program -t cv32a6_imac_sv32 --hw-server localhost:3121
-./cook.py fpga-linux-boot -t cv32a6_imac_sv32 --uart socket://localhost:4001
+./cook.py vivado-fpga-program -t fpga_linux_cv32a6 --hw-server localhost:3121
+./cook.py fpga-linux-boot -t fpga_linux_cv32a6 --uart socket://localhost:4001
 ```
 
 ---
@@ -1850,6 +1978,9 @@ authors:
 | `license` | the licence name | Solderpad Hardware License, Version 2.1 |
 | `spdx` | the SPDX identifier | `Apache-2.0 WITH SHL-2.1` |
 | `url` | where to obtain the licence | `https://solderpad.org/licenses/` |
+| `category` | section of the dashboard: `official` (maintained by an organisation), `fpga` (Linux on a board), `profile` (preset) or `cross` (option cross) | `official` |
+| `role` | one-line description shown at the top of the detail of the target in the dashboard | none |
+| `profile` | RISC-V profile of the target: `name`, `version`, and the lists of the `missing` and `partial` extensions. The dashboard shows the profile next to the target, red with the count of missing extensions, and lists them in its detail | none |
 
 `authors` is a list, so an organisation and the people it delegates to can
 both appear, and a target whose documentation has no owner yet says so
@@ -1892,7 +2023,7 @@ like), `docs/01_cva6_user/user_cfg_doc.rst` is regenerated for the last
 chapter, and the output goes to `build/readthedoc/docs/`. A chapter whose
 target has no `config/target/` directory of its own is documented from the
 closest supported configuration - `cv64a6_mmu` from
-`cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi`, as it moved under
+`fpga_linux_cv64a6`, as it moved under
 `deprecated_packages/` upstream.
 
 **Reported:** `docs_pages` and `docs_warnings` as KPIs, the label being the
@@ -2035,7 +2166,7 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 
 **Optional:**
 - `-n, --testname TEXT` - Single test of the testlist
-- `-c, --toolchain [llvm-20-1-8|...]` - Toolchain (default: llvm-20-1-8)
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 - `--march TEXT` - Custom march
 - `--mabi TEXT` - Custom mabi
 - `--comp-mode [rtl|gate_wc_power|gate_wc_timing|coverage]` - Hardware compilation mode (default: `rtl`)
@@ -2056,7 +2187,7 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 ./cook.py macro-vcs-generator-testlist \
   -t cv32a60x \
   -l verif/tests/<generator-testlist>.yaml \
-  -c llvm-20-1-8 \
+  -c llvm-22 \
   --trace-mode fast \
   --batch-size 4
 
@@ -2065,7 +2196,7 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
   -t cv32a65x \
   -l verif/tests/<generator-testlist>.yaml \
   -n arithmetic_stress \
-  -c gcc-14 \
+  -c gcc-15 \
   --tandem-enabled \
   --stats
 ```
@@ -2087,7 +2218,7 @@ Install the external test repositories and patch the Git submodules.
 Two things:
 
 - **clone** the external test repositories of `$CONFIG_DIR/dependencies.yml`
-  (riscv-tests, riscv-compliance, riscv-arch-test) at the pinned commit and apply their patches. These are
+  (riscv-tests, riscv-compliance, riscv-arch-test, riscv-pk, zephyr) at the pinned commit and apply their patches. These are
   *not* submodules: an existing destination is left untouched unless
   `--force` is passed;
 - **patch the Git submodules** listed under `submodule_patches` of
@@ -2116,7 +2247,7 @@ skip the check.
 **Generated files:**
 - the destinations declared in `dependencies.yml`
   (`verif/tests/riscv-tests`, `verif/tests/riscv-compliance`,
-  `verif/tests/riscv-arch-test`)
+  `verif/tests/riscv-arch-test`, `tools/riscv-pk`, `tools/zephyr`)
 - `build/git_dependencies/cook_report.yml` - status of every dependency
   and of every submodule patch
 

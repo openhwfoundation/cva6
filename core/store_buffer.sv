@@ -26,7 +26,6 @@ module store_buffer
     input logic rst_ni,  // Asynchronous reset active low
     input logic flush_i,  // if we flush we need to pause the transactions on the memory
                           // otherwise we will run in a deadlock with the memory arbiter
-    input logic stall_st_pending_i,  // Stall issuing non-speculative request
     output logic         no_st_pending_o, // non-speculative queue is empty (e.g.: everything is committed to the memory hierarchy)
     output logic         store_buffer_empty_o, // there is no store pending in neither the speculative unit or the non-speculative queue
 
@@ -224,7 +223,7 @@ module store_buffer
     // if the entry in the commit queue is valid and not speculative anymore we can issue this instruction
     // A full in-flight tracking holds the request back: its address could no
     // longer be reported to the load unit.
-    if (commit_queue_q[commit_read_pointer_q].valid && !stall_st_pending_i && !inflight_full) begin
+    if (commit_queue_q[commit_read_pointer_q].valid && !inflight_full) begin
       ypb_store_req_o.preq = ((!CVA6Cfg.StoreAckOnGrant || commit_is_cbo) && pending_rvalid_q) ? 1'b0 : 1'b1;
       if (ypb_store_rsp_i.pgnt) pending_rvalid_n = 1'b1;
 
@@ -237,8 +236,7 @@ module store_buffer
         commit_status_cnt--;
       end
     end else if (speculative_queue_q[speculative_read_pointer_q].valid) begin
-      if (commit_i && (commit_write_pointer_q == speculative_read_pointer_q) &&
-          !stall_st_pending_i && !inflight_full) begin
+      if (commit_i && (commit_write_pointer_q == speculative_read_pointer_q) && !inflight_full) begin
         ypb_store_req_o.preq = ((!CVA6Cfg.StoreAckOnGrant || spec_is_cbo) && pending_rvalid_q) ? '0 : 1'b1;
         direct_req_from_speculative = 1'b1;
         if (ypb_store_rsp_i.pgnt) pending_rvalid_n = 1'b1;

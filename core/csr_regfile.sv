@@ -30,7 +30,7 @@ module csr_regfile
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
-    // Timer threw a interrupt - SUBSYSTEM
+    // Timer threw an interrupt - SUBSYSTEM
     input logic time_irq_i,
     // send a flush request out when a CSR with a side effect changes - CONTROLLER
     output logic flush_o,
@@ -38,7 +38,7 @@ module csr_regfile
     output logic halt_csr_o,
     // Instruction to be committed - ID_STAGE
     input scoreboard_entry_t commit_instr_i,
-    // Commit acknowledged a instruction -> increase instret CSR - COMMIT_STAGE
+    // Commit acknowledged an instruction -> increase instret CSR - COMMIT_STAGE
     input logic [CVA6Cfg.NrCommitPorts-1:0] commit_ack_i,
     // Address from which to start booting, mtvec is set to the same address - SUBSYSTEM
     input logic [CVA6Cfg.VLEN-1:0] boot_addr_i,
@@ -58,8 +58,6 @@ module csr_regfile
     input logic dirty_fp_state_i,
     // Write fflags register e.g.: we are retiring a floating point instruction - COMMIT_STAGE
     input logic csr_write_fflags_i,
-    // Mark the V state as dirty - ACC_DISPATCHER
-    input logic dirty_v_state_i,
     // PC of instruction accessing the CSR - COMMIT_STAGE
     input logic [CVA6Cfg.VLEN-1:0] pc_i,
     // attempts to access a CSR without appropriate privilege - COMMIT_STAGE
@@ -76,22 +74,16 @@ module csr_regfile
     output logic mbe_o,
     // Current virtualization mode state the CPU is in - EX_STAGE
     output logic v_o,
-    // Imprecise FP exception from the accelerator (fcsr.fflags format) - ACC_DISPATCHER
-    input logic [4:0] acc_fflags_ex_i,
-    // An FP exception from the accelerator occurred - ACC_DISPATCHER
-    input logic acc_fflags_ex_valid_i,
     // Floating point extension status - ID_STAGE
     output riscv::xs_t fs_o,
     // Floating point extension virtual status - ID_STAGE
     output riscv::xs_t vfs_o,
-    // Floating-Point Accured Exceptions - COMMIT_STAGE
+    // Floating-Point Occurred Exceptions - COMMIT_STAGE
     output logic [4:0] fflags_o,
     // Floating-Point Dynamic Rounding Mode - EX_STAGE
     output logic [2:0] frm_o,
     // Floating-Point Precision Control - EX_STAGE
     output logic [6:0] fprec_o,
-    // Vector extension status - ID_STAGE
-    output riscv::xs_t vs_o,
     // interrupt management to id stage - ID_STAGE
     output irq_ctrl_t irq_ctrl_o,
     // Enable virtual address translation - EX_STAGE
@@ -180,8 +172,6 @@ module csr_regfile
     input logic dcache_dir_cor_err_i,
     // Dcache uncorrectable error on directory - CACHES
     input logic dcache_dir_unc_err_i,
-    // Accelerator memory consistent mode - ACC_DISPATCHER
-    output logic acc_cons_en_o,
     // read/write address to performance counter module - PERF_COUNTERS
     output logic [11:0] perf_addr_o,
     // write data to performance counter module - PERF_COUNTERS
@@ -190,9 +180,9 @@ module csr_regfile
     input logic [CVA6Cfg.XLEN-1:0] perf_data_i,
     // TO_BE_COMPLETED - PERF_COUNTERS
     output logic perf_we_o,
-    // PMP configuration containing pmpcfg for max 64 PMPs - ACC_DISPATCHER
+    // PMP configuration containing pmpcfg for max 64 PMPs - EX_STAGE
     output riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg_o,
-    // PMP addresses - ACC_DISPATCHER
+    // PMP addresses - EX_STAGE
     output logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_o,
     // TO_BE_COMPLETED - PERF_COUNTERS
     output logic [31:0] mcountinhibit_o,
@@ -358,7 +348,6 @@ CVA6Cfg.NrCommitPorts
           cacheEn: dcache_q.cacheEn
       };
   logic [CVA6Cfg.XLEN-1:0] icache_q, icache_d;
-  logic [CVA6Cfg.XLEN-1:0] acc_cons_q, acc_cons_d;
 
   logic wfi_d, wfi_q;
 
@@ -465,7 +454,6 @@ CVA6Cfg.NrCommitPorts
   ) : csr_addr;
   assign fs_o = mstatus_q.fs;
   assign vfs_o = (CVA6Cfg.RVH) ? vsstatus_q.fs : riscv::Off;
-  assign vs_o = mstatus_q.vs;
   // ----------------
   // CSR Read logic
   // ----------------
@@ -968,14 +956,6 @@ CVA6Cfg.NrCommitPorts
         // custom (non RISC-V) cache control
         riscv::CSR_DCACHE: csr_rdata = dcache_csr;
         riscv::CSR_ICACHE: csr_rdata = icache_q;
-        // custom (non RISC-V) accelerator memory consistency mode
-        riscv::CSR_ACC_CONS: begin
-          if (CVA6Cfg.EnableAccelerator) begin
-            csr_rdata = acc_cons_q;
-          end else begin
-            read_access_exception = 1'b1;
-          end
-        end
         // PMPs
         riscv::CSR_PMPCFG0,
                 riscv::CSR_PMPCFG1,
@@ -1194,10 +1174,9 @@ CVA6Cfg.NrCommitPorts
       mtval2_d = mtval2_q;
     end
 
-    fiom_d     = fiom_q;
-    dcache_d   = dcache_csr;
-    icache_d   = icache_q;
-    acc_cons_d = acc_cons_q;
+    fiom_d   = fiom_q;
+    dcache_d = dcache_csr;
+    icache_d = icache_q;
 
     if (CVA6Cfg.RVH) begin
       vstvec_d                 = vstvec_q;
@@ -2009,13 +1988,6 @@ CVA6Cfg.NrCommitPorts
           dcache_csr.eccPresent, dcache_csr.eccScrubberPresent, csr_wdata[CVA6Cfg.XLEN-3:0]
         };
         riscv::CSR_ICACHE: icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
-        riscv::CSR_ACC_CONS: begin
-          if (CVA6Cfg.EnableAccelerator) begin
-            acc_cons_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
-          end else begin
-            update_access_exception = 1'b1;
-          end
-        end
         // PMP locked logic
         // 1. refuse to update any locked entry
         // 2. also refuse to update the entry below a locked TOR entry
@@ -2165,10 +2137,6 @@ CVA6Cfg.NrCommitPorts
         end
       end
     end
-    // mark the vector extension register as dirty
-    if (CVA6Cfg.RVV && dirty_v_state_i) begin
-      mstatus_d.vs = riscv::Dirty;
-    end
     // hardwired extension registers
     if (CVA6Cfg.RVS || CVA6Cfg.RVF) begin
       mstatus_d.sd = (mstatus_d.xs == riscv::Dirty) | (mstatus_d.fs == riscv::Dirty);
@@ -2186,16 +2154,6 @@ CVA6Cfg.NrCommitPorts
     // write the floating point status register
     if (CVA6Cfg.FpPresent && csr_write_fflags_i) begin
       fcsr_d.fflags = csr_wdata_i[4:0] | fcsr_q.fflags;
-    end
-
-    // ----------------------------
-    // Accelerator FP imprecise exceptions
-    // ----------------------------
-
-    // Update fflags as soon as a FP exception occurs in the accelerator
-    // The exception is imprecise, and the fcsr.fflags update always happens immediately
-    if (CVA6Cfg.EnableAccelerator) begin
-      fcsr_d.fflags |= acc_fflags_ex_valid_i ? acc_fflags_ex_i : 5'b0;
     end
 
     // ---------------------
@@ -2968,7 +2926,6 @@ CVA6Cfg.NrCommitPorts
   assign dcache_en_o = dcache_q.cacheEn;
   assign dcache_scrub_en_o = dcache_q.scrubEn;
   assign dcache_scrub_period_o = dcache_q.scrubPeriod;
-  assign acc_cons_en_o = CVA6Cfg.EnableAccelerator ? acc_cons_q[0] : 1'b0;
 
   // determine if mprv needs to be considered if in debug mode
   if (CVA6Cfg.DebugEn) begin
@@ -3015,7 +2972,6 @@ CVA6Cfg.NrCommitPorts
       dcache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       icache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q <= '0;
-      acc_cons_q      <= {{CVA6Cfg.XLEN - 1{1'b0}}, CVA6Cfg.EnableAccelerator};
       if (CVA6Cfg.RVZiCbom) begin
         mcbie_q  <= riscv::CBIE_INVAL;
         mcbcfe_q <= 1'b1;
@@ -3113,7 +3069,6 @@ CVA6Cfg.NrCommitPorts
       dcache_q        <= dcache_d;
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;
-      acc_cons_q      <= acc_cons_d;
       if (CVA6Cfg.RVZiCbom) begin
         mcbie_q  <= mcbie_d;
         mcbcfe_q <= mcbcfe_d;
@@ -3342,7 +3297,6 @@ CVA6Cfg.NrCommitPorts
   assign rvfi_csr_o.instret_q = instret_q;
   assign rvfi_csr_o.dcache_q = dcache_q;
   assign rvfi_csr_o.icache_q = icache_q;
-  assign rvfi_csr_o.acc_cons_q = CVA6Cfg.EnableAccelerator ? acc_cons_q : '0;
   assign rvfi_csr_o.pmpcfg_q = pmpcfg_q;
   assign rvfi_csr_o.pmpaddr_q = pmpaddr_q;
 

@@ -1,2 +1,0 @@
-march: rv64imac_zicsr_zifencei_zba_zbb_zbs_zbc_zbkb_zcmt
-mabi: lp64

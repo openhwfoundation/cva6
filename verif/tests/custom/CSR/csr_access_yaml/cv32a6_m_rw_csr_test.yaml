@@ -492,7 +492,7 @@
       lsb: 1
     - field_name: USIE 
       description: >
-        enable U-mode software interrrupts 
+        enable U-mode software interrupts
       type: R
       reset_val: 0
       msb: 0
@@ -716,7 +716,7 @@
       lsb: 1
     - field_name: USIE 
       description: >
-        enable U-mode software interrrupts 
+        enable U-mode software interrupts
       type: R
       reset_val: 0
       msb: 0

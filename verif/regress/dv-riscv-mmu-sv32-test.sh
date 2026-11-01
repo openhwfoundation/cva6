@@ -21,7 +21,7 @@ source verif/regress/install-riscv-arch-test.sh
 source ./verif/sim/setup-env.sh
 
 if ! [ -n "$DV_TARGET" ]; then
-  DV_TARGET=cv32a6_imac_sv32
+  DV_TARGET=fpga_linux_cv32a6
 fi
 
 if ! [ -n "$DV_SIMULATORS" ]; then
@@ -30,16 +30,4 @@ fi
 
 cd verif/sim
 python3 cva6.py --testlist=../tests/base_rv32_mmu.yaml --target $DV_TARGET --iss_yaml=cva6.yaml --iss=$DV_SIMULATORS $DV_OPTS --linker=../tests/riscv-arch-test/riscv-target/spike/link.ld
-cd -
-
-cd verif/sim
-python3 cva6.py --testlist=../tests/base_rv32_mmu.yaml --target cv32a6_imac_sv32_obi --iss_yaml=cva6.yaml --iss=$DV_SIMULATORS $DV_OPTS --linker=../tests/riscv-arch-test/riscv-target/spike/link.ld
-cd -
-
-cd verif/sim
-python3 cva6.py --testlist=../tests/base_rv32_mmu.yaml --target cv32a65x_sv32 --iss_yaml=cva6.yaml --iss=$DV_SIMULATORS $DV_OPTS --linker=../tests/riscv-arch-test/riscv-target/spike/link.ld
-cd -
-
-cd verif/sim
-python3 cva6.py --testlist=../tests/base_rv32_mmu.yaml --target cv32a65x_sv32_axi --iss_yaml=cva6.yaml --iss=$DV_SIMULATORS $DV_OPTS --linker=../tests/riscv-arch-test/riscv-target/spike/link.ld
 cd -

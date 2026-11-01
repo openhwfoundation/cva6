@@ -52,7 +52,6 @@ module zicbom_permissions_test;
     logic                             is_macro_instr;
     logic                             is_last_macro_instr;
     logic                             is_double_rd_macro_instr;
-    logic                             vfp;
     logic                             is_zcmt;
   } scoreboard_entry_t;
 
@@ -105,7 +104,6 @@ module zicbom_permissions_test;
   riscv::xs_t fs_i;
   riscv::xs_t vfs_i;
   logic [2:0] frm_i;
-  riscv::xs_t vs_i;
   logic tvm_i;
   logic tw_i;
   logic vtw_i;
@@ -157,7 +155,6 @@ module zicbom_permissions_test;
       .fs_i,
       .vfs_i,
       .frm_i,
-      .vs_i,
       .tvm_i,
       .tw_i,
       .vtw_i,
@@ -237,7 +234,6 @@ module zicbom_permissions_test;
     fs_i = riscv::Off;
     vfs_i = riscv::Off;
     frm_i = '0;
-    vs_i = riscv::Off;
     tvm_i = 1'b0;
     tw_i = 1'b0;
     vtw_i = 1'b0;

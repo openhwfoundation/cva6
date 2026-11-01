@@ -262,15 +262,15 @@ testlist:
     <<: *common_test_config
     asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lhu-align-01.S
 
-  - test: rv32im-lui-01
-    iterations: 1
-    <<: *common_test_config
-    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lui-01.S
-
   - test: rv32im-lw-align-01
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lw-align-01.S
+
+  - test: rv32im-lui-01
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/lui-01.S
 
   - test: rv32im-or-01
     iterations: 1
@@ -291,6 +291,11 @@ testlist:
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sh-align-01.S
+
+  - test: rv32im-sw-align-01
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sw-align-01.S
 
   - test: rv32im-sll-01
     iterations: 1
@@ -346,11 +351,6 @@ testlist:
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sub-01.S
-
-  - test: rv32im-sw-align-01
-    iterations: 1
-    <<: *common_test_config
-    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/sw-align-01.S
 
   - test: rv32im-xor-01
     iterations: 1

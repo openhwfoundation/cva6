@@ -49,7 +49,7 @@ The CVA6 user manual targets:
 * SW programmers
 * HW designers who integrate CVA6 into a SoC/ASIC/FPGA
 * Architects who design a coprocessor for the CV-X-IF interface and who need to create SW to use it
-* HW designers who synthetize/place&route/verify a design that embeds CVA6
+* HW designers who synthesize/place&route/verify a design that embeds CVA6
 * Verification engineers involved in the OpenHW Group’s CVA6 project who use this manual as a reference.
 
 The user guide does not target people who dig into CVA6 design. No internal mechanisms are described here,

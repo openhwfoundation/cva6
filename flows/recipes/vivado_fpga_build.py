@@ -58,6 +58,7 @@ from flows.utils.manifest import (
     require_prerequisite,
     write_manifest,
 )
+from flows.patterns.fpga_bootrom import bootrom_out_dir
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
 from flows.utils.autocompletion import FpgaBoard, autocompletion_target
@@ -400,7 +401,7 @@ def vivado_fpga_build(
     xlen = _xlen(target, report)
     # The bootloader is built by its own pattern, per board and per width:
     # one ROM serves every target of a width, so it is not rebuilt here.
-    bootrom_dir = repo_dir / "build" / "bootrom" / board.value
+    bootrom_dir = bootrom_out_dir(repo_dir, board, xlen)
     bootrom_sv = bootrom_dir / f"bootrom_{xlen}.sv"
     report.add_context({"xlen": xlen})
 

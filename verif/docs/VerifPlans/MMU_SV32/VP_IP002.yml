@@ -70,7 +70,7 @@ subfeatures: !!omap
         ref_page: ''
         ref_section: ''
         ref_viewer: ''
-        verif_goals: Show wirting {zero, non-zero} value to satp when mode=bare the
+        verif_goals: Show writing {zero, non-zero} value to satp when mode=bare the
           behaviour follows the design implemention
         pfc: 3
         test_type: 0

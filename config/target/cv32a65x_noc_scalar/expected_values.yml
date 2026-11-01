@@ -1,9 +1,0 @@
-coremark_cycle: 298883
-dhrystone_cycle: 23272
-# Gate count not measured yet.
-# GTECH synthesis (dc-shell-synth --gtech): to measure when the target
-# joins GTECH_TARGETS of the regression
-# gtech_cells:
-# gtech_registers:
-yosys_cells: 83867
-yosys_registers: 7116

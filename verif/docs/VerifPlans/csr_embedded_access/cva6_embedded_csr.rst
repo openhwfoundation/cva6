@@ -85,7 +85,7 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - Indicates whether machine interrupts were enabled prior to trapping into machine mode\.  ``Enumerated Values``( "Disabled" :0)( "Enabled" :1)'\n'
    * - 6 
      - UBE
-     - User mode bit endianess
+     - User mode bit endianness
      - read-write,WARL
      - UBE controls whether explicit load and store memory accesses made from U\-mode are little\-endian or big\-endian\.``Legal Values``:0\.  ``Enumerated Values``( "Little-endian" :0)( "Big-endian" :1)'\n'
    * - 5 
@@ -193,7 +193,7 @@ This register contains machine interrupt enable bits.
      - USIE
      - 
      - read-write,WARL
-     - enable U\-mode software interrrupts\.``Legal Values:``0\.
+     - enable U\-mode software interrupts\.``Legal Values:``0\.
 
 Machine Trap Vector Register 
 --------------------------
@@ -3239,7 +3239,7 @@ AddressOffset: 'hF11
 --------------------------
 Description:
 --------------------------
-This register provids the JEDEC manufacturer ID of the provider of the core.
+This register provides the JEDEC manufacturer ID of the provider of the core.
 
 .. list-table::
    :widths: 20 20 15 15 40
@@ -3259,7 +3259,7 @@ This register provids the JEDEC manufacturer ID of the provider of the core.
      - offset
      - Offset
      - read-only
-     - Contain encording for the final byte discarding the parity bit\.
+     - Contain encoding for the final byte discarding the parity bit\.
 
 Machine Architecture ID Register 
 --------------------------

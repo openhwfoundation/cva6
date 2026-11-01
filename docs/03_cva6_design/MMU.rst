@@ -255,7 +255,7 @@ The MMU block can be parameterized to support sv32, sv39 and sv39x4 virtual memo
      - in
      - CSR RegFile
      - logic 
-     - Enables virtual memory translation for instrucionts
+     - Enables virtual memory translation for instructions
 
    * - ``en_ld_st_translation_i``
      - in
@@ -1159,7 +1159,7 @@ Figure shows every possible path that traverses to find out the PLRU entry. If t
 
 .. raw:: html
 
-   <p style="text-align:center;"> <b>Table 9:</b> Entry Selection for Reaplacement </p>
+   <p style="text-align:center;"> <b>Table 9:</b> Entry Selection for Replacement </p>
 
 +-------------------+---------------+----------------------+
 | **Path Traverse** | **PLRU Bits** | **Entry to replace** |

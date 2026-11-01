@@ -517,7 +517,7 @@ isacov.rv32i_sltiu_cg.cp_immi_toggle
   
   slli rd, rs, imm[4:0]  
   rd = rs << imm[4:0]  
-  Zeros are shirfted into lower bits
+  Zeros are shifted into lower bits
 * **Verification Goals**
   
   Register operands:  
@@ -544,7 +544,7 @@ isacov.rv32i_slli_cg.cp_rd_rs1_hazard
   
   slli rd, rs, imm[4:0]  
   rd = rs << imm[4:0]  
-  Zeros are shirfted into lower bits
+  Zeros are shifted into lower bits
 * **Verification Goals**
   
   Input operands:  
@@ -573,7 +573,7 @@ isacov.rv32i_slli_cg.cp_rs1_toggle
   
   slli rd, rs, imm[4:0]  
   rd = rs << imm[4:0]  
-  Zeros are shirfted into lower bits
+  Zeros are shifted into lower bits
 * **Verification Goals**
   
   Output result:  
@@ -600,7 +600,7 @@ isacov.rv32i_slli_cg.cp_rd_toggle
   
   srli rd, rs, imm[4:0]  
   rd = rs >> imm[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Register operands:  
@@ -627,7 +627,7 @@ isacov.rv32i_srli_cg.cp_rd_rs1_hazard
   
   srli rd, rs, imm[4:0]  
   rd = rs >> imm[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Input operands:  
@@ -656,7 +656,7 @@ isacov.rv32i_srli_cg.cp_rs1_toggle
   
   srli rd, rs, imm[4:0]  
   rd = rs >> imm[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Output result:  
@@ -739,7 +739,7 @@ isacov.rv32i_srai_cg.cp_rs1_toggle
   
   srli rd, rs, imm[4:0]  
   rd = rs >> imm[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Output result:  
@@ -1550,7 +1550,7 @@ isacov.rv32i_sltu_cg.cp_rs2_toggle
   
   sll rd, rs1, rs2  
   rd = rs1 << rs2[4:0]  
-  Zeros are shirfted into lower bits
+  Zeros are shifted into lower bits
 * **Verification Goals**
   
   Register operands:  
@@ -1581,7 +1581,7 @@ isacov.rv32i_sll_cg.cp_rd_rs2_hazard
   
   sll rd, rs1, rs2  
   rd = rs1 << rs2[4:0]  
-  Zeros are shirfted into lower bits
+  Zeros are shifted into lower bits
 * **Verification Goals**
   
   Input operands:  
@@ -1610,7 +1610,7 @@ isacov.rv32i_sll_cg.cp_rs1_toggle
   
   sll rd, rs1, rs2  
   rd = rs1 << rs2[4:0]  
-  Zeros are shirfted into lower bits
+  Zeros are shifted into lower bits
 * **Verification Goals**
   
   Output result:  
@@ -1639,7 +1639,7 @@ isacov.rv32i_sll_cg.cp_rd_toggle
   
   srl rd, rs1, rs2  
   rd = rs1 >> rs2[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Register operands:  
@@ -1670,7 +1670,7 @@ isacov.rv32i_srl_cg.cp_rd_rs2_hazard
   
   srl rd, rs1, rs2  
   rd = rs1 >> rs2[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Input operands:  
@@ -1699,7 +1699,7 @@ isacov.rv32i_srl_cg.cp_rs1_toggle
   
   srl rd, rs1, rs2  
   rd = rs1 >> rs2[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Output result:  
@@ -1786,7 +1786,7 @@ isacov.rv32i_sra_cg.cp_rs1_toggle
   
   sra rd, rs1, rs2  
   rd = rs1 >> rs2[4:0]  
-  Zeros are shirfted into upper bits
+  Zeros are shifted into upper bits
 * **Verification Goals**
   
   Output result:  
@@ -3946,7 +3946,7 @@ isacov.rv32m_remu_cg.cp_rd_toggle
   
   Exception:  
     
-  Misaligned address (non-32-bit aligned) will always cause exceptio
+  Misaligned address (non-32-bit aligned) will always cause exception
 * **Pass/Fail Criteria:** Check RM
 * **Test Type:** Constrained Random
 * **Coverage Method:** Functional Coverage
@@ -7054,7 +7054,7 @@ isacov.rv32m_remu_cg.cp_rd_toggle
 * **Requirement location:** ./RISCV_Instructions.rst
 * **Feature Description**
   
-  All suported instructions for the core are executed
+  All supported instructions for the core are executed
 * **Verification Goals**
   
   Instruction is executed
@@ -7073,7 +7073,7 @@ isacov.rv32m_remu_cg.cp_rd_toggle
 * **Requirement location:** ./RISCV_Instructions.rst
 * **Feature Description**
   
-  All suported instructions for the core are executed
+  All supported instructions for the core are executed
 * **Verification Goals**
   
   All back-to-back supported instruction sequences are executed
@@ -7178,7 +7178,7 @@ isacov.rv32m_remu_cg.cp_rd_toggle
   CSR writes from the program are executed in conjunction with all instruction groups
 * **Verification Goals**
   
-  Each instruction group is executed after each supported CSR is written with a Zicsri write instructio
+  Each instruction group is executed after each supported CSR is written with a Zicsri write instruction
 * **Pass/Fail Criteria:** NDY (Not Defined Yet)
 * **Test Type:** NDY (Not Defined Yet)
 * **Coverage Method:** NDY (Not Defined Yet)

@@ -1,0 +1,23 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Lint baseline of profile_rva20s64: diagnostics per tool, severity and rule.
+# Written by `./cook.py rtl-lint -t <target> --update-baseline`, read
+# by rtl-lint, which fails on a new rule or a higher count.
+slang:
+  warning:
+    finish-num: 11
+    seq-no-match: 6
+verilator:
+  warning:
+    CASEINCOMPLETE: 2
+    LITENDIAN: 73
+    SELRANGE: 56
+    WIDTHEXPAND: 190
+    WIDTHTRUNC: 66

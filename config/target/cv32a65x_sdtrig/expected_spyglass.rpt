@@ -1,3 +1,0 @@
-# Left empty on purpose: see expected_values.yml. The Sdtrig trigger module
-# adds RTL this target's parent does not elaborate, so the parent's lint
-# baseline does not apply.

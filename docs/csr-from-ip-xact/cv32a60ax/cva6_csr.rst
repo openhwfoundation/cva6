@@ -570,7 +570,7 @@ The ``sip`` register contains information on pending interrupts.
      - USIP
      - 
      - read-write,WARL
-     - A user-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt-pending \(USIP\) bit.``Legal Values:`` 0.
+     - A user-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt-pending \(USIP\) bit.``Legal Values:`` 0.
 
 Supervisor Address Translation and Protection Register 
 ------------------------------------------------------
@@ -888,7 +888,7 @@ This register contains machine interrupt enable bits.
      - USIE
      - 
      - read-write,WARL
-     - enable U-mode software interrrupts.``Legal Values:`` 0.
+     - enable U-mode software interrupts.``Legal Values:`` 0.
 
 Machine Trap Vector Register 
 ----------------------------
@@ -1428,7 +1428,7 @@ Address register for Physical Memory Protection.
      - read-write,WARL
      - Address register for Physical Memory Protection.
 
-Instuction Cache Register 
+Instruction Cache Register
 --------------------------
 AddressOffset: 'h7C0 
 --------------------------
@@ -1605,7 +1605,7 @@ AddressOffset: 'h7B0
 --------------------------
 Description:
 --------------------------
-Debug ontrol and status register.
+Debug control and status register.
 
 .. list-table::
    :widths: 20 20 15 15 40
@@ -1625,7 +1625,7 @@ Debug ontrol and status register.
      - ebreakm
      - Environment breakpoint m-mode
      - read-write
-     - Shows the behvior of the ``ebreak`` instruction in machine mode.  ``Enumerated Values`` ( "break_as_spec" :0)( "break_to_debug" :1)'\n'
+     - Shows the behavior of the ``ebreak`` instruction in machine mode.  ``Enumerated Values`` ( "break_as_spec" :0)( "break_to_debug" :1)'\n'
    * - 13 
      - ebreaks
      - Environment breakpoint s-mode
@@ -2651,7 +2651,7 @@ AddressOffset: 'hF11
 --------------------------
 Description:
 --------------------------
-This register provids the JEDEC manufacturer ID of the provider of the core.
+This register provides the JEDEC manufacturer ID of the provider of the core.
 
 .. list-table::
    :widths: 20 20 15 15 40
@@ -2671,7 +2671,7 @@ This register provids the JEDEC manufacturer ID of the provider of the core.
      - offset
      - Offset
      - read-only
-     - Contain encording for the final byte discarding the parity bit.
+     - Contain encoding for the final byte discarding the parity bit.
 
 Machine Architecture ID Register 
 --------------------------------

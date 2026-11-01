@@ -194,7 +194,7 @@ signal of the commit queue goes to the commit stage. Commit stage will
 stall if it the commit queue can't accept any new data items. On every
 committed store the commit stage also asserts the `lsu_commit` signal
 which will put the particular entry from the speculative queue into the
-non-sepculative (commit) queue.
+non-speculative (commit) queue.
 
 As soon as a store is in the commit queue the queue will automatically
 try to commit the oldest store in the queue to memory as soon as the
@@ -290,7 +290,7 @@ access to the (translated) physical address. However, PMPs must be
 checked during the page table walk as well. During a page walk, all
 memory access must pass the PMP rules.
 
-The amount of entries is parametrizable under the
+The amount of entries is parameterizable under the
 `CVA6Cfg.NrPMPEntries` parameter. However, the core only supports
 granularity 8 (G=8). This simplifies the implementation since we do
 not have to worry about any unaligned accesses. There are a total of
@@ -317,7 +317,7 @@ division is a simple serial divider which needs 64 cycles in the worst case.
 
 #### CSR Buffer
 
-The CSR buffer a functional unit which its only purpose is to store the
+The CSR buffer is a functional unit which only purpose is to store the
 address of the CSR register the instruction is going to read/write.
 There are two reasons why we need to do this. The first reason is that
 a CSR instruction alters the architectural state, hence this

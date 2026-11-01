@@ -424,7 +424,7 @@
                                         </ipxact:field>
                                         <ipxact:field>
                                                 <ipxact:name>UBE</ipxact:name>
-                                                <ipxact:displayName>User mode Bit Endianess</ipxact:displayName>
+                                                <ipxact:displayName>User mode Bit Endianness</ipxact:displayName>
                                                 <ipxact:description>UBE controls whether explicit load and store memory accesses made from U-mode are little-endian or big-endian.``Legal Values``:0.</ipxact:description>
                                                 <ipxact:bitOffset>6</ipxact:bitOffset>
                                                 <ipxact:resets>
@@ -998,7 +998,7 @@
                                         </ipxact:field>
                                         <ipxact:field>
                                                 <ipxact:name>USIE</ipxact:name>
-                                                <ipxact:description>enable U-mode software interrrupts.``Legal Values:``0.</ipxact:description>
+                                                <ipxact:description>enable U-mode software interrupts.``Legal Values:``0.</ipxact:description>
                                                 <ipxact:bitOffset>0</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>
@@ -1108,7 +1108,7 @@
                                         </ipxact:field>
                                         <ipxact:field>
                                                 <ipxact:name>SBE</ipxact:name>
-                                                <ipxact:displayName>Supervisor mode Bit Endianess</ipxact:displayName>
+                                                <ipxact:displayName>Supervisor mode Bit Endianness</ipxact:displayName>
                                                 <ipxact:description>SBE controls whether explicit load and store memory accesses made from S-mode are little-endian or big-endian.``Legal Values``:0.</ipxact:description>
                                                 <ipxact:bitOffset>4</ipxact:bitOffset>
                                                 <ipxact:resets>
@@ -1135,7 +1135,7 @@
                                         </ipxact:field>
                                         <ipxact:field>
                                                 <ipxact:name>MBE</ipxact:name>
-                                                <ipxact:displayName>Machine mode Bit Endianess</ipxact:displayName>
+                                                <ipxact:displayName>Machine mode Bit Endianness</ipxact:displayName>
                                                 <ipxact:description>MBE controls whether explicit load and store memory accesses made from M-mode are little-endian or big-endian.``Legal Values``:0.</ipxact:description>
                                                 <ipxact:bitOffset>5</ipxact:bitOffset>
                                                 <ipxact:resets>
@@ -4757,7 +4757,7 @@ If ``mtval`` is written with a nonzero value when an instruction access-fault or
                                 <ipxact:register>
                                         <ipxact:name>mvendorid</ipxact:name>
                                         <ipxact:displayName>Machine Vendor ID</ipxact:displayName>
-                                        <ipxact:description>This register provids the JEDEC manufacturer ID of the provider of the core.</ipxact:description>
+                                        <ipxact:description>This register provides the JEDEC manufacturer ID of the provider of the core.</ipxact:description>
                                         <ipxact:addressOffset>'hF11</ipxact:addressOffset>
                                         <ipxact:size>32</ipxact:size>
                                         <ipxact:volatile>true</ipxact:volatile>
@@ -4780,7 +4780,7 @@ If ``mtval`` is written with a nonzero value when an instruction access-fault or
                                         <ipxact:field>
                                                 <ipxact:name>offset</ipxact:name>
                                                 <ipxact:displayName>Offset</ipxact:displayName>
-                                                <ipxact:description>Contain encording for the final byte discarding the parity bit.</ipxact:description>
+                                                <ipxact:description>Contain encoding for the final byte discarding the parity bit.</ipxact:description>
                                                 <ipxact:bitOffset>0</ipxact:bitOffset>
                                                 <ipxact:resets>
                                                         <ipxact:reset>

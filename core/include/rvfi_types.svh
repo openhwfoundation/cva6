@@ -86,7 +86,6 @@
   rvfi_csr_elmt_t instreth; \
   rvfi_csr_elmt_t dcache; \
   rvfi_csr_elmt_t icache; \
-  rvfi_csr_elmt_t acc_cons; \
   rvfi_csr_elmt_t pmpcfg0; \
   rvfi_csr_elmt_t pmpcfg1; \
   rvfi_csr_elmt_t pmpcfg2; \
@@ -123,6 +122,7 @@
   ariane_pkg::fu_t lsu_ctrl_fu; \
   logic [(Cfg.XLEN/8)-1:0] lsu_ctrl_be; \
   logic [Cfg.TRANS_ID_BITS-1:0] lsu_ctrl_trans_id; \
+  logic [Cfg.XLEN-1:0] lsu_ctrl_data; \
   logic [Cfg.NrWbPorts-1:0][Cfg.XLEN-1:0] wbdata; \
   logic [Cfg.NrCommitPorts-1:0] commit_ack; \
   logic [Cfg.PLEN-1:0] mem_paddr; \
@@ -167,7 +167,6 @@
   logic [63:0] instret_q; \
   logic [Cfg.XLEN-1:0] dcache_q; \
   logic [Cfg.XLEN-1:0] icache_q; \
-  logic [Cfg.XLEN-1:0] acc_cons_q; \
   riscv::pmpcfg_t [63:0] pmpcfg_q; \
   logic [63:0][Cfg.PLEN-3:0] pmpaddr_q; \
 }

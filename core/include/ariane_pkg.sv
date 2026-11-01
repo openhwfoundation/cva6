@@ -193,8 +193,7 @@ package ariane_pkg;
     FPU,        // 7
     FPU_VEC,    // 8
     CVXIF,      // 9
-    ACCEL,      // 10
-    AES         // 11
+    AES         // 10
   } fu_t;
 
   // Index of writeback ports
@@ -483,12 +482,6 @@ package ariane_pkg;
     ANDN,
     ORN,
     XNOR,
-    // Accelerator operations
-    ACCEL_OP,
-    ACCEL_OP_FS1,
-    ACCEL_OP_FD,
-    ACCEL_OP_LOAD,
-    ACCEL_OP_STORE,
     // Zicond instruction
     CZERO_EQZ,
     CZERO_NEZ,
@@ -561,9 +554,8 @@ package ariane_pkg;
       FMV_F2X,  // FPR-GPR Moves
       FCMP,  // Comparisons
       FCLASS,  // Classifications
-      [VFMIN : VFCPKCD_D],  // Additional Vectorial FP ops
-      ACCEL_OP_FS1:
-      return 1'b1;  // Accelerator instructions
+      [VFMIN : VFCPKCD_D]:
+      return 1'b1;  // Additional Vectorial FP ops
       default: return 1'b0;  // all other ops
     endcase
   endfunction
@@ -608,9 +600,8 @@ package ariane_pkg;
       FSGNJ,  // Sign Injections
       FMV_X2F,  // GPR-FPR Moves
       [VFMIN : VFSGNJX],  // Vectorial MIN/MAX and SGNJ
-      [VFCPKAB_S : VFCPKCD_D],  // Vectorial FP cast and pack ops
-      ACCEL_OP_FD:
-      return 1'b1;  // Accelerator instructions
+      [VFCPKAB_S : VFCPKCD_D]:
+      return 1'b1;  // Vectorial FP cast and pack ops
       default: return 1'b0;  // all other ops
     endcase
   endfunction

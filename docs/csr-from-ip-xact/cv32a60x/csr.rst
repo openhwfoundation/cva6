@@ -116,7 +116,7 @@ The ``mstatus`` register keeps track of and controls the hart’s current operat
      - Indicates whether machine interrupts were enabled prior to trapping into machine mode\.  ``Enumerated Values`` ( "Disabled" :0)( "Enabled" :1)'\n'
    * - 6 
      - UBE
-     - User mode bit endianess
+     - User mode bit endianness
      - 0x0 
      - read-write,WARL
      - UBE controls whether explicit load and store memory accesses made from U\-mode are little\-endian or big\-endian\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Little-endian" :0)( "Big-endian" :1)'\n'
@@ -289,7 +289,7 @@ This register contains machine interrupt enable bits.
      - 
      - 0x0 
      - read-write,WARL
-     - enable U\-mode software interrrupts\. ``Legal Values:`` 0\.
+     - enable U\-mode software interrupts\. ``Legal Values:`` 0\.
 
 MTVEC:Machine Trap Vector Register 
 ----------------------------------
@@ -348,13 +348,13 @@ The ``mstatush`` is the upper 32-bits of Machine status only for RV32.
      - Reserved
    * - 4 
      - SBE
-     - Supervisor mode bit endianess
+     - Supervisor mode bit endianness
      - 0x0 
      - read-write,WARL
      - SBE controls whether explicit load and store memory accesses made from S\-mode are little\-endian or big\-endian\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Little-endian" :0)( "Big-endian" :1)'\n'
    * - 5 
      - MBE
-     - Machine mode bit endianess
+     - Machine mode bit endianness
      - 0x0 
      - read-write,WARL
      - MBE controls whether explicit load and store memory accesses made from M\-mode are little\-endian or big\-endian\. ``Legal Values`` :0\.  ``Enumerated Values`` ( "Little-endian" :0)( "Big-endian" :1)'\n'
@@ -3646,7 +3646,7 @@ AddressOffset: 'hF11
 --------------------------
 Description:
 --------------------------
-This register provids the JEDEC manufacturer ID of the provider of the core.
+This register provides the JEDEC manufacturer ID of the provider of the core.
 
 .. list-table::
    :widths: 20 20 15 10 15 40
@@ -3669,7 +3669,7 @@ This register provids the JEDEC manufacturer ID of the provider of the core.
      - Offset
      - 0x2
      - read-only
-     - Contain encording for the final byte discarding the parity bit\.
+     - Contain encoding for the final byte discarding the parity bit\.
 
 MARCHID:Machine Architecture ID Register 
 ----------------------------------------

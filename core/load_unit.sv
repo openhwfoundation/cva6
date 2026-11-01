@@ -411,7 +411,9 @@ module load_unit
       trans_id_o = lsu_ctrl_i.trans_id;
       valid_o    = 1'b1;
       ex_o.valid = 1'b1;
-      pop_ld_o = !stall_translation;//1'b1; // release lsu_bypass fifo
+      // The faulting load leaves the lsu_bypass fifo: a load dropped by the
+      // speculative scoreboard is not flushed out of it.
+      pop_ld_o = 1'b1;
     end else if (ni_load_dropped) begin
       trans_id_o = lsu_ctrl_i.trans_id;
       valid_o    = 1'b1;
@@ -647,10 +649,18 @@ module load_unit
         (CVA6Cfg.SdtrigMcontrol6LoadAddr && sdtrig_matched_pending && ypb_a_state_q == TRANSPARENT)
         |-> !ypb_load_req_o.preq)
   else `ASSERT_ERROR("[load_unit] load sent to memory although its address matched a load trigger");
+  // Transaction ID of the load presented on the physical request. With
+  // TwoPhaseReq it is the entry recorded in s0. Without, a request sent in its
+  // own cycle is only written into the load buffer at the next edge, while a
+  // request held for its grant was recorded at aid_q.
+  logic [CVA6Cfg.TRANS_ID_BITS-1:0] preq_trans_id;
+  assign preq_trans_id = CVA6Cfg.TwoPhaseReq ? ldbuf_q[ldbuf_windex_q].trans_id :
+                         (ypb_a_state_q == REGISTRED) ? ldbuf_q[aid_q].trans_id :
+                                                        lsu_ctrl_i.trans_id;
   ni_load_at_commit :
   assert property (@(posedge clk_i) disable iff (~rst_ni)
         (CVA6Cfg.NonIdemPotenceEn && ypb_load_req_o.preq && ypb_load_rsp_i.pgnt && paddr_req_nonidempotent)
-        |-> (ldbuf_q[ldbuf_windex_q].trans_id == commit_tran_id_i &&
+        |-> (preq_trans_id == commit_tran_id_i &&
              !(CVA6Cfg.SpeculativeSb && commit_drop_i)))
   else `ASSERT_ERROR("[load_unit] non-idempotent load sent to memory before its commit");
   initial

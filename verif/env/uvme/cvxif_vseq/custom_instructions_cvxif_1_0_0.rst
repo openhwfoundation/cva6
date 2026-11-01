@@ -36,7 +36,7 @@ Except for 4 of them using opcode `MADD, MSUB, NMADD, NMSUB`
 
     **Description**: add register rs1 to rs1, and store the result in rd.
     Any rs2 value can be given. It should be ignored by CPU.
-    Exists to check that register depedencies is well implemented in CPU.
+    Exists to check that register dependencies is well implemented in CPU.
 
     **Pseudocode**: x[rd] = x[rs1] + x[rs1]
 

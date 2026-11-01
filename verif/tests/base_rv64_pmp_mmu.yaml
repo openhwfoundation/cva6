@@ -8,9 +8,8 @@
 # ------------------------------------------------------------------------------
 #   base_rv64_pmp_mmu.yaml
 #
-#   PMP test that needs an MMU, for the cv64 targets with PMP entries and an
-#   MMU: the LSU hands PMP the metadata of the access that the MMU response
-#   answers, on DTLB-miss and DTLB-hit stores.
+#   PMP tests that need an MMU, for the cv64 targets with PMP entries and an
+#   MMU. The test that checks mtval is in base_rv64_pmp_mmu_tval.
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -19,11 +18,6 @@ custom_test_config: &custom_test_config
   llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
 
 testlist:
-  - test: pmp-lsu-transaction
-    iterations: 1
-    <<: *custom_test_config
-    asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_test.S
-
   - test: vm_noncanonical_fetch
     iterations: 1
     path_var: TESTS_PATH

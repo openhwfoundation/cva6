@@ -321,7 +321,6 @@ module uvmt_cva6_tb;
    `RVFI_CSR_ASSIGN(instreth)
    `RVFI_CSR_ASSIGN(dcache)
    `RVFI_CSR_ASSIGN(icache)
-   `RVFI_CSR_ASSIGN(acc_cons)
 
    `RVFI_CSR_ASSIGN(pmpcfg0)
    `RVFI_CSR_ASSIGN(pmpcfg1)

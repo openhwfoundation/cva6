@@ -52,7 +52,7 @@ ISSUE_STAGE has three functionalities.
 
 (1) ISSUE_STAGE issues instructions.
 Instructions from ID_STAGE are sent to Scoreboard module, which forwards them to Issue_read_operands module.
-Issue_read_operands queries Scoreboard module for data dependences (Scoreboard is also able to return forwarded values) and gets the list of busy functional units from EX_STAGE.
+Issue_read_operands queries Scoreboard module for data dependencies (Scoreboard is also able to return forwarded values) and gets the list of busy functional units from EX_STAGE.
 Issue_read_operands sends to EX_STAGE the instructions to execute and acknowledges to Scoreboard so that it stores them: the instruction is issued.
 Issued instructions are acknowledged to ID_STAGE.
 Each of these steps can block its successors.
@@ -86,7 +86,7 @@ Scoreboard is used in all three functionalities of ISSUE_STAGE.
 (1) ISSUE_STAGE issues instructions.
 Up to {issue-width} instruction(s) can be received from ID_STAGE each cycle.
 They are transmitted to Issue_read_operands with incremental transaction IDs which wrap at {NrScoreboardEntries}.
-The result buses and Scoreboard entries are also transmitted to Issue_read_operands for it to detect data dependences and perform operand forwarding.
+The result buses and Scoreboard entries are also transmitted to Issue_read_operands for it to detect data dependencies and perform operand forwarding.
 When Issue_read_operands acknowledges an instruction, it is inserted into the FIFO.
 
 Scoreboard has a capacity of {NrScoreboardEntries} entries.

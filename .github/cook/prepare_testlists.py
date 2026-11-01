@@ -10,7 +10,7 @@ import yaml
 # Reuse upstream definitions and startup; only bound the software ISA/selection.
 _RV32_PROFILE = {
     "tandem_enabled": True,
-    "target": "cv32a60x_axi",
+    "target": "fpga_linux_cv32a6",
     "march": "rv32imc_zicsr_zifencei",
     "mabi": "ilp32",
     "environment": "upstream-riscv-tests-p",
@@ -37,12 +37,12 @@ _RV32_PROFILE = {
 REGRESSION_CONFIG = {
     "schema_version": 1,
     "profiles": {
-        "rv32-60x": _RV32_PROFILE,
-        "rv32-65x": {**_RV32_PROFILE, "target": "cv32a65x_sv32_axi"},
+        "rv32-scalar": _RV32_PROFILE,
+        "rv32-superscalar": {**_RV32_PROFILE, "target": "summit_titlis"},
         "rv64": {
             **_RV32_PROFILE,
             "tandem_enabled": False,
-            "target": "cv64a6_imac_sv39_hpdcache_pmp_nommu_axi_zcmt",
+            "target": "profile_rva20s64",
             "march": "rv64imc_zicsr_zifencei",
             "mabi": "lp64",
             "environment": "upstream-custom-crt",

@@ -396,7 +396,7 @@ subfeatures: !!omap
     - '000': !VerifItem
         name: '000'
         tag: VP_ISA_RV32_F000_S006_I000
-        description: "slli rd, rs, imm[4:0]\nrd = rs << imm[4:0]\nZeros are shirfted\
+        description: "slli rd, rs, imm[4:0]\nrd = rs << imm[4:0]\nZeros are shifted\
           \ into lower bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''
@@ -415,7 +415,7 @@ subfeatures: !!omap
     - '001': !VerifItem
         name: '001'
         tag: VP_ISA_RV32_F000_S006_I001
-        description: "slli rd, rs, imm[4:0]\nrd = rs << imm[4:0]\nZeros are shirfted\
+        description: "slli rd, rs, imm[4:0]\nrd = rs << imm[4:0]\nZeros are shifted\
           \ into lower bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''
@@ -435,7 +435,7 @@ subfeatures: !!omap
     - '002': !VerifItem
         name: '002'
         tag: VP_ISA_RV32_F000_S006_I002
-        description: "slli rd, rs, imm[4:0]\nrd = rs << imm[4:0]\nZeros are shirfted\
+        description: "slli rd, rs, imm[4:0]\nrd = rs << imm[4:0]\nZeros are shifted\
           \ into lower bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''
@@ -459,7 +459,7 @@ subfeatures: !!omap
     - '000': !VerifItem
         name: '000'
         tag: VP_ISA_RV32_F000_S007_I000
-        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shirfted\
+        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shifted\
           \ into upper bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''
@@ -478,7 +478,7 @@ subfeatures: !!omap
     - '001': !VerifItem
         name: '001'
         tag: VP_ISA_RV32_F000_S007_I001
-        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shirfted\
+        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shifted\
           \ into upper bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''
@@ -498,7 +498,7 @@ subfeatures: !!omap
     - '002': !VerifItem
         name: '002'
         tag: VP_ISA_RV32_F000_S007_I002
-        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shirfted\
+        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shifted\
           \ into upper bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''
@@ -561,7 +561,7 @@ subfeatures: !!omap
     - '002': !VerifItem
         name: '002'
         tag: VP_ISA_RV32_F000_S008_I002
-        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shirfted\
+        description: "srli rd, rs, imm[4:0]\nrd = rs >> imm[4:0]\nZeros are shifted\
           \ into upper bits"
         reqt_doc: ./RISCV_Instructions.rst
         ref_mode: ''

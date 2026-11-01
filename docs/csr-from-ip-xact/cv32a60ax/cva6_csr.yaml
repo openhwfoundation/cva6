@@ -801,7 +801,7 @@ component:
             vendorExtensions:
               RISCV_behavior: WARL
           - name: USIP
-            description: A user-level software interrupt is triggered on the current hart by  riting 1 to its user software interrupt-pending (USIP) bit.``Legal Values:``0.
+            description: A user-level software interrupt is triggered on the current hart by writing 1 to its user software interrupt-pending (USIP) bit.``Legal Values:``0.
             bitOffset: '0'
             resets:
               reset:
@@ -2072,7 +2072,7 @@ component:
           vendorExtensions:
             privilege_mode: M
         - name: icache
-          displayName: Instuction Cache
+          displayName: Instruction Cache
           description: Custom Register to enable/disable for Icache [bit 0]
           addressOffset: "'h7C0"
           size: '32'

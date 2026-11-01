@@ -43,7 +43,7 @@ package cva6_config_pkg;
       RVV: bit'(0),
       RVC: bit'(1),
       RVH: bit'(0),
-      RVZCMT: bit'(1),
+      RVZCMT: bit'(0),
       RVZCB: bit'(1),
       RVZCMP: bit'(0),
       XFVec: bit'(0),
@@ -130,13 +130,13 @@ package cva6_config_pkg;
       SvnapotEn: bit'(0),
       NrLoadPipeRegs: int'(0),
       NrStorePipeRegs: int'(0),
-      DcacheIdWidth: int'(3),
+      DcacheIdWidth: int'(1),
       MemSubsystem: config_pkg::MEM_OBI,
       NrStoreInFlight: unsigned'(0),
-      DclsEn: bit'(1),
+      DclsEn: bit'(0),
       DclsDelay : unsigned'(1),
-      DclsCommonRegfile: bit'(1),
-      DclsCommonBHT: bit'(1)
+      DclsCommonRegfile: bit'(0),
+      DclsCommonBHT: bit'(0)
   };
 
 endpackage

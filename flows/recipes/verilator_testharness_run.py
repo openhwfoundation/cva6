@@ -37,9 +37,11 @@ from flows.utils.manifest import (
     require_prerequisite,
     write_manifest,
 )
+from flows.utils.pk_run import HarnessProgram
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
 from flows.utils.tandem import analyze_tandem_report
+from flows.utils.target_config import spike_core_name
 
 app = typer.Typer()
 
@@ -212,15 +214,11 @@ def verilator_testharness_run(
     # OPTIONS
     # ==========================================================
 
-    # Symbol address extracted at compile time (sw-compile manifest):
-    # tohost drives the end-of-test detection
-    symbols = get_manifest_option(compile_manifest, "symbols", {})
-    add_tohost = symbols.get("tohost")
-    if add_tohost is None:
-        report.error_exit(
-            f"No tohost symbol recorded in the sw-compile manifest of {compile_dir}",
-            env=True,
-        )
+    # Program loaded by the harness, and the tohost that ends the test:
+    # the ones of the proxy kernel for a test built to run under it
+    program = HarnessProgram(
+        compile_dir, test_name, compile_manifest, report, pk_supported=True
+    )
 
     options = []
     if trace_mode == TraceMode.fast:
@@ -235,20 +233,16 @@ def verilator_testharness_run(
     sim_cmd += [
         "--seed",
         "1",
-        str(elf),
+        *program.run_plusargs(),
+        *program.htif_args(),
         "+tb_performance_mode",
-        # Nothing drives the debug module: left enabled, the SimDTM of the
-        # harness halts a core built with DebugEn into its debug ROM
-        # 500 cycles after reset, and the program crawls through it.
-        "+debug_disable=1",
         "+UVM_VERBOSITY=UVM_NONE",
-        f"++{elf}",
-        f"+elf_file={elf}",
-        f"+core_name={target}",
+        f"+elf_file={program.binary}",
+        f"+core_name={spike_core_name(target, report)}",
         "+signature=signature_output",
         "+UVM_TESTNAME=uvmt_cva6_firmware_test_c",
         "+report_file=testharness.log.yaml",
-        f"+tohost_addr={add_tohost}",
+        f"+tohost_addr={program.tohost}",
     ]
     if tandem_enabled:
         sim_cmd.append(f"+config_file={spike_config}")

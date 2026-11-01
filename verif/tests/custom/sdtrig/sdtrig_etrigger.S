@@ -137,6 +137,9 @@ not_a_break:
     csrr s10, mepc
     addi s10, s10, 4
     csrw mepc, s10
+    # The nested entry's mret left MPP at U: return to M-mode, where main runs.
+    li   s10, 0x1800
+    csrs mstatus, s10
     mret
 
     .data

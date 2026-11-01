@@ -79,7 +79,7 @@ It gets incrementally processed further down the pipeline. The
 scoreboard entry controls operand selection, dispatch and the execution.
 Furthermore it contains an exception entry which strongly ties the
 particular instruction to its potential exception. As the first time an
-exception could have occoured was already in the IF stage the decoder
+exception could have occurred was already in the IF stage the decoder
 also makes sure that this exception finds its way into the scoreboard
 entry. A potential illegal instruction exception can occur during
 decoding. If this is the case and no previous exception has happened the

@@ -42,9 +42,10 @@ export YOSYS_PATH=/yosys_path/oss-cad-suite/bin
 #Python
 # The interpreter the recipes run with, and the one pip installs their
 # entry points next to: black, pylint and sphinx-build are found through
-# it. A virtual environment keeps them out of the system packages:
-#   python3 -m venv .venv && . .venv/bin/activate
-#   pip3 install -r flows/requirements.txt
+# it. A virtual environment keeps them out of the system packages, with
+# Python 3.12 or later, which uv provides whatever the system one:
+#   uv venv -p 3.12 .venv && . .venv/bin/activate
+#   uv pip install -r flows/requirements.txt
 # This file is shared by every checkout, so the environment is looked for
 # in the current directory rather than named here: source it from the root
 # of the CVA6 repository. Leave VENV_PATH unset to use no virtual

@@ -74,7 +74,7 @@ subfeatures: !!omap
         ref_section: ''
         ref_viewer: firefox
         verif_goals: "Exception:\n\nMisaligned address (non-32-bit aligned) will always\
-          \ cause exceptio"
+          \ cause exception"
         pfc: 3
         test_type: 3
         cov_method: 1

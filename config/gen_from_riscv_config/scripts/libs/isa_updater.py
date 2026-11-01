@@ -71,12 +71,12 @@ def isa_recursive_update(original_dict, isa_dict):
 # Extracting subset names from the YAML data
 def isa_filter(parsed_data, updater, template):
     """
-    create dict of filtred data from isa_template  based on supported extensions
+    create dict of filtered data from isa_template  based on supported extensions
     read from ISA String from RISC-V Yaml file
     :param parsed_data : parsed data of RISC-V Config Yaml file
            updater : parsed data of updater
            template : parsed data of isa_template
-    :return:  dict of filtred data from isa_template
+    :return:  dict of filtered data from isa_template
     """
     # Define the regular expression pattern
     isa_regex = re.compile(

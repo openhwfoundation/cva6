@@ -1,0 +1,142 @@
+// Copyright 2026 Thales France
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+package cva6_config_pkg;
+
+  localparam CVA6ConfigXlen = 64;
+
+  localparam CVA6ConfigRvfiTrace = 1;
+
+  localparam CVA6ConfigAxiIdWidth = 6;  // axi_pkg.sv
+  localparam CVA6ConfigAxiAddrWidth = 64;  // axi_pkg.sv
+  localparam CVA6ConfigAxiDataWidth = 64;  // axi_pkg.sv
+  localparam CVA6ConfigDataUserWidth = CVA6ConfigXlen;  // axi_pkg.sv
+
+  localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
+      XLEN: unsigned'(CVA6ConfigXlen),
+      VLEN: unsigned'(64),
+      FpgaEn: bit'(0),  // for Xilinx and Altera
+      FpgaAlteraEn: bit'(0),  // for Altera (only)
+      TechnoCut: bit'(0),
+      SuperscalarEn: bit'(0),
+      ALUBypass: bit'(0),
+      NrCommitPorts: unsigned'(1),
+      AxiAddrWidth: unsigned'(CVA6ConfigAxiAddrWidth),
+      AxiDataWidth: unsigned'(CVA6ConfigAxiDataWidth),
+      AxiIdWidth: unsigned'(CVA6ConfigAxiIdWidth),
+      AxiUserWidth: unsigned'(CVA6ConfigDataUserWidth),
+      NrLoadBufEntries: unsigned'(16),
+      RVF: bit'(0),
+      RVD: bit'(0),
+      XF16: bit'(0),
+      XF16ALT: bit'(0),
+      XF8: bit'(0),
+      RVA: bit'(1),
+      RVB: bit'(0),
+      ZKN: bit'(0),
+      RVV: bit'(0),
+      RVC: bit'(1),
+      RVH: bit'(1),
+      RVZCB: bit'(1),
+      RVZCMP: bit'(1),
+      RVZCMT: bit'(0),
+      XFVec: bit'(0),
+      CvxifEn: bit'(0),
+      CoproType: config_pkg::COPRO_NONE,
+      RVZiCond: bit'(1),
+      RVZiCbom: bit'(1),
+      RVZicntr: bit'(1),
+      RVZifencei: bit'(1),
+      RVZihpm: bit'(1),
+      BigEndianEn: bit'(0),
+      NrScoreboardEntries: unsigned'(8),
+      PerfCounterEn: bit'(1),
+      MmuPresent: bit'(1),
+      RVS: bit'(1),
+      RVU: bit'(1),
+      SoftwareInterruptEn: bit'(1),
+      HaltAddress: 64'h800,
+      ExceptionAddress: 64'h808,
+      RASDepth: unsigned'(2),
+      BTBEntries: unsigned'(32),
+      BPType: config_pkg::BHT,
+      BHTEntries: unsigned'(0),
+      BHTHist: unsigned'(3),
+      DmBaseAddress: 64'h0,
+      Sdtrig: bit'(1),
+      SdtrigMcontrol6: bit'(1),
+      SdtrigMcontrol6ExecAddr: bit'(1),
+      SdtrigMcontrol6ExecData: bit'(1),
+      SdtrigMcontrol6Store: bit'(1),
+      SdtrigMcontrol6LoadAddr: bit'(1),
+      SdtrigMcontrol6LoadData: bit'(1),
+      SdtrigIcount: bit'(1),
+      SdtrigEtrigger: bit'(1),
+      SdtrigItrigger: bit'(1),
+      SdtrigNrTriggers: int'(4),
+      SdtrigTriggerChaining: bit'(1),
+      SdtrigSupportedActions: 2'b11,
+      SdtrigSupportedMatch: 10'b11_1111_1111,
+      SdtrigSupportTextra: bit'(0),
+      TvalEn: bit'(1),
+      DirectVecOnly: bit'(0),
+      NrPMPEntries: unsigned'(8),
+      PMPCfgRstVal: {64{64'h0}},
+      PMPAddrRstVal: {64{64'h0}},
+      PMPEntryReadOnly: 64'd0,
+      PMPNapotEn: bit'(1),
+      NOCType: config_pkg::NOC_TYPE_AXI4_ATOP,
+      NrNonIdempotentRules: unsigned'(2),
+      NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
+      NonIdempotentLength: 1024'({64'b0, 64'b0}),
+      NrExecuteRegionRules: unsigned'(3),
+      ExecuteRegionAddrBase: 1024'({64'h8000_0000, 64'h1_0000, 64'h0}),
+      ExecuteRegionLength: 1024'({64'h40000000, 64'h10000, 64'h1000}),
+      NrCachedRegionRules: unsigned'(1),
+      CachedRegionAddrBase: 1024'({64'h8000_0000}),
+      CachedRegionLength: 1024'({64'h40000000}),
+      NrBufferableRegionRules: unsigned'(0),
+      BufferableRegionAddrBase: 1024'({64'b0}),
+      BufferableRegionLength: 1024'({64'b0}),
+      MaxOutstandingStores: unsigned'(7),
+      DebugEn: bit'(1),
+      AxiBurstWriteEn: bit'(0),
+      IcacheByteSize: unsigned'(16384),
+      IcacheSetAssoc: unsigned'(4),
+      IcacheLineWidth: unsigned'(128),
+      CacheWritePolicy: config_pkg::CACHE_WT,
+      DcacheByteSize: unsigned'(32768),
+      DcacheSetAssoc: unsigned'(8),
+      DcacheLineWidth: unsigned'(128),
+      DcacheFlushOnFence: bit'(0),
+      DcacheFlushOnFenceI: bit'(0),
+      DcacheInvalidateOnFlush: bit'(0),
+      DcacheEccEnable: bit'(0),
+      DcacheEccScrubberEnable: bit'(0),
+      DataUserEn: bit'(0),
+      WtDcacheWbufDepth: int'(8),
+      FetchUserWidth: unsigned'(64),
+      FetchUserEn: bit'(0),
+      InstrTlbEntries: int'(16),
+      DataTlbEntries: int'(16),
+      UseSharedTlb: bit'(0),
+      SharedTlbDepth: int'(64),
+      SvnapotEn: bit'(0),
+      NrLoadPipeRegs: int'(2),
+      NrStorePipeRegs: int'(0),
+      DcacheIdWidth: int'(4),
+      MemSubsystem: config_pkg::MEM_HPDCACHE_AXI,
+      NrStoreInFlight: unsigned'(0),
+      DclsEn: bit'(0),
+      DclsDelay : unsigned'(1),
+      DclsCommonRegfile: bit'(0),
+      DclsCommonBHT: bit'(0)
+  };
+
+endpackage

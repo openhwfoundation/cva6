@@ -22,7 +22,7 @@ In addition to retiring instructions the commit stage also manages the
 various exception sources. In particular at time of commit exceptions
 can arise from three different sources. First an exception has occurred
 in any of the previous four pipeline stages (only four as PC Gen can't
-throw an exception). Second an exception happend during commit. The only
+throw an exception). Second an exception happened during commit. The only
 source where during commit an exception can happen is from the CS
 register file and from an interrupt.
 

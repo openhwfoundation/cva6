@@ -28,3 +28,33 @@ index ee6fd1a08..8bfe1e190 100644
    begin
      if (WrEn_SI) begin
        mem[WrAddr_DI] <= WrData_DI;
+diff --git a/vendor/pulp-platform/fpga-support/rtl/SyncDpRam_ind_r_w.sv b/vendor/pulp-platform/fpga-support/rtl/SyncDpRam_ind_r_w.sv
+index afddbcc7e..f67965378 100644
+--- a/vendor/pulp-platform/fpga-support/rtl/SyncDpRam_ind_r_w.sv
++++ b/vendor/pulp-platform/fpga-support/rtl/SyncDpRam_ind_r_w.sv
+@@ -38,7 +38,9 @@ module SyncDpRam_ind_r_w
+ (* ramstyle = "mlab" *) logic [DATA_WIDTH-1:0] mem [DATA_DEPTH-1:0]= '{default:0};
+ 
+   // WRITE
+-  always_ff @(posedge Clk_CI)
++  // always, not always_ff: mem also has an initial value, and always_ff
++  // forbids any other process from writing the variable it drives.
++  always @(posedge Clk_CI)
+   begin
+     if (WrEn_SI) begin
+       mem[WrAddr_DI] <= WrData_DI;
+diff --git a/vendor/pulp-platform/fpga-support/rtl/SyncThreePortRam.sv b/vendor/pulp-platform/fpga-support/rtl/SyncThreePortRam.sv
+index 2b65c9ec8..eef234faa 100644
+--- a/vendor/pulp-platform/fpga-support/rtl/SyncThreePortRam.sv
++++ b/vendor/pulp-platform/fpga-support/rtl/SyncThreePortRam.sv
+@@ -41,7 +41,9 @@ module SyncThreePortRam
+ logic [DATA_WIDTH-1:0] mem [DATA_DEPTH-1:0]= '{default:0};
+ 
+   // WRITE
+-  always_ff @(posedge Clk_CI)
++  // always, not always_ff: mem also has an initial value, and always_ff
++  // forbids any other process from writing the variable it drives.
++  always @(posedge Clk_CI)
+   begin
+     if (WrEn_SI) begin
+       mem[WrAddr_DI] <= WrData_DI;

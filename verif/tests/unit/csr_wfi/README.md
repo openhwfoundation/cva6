@@ -1,7 +1,7 @@
 # CSR WFI single-step regression
 
 This test instantiates the real `core/csr_regfile.sv` to reproduce CVA6 issue
-#3497. It uses the `cv32a6_imac_sv32` configuration and a second instance of
+#3497. It uses the `fpga_linux_cv32a6` configuration and a second instance of
 that configuration with `DebugEn=0`. It does not force internal DUT state.
 
 The driver supplies decoded CSR operations, commit acknowledgements, and

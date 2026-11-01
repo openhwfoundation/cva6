@@ -62,6 +62,8 @@ CVA6_ROOT_DIR/
 │   │   └── ...
 │   ├── patterns/                # Pre-configured basic tests
 │   │   ├── hello_world.py
+│   │   ├── pk_hello_world.py    # Hello world under the proxy kernel
+│   │   ├── zephyr_hello_world.py # Hello world of the Zephyr RTOS
 │   │   ├── coremark.py
 │   │   └── dhrystone.py
 │   ├── macros/                  # Multi-recipe automation
@@ -72,6 +74,7 @@ CVA6_ROOT_DIR/
 │   │   ├── console.py           # Shared Rich console
 │   │   ├── fpga_board.py        # FPGA board parameters
 │   │   ├── manifest.py          # Build manifest (cook_manifest.yml)
+│   │   ├── pk_run.py            # Program the TestHarness loads, under pk or not
 │   │   ├── recipe_report.py     # Recipe report (cook_report.yml)
 │   │   ├── run_cmd.py           # Command runner
 │   │   ├── job_scheduler.py     # Job graph runner of the macros
@@ -398,6 +401,10 @@ build/
 │   ├── docs/                    # Documentation (docs-build)
 │   │   ├── html/                # Sphinx user manual
 │   │   └── *.html               # Specifications of the target
+│   ├── pk/                      # Proxy kernel (pk-build)
+│   │   ├── install/<host>/bin/pk
+│   │   ├── libpk_dtm.so         # SimDTM library VCS loads under pk
+│   │   └── cook_manifest.yml    # pk, its tohost, the library
 │   ├── riscv_isa_modify/        # Derived ISA strings
 │   └── verible/                 # RTL formatting
 │       ├── verible-check.log    # Files that needed formatting

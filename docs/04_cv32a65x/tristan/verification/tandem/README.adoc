@@ -1,0 +1,126 @@
+= CVA6 Tandem Verification
+:toc:
+
+== Quick links
+
+User manual and technical reference documentation of the tandem simulation framework used in the TRISTAN project can be directly accessed through these links:
+
+* xref:./tandem-user-guide.adoc[Tandem User Guide]
+  provides a progressive introduction to tandem simulation using UVM and Spike as deployed for the CV32A60X and CV32A65X cores.
+* xref:./uvm-tandem-refman.adoc[UVM Tandem Reference Manual]
+  describes in detail the UVM-side tandem support.
+* xref:./spike-tandem-refman.adoc[Spike Tandem Reference Manual]
+  contains the programming manual of the Spike part of tandem verification infrastructure.
+* xref:./tandem-modifications-for-trl5.adoc[Tandem Modifications for TRL5 Verification of CV32A60X core]
+  discusses the modifications of Spike and the tandem infrastructure that were necessary to support TRL5 verification of the CV32A60X core.
+
+= Introduction to Tandem Verification
+
+Tandem-based functional verification of an RTL design consists in a lockstep comparison of the behavior of an RTL implementation against the behavior of a reference model (usually an Instruction Set Simulator, or ISS), both executing the same programs from the same initial state.  In opposition to post-execution trace comparison, the tandem approach enables immediate detection of differences in observable behavior of the RTL implementation and the reference model, thus greatly simplifying the investigation of the root causes of any discrepancies.
+
+The verification is performed on the CVA6 core, with the exclusion of interrupt controllers, platform-related mechanisms (e.g. real-time timer), peripherals etc.
+
+The behaviors that are verified are:
+
+* instruction completion
+* general-purpose register value changes
+* CSR value changes
+* memory operations (as seen by the CVA6 core)
+* raising of exceptions
+* raising of interrupts
+* trap entry and return
+
+== Basic Architecture and Design Choices
+
+.Overall tandem verification flow
+[#fig-overall-tandem-flow]
+image::figures/overall-tandem-architecture.svg[Tandem verification flow,1024]
+
+The tandem simulation environment (see xref:fig-overall-tandem-flow[xrefstyle=short]) consists of:
+
+* an RTL simulator that models the design and provides a testbench capable of loading programs and reporting changes in design state via a well-defined interface;
+* a reference model provided by the Spike ISS that exposes its state on an interface identifcal to that of the RTL simulator;
+* a comparison agent that checks if the the state of the RTL simulation and the state of the reference are equivalent.
+
+To represent simulation state, the OpenHW Group tandem verification environment relies on the use of the RISC-V Formal Interface, or RVFI (https://github.com/SymbioticEDA/riscv-formal/blob/master/docs/rvfi.md).  RVFI provides a well-defined abstraction of design state at each instruction commit or exception occurrence.
+
+RVFI events are collected from both RTL and reference model side, and the RVFI states of both simulations are compared after every step.  In the CVA6 RTL implementation, multiple commits or exceptions can occur in a single cycle.  If multiple simultaneous events are reported by RVFI, the corresponding entries in the RVFI interface are always ordered in the sequential execution order.   For each commit or exception reported by the RVFI interface of the RTL model, the tandem control loop performs a single step of the reference model and compares the RVFI state reported by the RTL simulator and the reference model.
+
+Since the CVA6 is only a processor core, the simulation of actual program execution requires a minimal platform that will at least contain the memory to store the program and its data and provide a means of loading programs into that memory.  The RTL simulation environment provides the required abstractions of platform-level resources and behaviors as part of the testbench.  The reference model provides its own platform abstraction which needs to be aligned with the constraints and choices of the RTL platform.  For this reason Spike is a prime choice as it contains a superset of the minimum platform needed and its properties can be controlled by means of Spike configuration parameters.
+
+In order to ease the integration with RTL simulators, the Spike part of tandem infrastructure does not depend on the availability of a fully-featured UVM implementation.  Instead, it uses a limited subset of UVM to provide a uniform SystemVerilog interface across all supported RTL simulators, whether commercial or open-source.
+
+=== Operation
+
+The principle of operation of CVA6 tandem verification is shown in xref:fig-overall-tandem-flow[xrefstyle=short].  The execution of the tandem simulation is controlled by the main RTL simulation loop that is managed either by the "run" phase of the UVM testbench, or explicitly in a test harness.  The RTL simulation runs through successive clock cycles until the RVFI state of the RTL model is marked as valid, indicating an instruction commit or an exception in the current RTL clock cycle.
+
+Interrupt and debug events detected by the RTL model are injected into the reference model at the beginning of each step. Likewise, the most recent *previously* committed values of microarchitecture-dependent CSRs such as clock cycle counters (`cycle`/`cycleh`, `mcycle`/`mcycleh`) are injected before the reference model step since the RTL values of these registers already correspond to RTL state *after* the corresponding RTL event.
+
+//.Stages of a single reference model step
+//[#fig-refmodel-step]
+//image::figures/refmodel-step-stages.svg[Stages of a reference model step,800,opts=inline]
+
+If a discrepancy in RFVI state is detected, an appropriate human-readable error output is written into the log file and the error count of the simulation is incremented.  The tandem simulation stops once a preset number of errors is encountered.  By controlling the error count limit is it possible to accommodate transient differences between the RTL and reference model states.  A typical example of transient difference occurs when two instructions are committed in a single cycle by a superscalar RTL implementation, causing the counter of retired instructions `minstret` to be atomically incremented by two whereas the reference model will always commit instruction one by one, thus incrementing `minstret` by one each time.
+
+At the end of a tandem simulation a Yaml report file is produced.  It contains information about the test setup (architecture, ISA, test name, etc.) and the list of mismatches found if any.
+
+For the purpose of CVA6 core verification the core-level interrupt controller (CLIC) is **not** modeled; instead, interrupt management is performed by the testbench.  The RTL core model receives interrupt notifications from the testbench through the available interrupt input ports.  When the RTL model of the core detects an interrupt, the information about the interrupt is passed to the reference model by reconstructing the value of the `mip` (Machine Interrupt Pending) CSR from the value of the `mcause` register to ensure that the interrupt taken is the same as the one already taken by the RTL simulation.  The actual RTL value of the `mip` register may contain additional bits which are set; it will be injected into the reference model state at the end of the reference model step.
+
+=== Implementation
+
+The RTL testbenches use DPI functions to control Spike stepping, inject CSR values and query Spike's RVFI interface.
+
+The selection of single/tandem operation mode is achieved using the SystemVerilog macro `SPIKE_TANDEM`.  If defined to a non-zero ("true") value, it enables the tandem configuration in the RTL simulation by instantiating and connecting the Spike wrapper, and activates the stepping and RVFI compare functions.
+
+The selection of file locations for the Yaml configuration and the Yaml report file locations is performed using dedicated "plusarg" command-line options added to the testbenches:
+
+* `+config_file=<NAME>` sets the name of the Yaml configuration file to `<NAME>`
+* `+report_file=<NAME>` sets the name of the Yaml tandem report file to `<NAME>`.
+
+Option `+config_file` should only be used when an appropriate configuration file exists, and should be omitted otherwise.
+
+SystemVerilog code of the tandem infrastructure is maintained in OpenHW Group repository `core-v-verif` (https://github.com/openhwgroup/core-v-verif) which also contains the UVM components and agents that leverage the pure SystemVerilog layer.
+
+A pure SystemVerilog tandem testbench for CVA6 is available in the OpenHW Group CVA6 repository (https://github.com/openhwgroup/cva6/).
+
+To limit the impact on the Spike original code base, Spike modifications rely on "shim" (adapter) classes that add extra functionality in two ways:
+
+* by adding a new base class below the original base class (used for CSRs)
+* by specializing a class to provide additional interfaces (Processor and Simulation)
+
+Spike execution model was modified to run a single-instruction step function instead of the performance-optimized "instruction batch" mode that executes hundreds to thousands of instructions without yielding control to the environment of the simulated design.
+
+In order to provide fine-grained control over the configuration of the simulated design, Spike was extended with a parameter mechanism with the following characteristics:
+
+* multiple ways of controlling Spike simulator behavior:
+** configuration files (Yaml)
+** DPI API
+** C++ API
+** additional command-line options
+* ability to set platform-related values (memory map, boot addresses)
+* ability to set implementation-defined values (number of PMP regions in total, vendor ID, architecture ID, implementation ID, ...)
+* extended CSR control:
+** availability or not of any CSR
+** CSR initialization masks and values
+** CSR write-enable masks with bit granularity
+* ability to inject CSR values from the RTL model for architecture-dependent CSRs (`cycles`/`cyclesh`, `mcycles`/`mcyclesh`, `mip` etc.)
+
+Spike modifications are maintained in a forked Spike tree integrated into the OpenHW `core-v-verif` repository (https://github.com/openhwgroup/core-v-verif/).
+
+== Fundamental limitations of the tandem verification approach
+
+* By definition, a reference model based on an instruction set simulator has only the notion of instruction commits and is not capable of representing the behaviors between commits (transient signals, micro-architectural artefacts such as stalls etc.)
++
+Such behaviors must be verified by other means.
+
+* Simultaneous occurrence of the same error in both reference model and RTL implementation will not be detected since the two behaviors will match.
++
+This stresses the importance of validation of the reference model against the specification.
+
+* Since the reference model for tandem verification does not include an interrupt controller, the presence of pending interrupts must be notified to the `mip` register by other means.
++
+In the OpenHW Group solution, the presence of the interrupt is detected by the RTL model and the information about the actual interrupt raised as the result of interrupt arbitration is passed to the reference model in the `mcause` register.  The value in `mcause` is then used to trigger the corresponding event in the reference model.
+
+* Transient discrepancies can be caused by differences between purely sequential and concurrent model execution.
++
+Spike executes instructions in sequence whereas a superscalar architecture may commit multiple instructions in a single cycle; this means that some CSR updates may differ between Spike and RTL, typically MINSTRET may advance by 2 or more in the RTL model, yet Spike will increment it by 1 at every instruction committed.

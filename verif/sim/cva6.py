@@ -943,15 +943,7 @@ def load_config(args, cwd):
       args.mabi = "ilp32"
       args.isa  = "rv32imc_zba_zbb_zbs_zbc"
       args.priv  = "m"
-    elif base == "cv32a60x_zcmt_pmp":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-      args.priv  = "m"
     elif base == "cv32a65x":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-      args.priv  = "m"
-    elif base == "cv32a65x_noPMP":
       args.mabi = "ilp32"
       args.isa  = "rv32imc_zba_zbb_zbs_zbc"
       args.priv  = "m"
@@ -959,51 +951,19 @@ def load_config(args, cwd):
       args.mabi = "ilp32"
       args.isa  = "rv32imc_zba_zbb_zbs_zbc"
       args.priv  = "m"
-    elif base == "cv32a60x_axi":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-      args.priv  = "m"
-    elif base == "cv32a60x_zcmt_pmp_axi":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-      args.priv  = "m"
-    elif base == "cv32a65x_axi":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-      args.priv  = "m"
-    elif base == "cv32a65x_noPMP_axi":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-      args.priv  = "m"
     elif base == "cv32a65x_noPMP_noSuperScalar_axi":
       args.mabi = "ilp32"
       args.isa  = "rv32imc_zba_zbb_zbs_zbc"
       args.priv  = "m"
-    elif base == "cv32a65x_sv32":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
-    elif base == "cv32a6_ima_sv32_fpga":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imac"
-      # args.priv  = "m"
-    elif base == "cv32a65x_sv32_axi":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imc_zba_zbb_zbs_zbc"
     elif base == "cv64a6_mmu":
       args.mabi = "lp64"
       args.isa  = "rv64imac_zba_zbb_zbs_zbc"
     elif base == "cv32a6_imac_sv0":
       args.mabi = "ilp32"
       args.isa  = "rv32imac"
-    elif base == "cv32a6_imac_sv32":
+    elif base == "fpga_linux_cv32a6":
       args.mabi = "ilp32"
       args.isa  = "rv32imac_zbkb"
-    elif base == "cv32a6_imac_sv32_obi":
-      args.mabi = "ilp32"
-      args.isa  = "rv32imac_zbkb"
-    elif base == "cv32a6_imafc_sv32":
-      args.mabi = "ilp32f"
-      args.isa  = "rv32imafc"
     elif base == "rv32imc":
       args.mabi = "ilp32"
       args.isa  = "rv32imc"
@@ -1055,7 +1015,7 @@ def load_config(args, cwd):
   if not "g" in args.isa: # LLVM complains if we add zicsr and zifencei when g is set.
     isa_extension_list.append("zicsr")
     # Exclude CV32A6{0,56}X and hwconfig from Zifencei-capable targets.
-    if "cv32a65x_axi" not in args.target and "cv32a60x_axi" not in args.target and "cv32a65x" not in args.target and "cv32a60x" not in args.target and "hwconfig" not in args.target:
+    if "cv32a65x" not in args.target and "cv32a60x" not in args.target and "hwconfig" not in args.target:
       isa_extension_list.append("zifencei")
 
   args.spike_params = get_full_spike_param_args(args.spike_params) if args.spike_params else ""

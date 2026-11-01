@@ -12,7 +12,8 @@
 #
 #   The targets build with a march that has zcmt but not zcmp, and the
 #   assembler rejects the Zcmp mnemonics without it, so every test here sets
-#   its own march.
+#   its own march, and the integer ABI that goes with it (the target may use
+#   a floating-point one).
 #
 #   cm_push_pop_all, cm_mv_all and cm_popret_all go through every encoding:
 #   all register lists and stack adjustments for cm.push, cm.pop, cm.popret and
@@ -23,11 +24,13 @@
 zcmp_config: &zcmp_config
   path_var: TESTS_PATH
   march: rv32imc_zicsr_zba_zbb_zbs_zbc_zcmp_zcmt_zifencei
+  mabi: ilp32
   gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/ -I<path_var>/custom/env"
 
 zcmp_legacy_config: &zcmp_legacy_config
   path_var: TESTS_PATH
   march: rv32imc_zicsr_zba_zbb_zbs_zbc_zcmp_zcmt_zifencei
+  mabi: ilp32
   gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<path_var>/custom/Zcmp/link.ld -I<path_var>/custom/Zcmp -I<path_var>/custom/env"
 
 testlist:

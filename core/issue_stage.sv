@@ -40,8 +40,6 @@ module issue_stage
     input logic flush_unissued_instr_i,
     // Flush whole scoreboard - CONTROLLER
     input logic flush_i,
-    // Stall inserted by Acc dispatcher - ACC_DISPATCHER
-    input logic stall_i,
     // Handshake's data with decode stage - ID_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instr_i_prev,
@@ -129,10 +127,6 @@ module issue_stage
     output x_commit_t x_commit_o,
     // CVXIF Transaction rejected -> instruction is illegal - EX_STAGE
     output logic x_transaction_rejected_o,
-    // Issue scoreboard entry - ACC_DISPATCHER
-    output scoreboard_entry_t issue_instr_o,
-    // TO_BE_COMPLETED - ACC_DISPATCHER
-    output logic issue_instr_hs_o,
     // Transaction ID - EX_STAGE
     input logic [CVA6Cfg.NrWbPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] trans_id_i,
     // Result from branch unit - EX_STAGE
@@ -193,9 +187,6 @@ module issue_stage
   logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] orig_instr_sb_iro;
   logic              [CVA6Cfg.NrIssuePorts-1:0]       issue_instr_valid_sb_iro;
   logic              [CVA6Cfg.NrIssuePorts-1:0]       issue_ack_iro_sb;
-
-  assign issue_instr_o    = issue_instr_sb_iro[0];
-  assign issue_instr_hs_o = issue_instr_valid_sb_iro[0] & issue_ack_iro_sb[0];
 
   logic x_transaction_accepted_iro_sb, x_issue_writeback_iro_sb;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_iro_sb;
@@ -263,7 +254,6 @@ module issue_stage
       .clk_i,
       .rst_ni,
       .flush_i                 (flush_unissued_instr_i),
-      .stall_i,
       .issue_instr_i           (issue_instr_sb_iro),
       .issue_instr_i_prev      (decoded_instr_i_prev),
       .orig_instr_i            (orig_instr_sb_iro),

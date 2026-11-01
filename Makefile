@@ -98,15 +98,11 @@ ifneq ($(spike-tandem),)
     defines += +SPIKE_TANDEM=1
 endif
 
-# target takes one of the following cva6 hardware configuration:
-# cv64a6_imafdc_sv39, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv32a6_ima_sv32_fpga
-# Changing the default target to cv32a60x for Step1 verification
-target     ?= cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi
-ifeq ($(target), cv64a6_imafdc_sv39_hpdcache_pmp_mmu_axi)
-	XLEN ?= 64
-else
-	XLEN ?= 32
-endif
+# target takes the name of a directory of config/target, for example
+# fpga_linux_cv64a6 or fpga_linux_cv32a6
+target     ?= fpga_linux_cv64a6
+# Register width, from the march of the target
+XLEN ?= $(if $(findstring rv64,$(shell grep -s '^march:' $(root-dir)config/target/$(target)/isa.yml)),64,32)
 ifndef TARGET_CFG
 	export TARGET_CFG = $(target)
 endif

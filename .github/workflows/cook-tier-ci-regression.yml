@@ -17,9 +17,9 @@
 #
 # COVERED CONFIGURATIONS AND TESTS:
 #   Shared matrix for push, PR and manual runs:
-#     rv32-60x -> cv32a60x_axi:      basic (5) + integer-extra (3).
-#     rv32-65x -> cv32a65x_sv32_axi: basic (5) + integer-extra (3).
-#     rv64 -> cv64a6_imac_sv39_hpdcache_pmp_nommu_axi_zcmt: ALU + fence.i self-checks (2).
+#     rv32-scalar -> fpga_linux_cv32a6: basic (5) + integer-extra (3).
+#     rv32-superscalar -> summit_titlis: basic (5) + integer-extra (3).
+#     rv64 -> profile_rva20s64: ALU + fence.i self-checks (2).
 #   These selections reuse the upstream test sources and startup.
 #   RV64 does not run live Spike comparison.
 #
@@ -62,14 +62,14 @@ jobs:
       matrix:
         # All triggers use these entries from REGRESSION_CONFIG.profiles.
         include:
-          - profile: rv32-60x
-            core: cv32a60x_axi
+          - profile: rv32-scalar
+            core: fpga_linux_cv32a6
             mode: live Spike
-          - profile: rv32-65x
-            core: cv32a65x_sv32_axi
+          - profile: rv32-superscalar
+            core: summit_titlis
             mode: live Spike
           - profile: rv64
-            core: cv64a6_imac_sv39_hpdcache_pmp_nommu_axi_zcmt
+            core: profile_rva20s64
             mode: self-check
     steps:
       # ============================================================

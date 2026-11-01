@@ -41,7 +41,11 @@ def sw_compile(
     ),
     src_files: list[str] = typer.Argument(..., help="Source files"),
     inc_dirs: list[str] = typer.Option([], "--inc", help="Include directories"),
-    linker_file: str = typer.Option(..., "--linker", help="Linker file path"),
+    linker_file: str = typer.Option(
+        ...,
+        "--linker",
+        help="Linker file path, empty to keep the default script of the toolchain",
+    ),
     options: list[str] = typer.Option([], "--options", help="Options"),
     march: str = typer.Option(
         None, help="march custom instead of default one from config/target"
@@ -60,6 +64,12 @@ def sw_compile(
     ),
     test_name: str = typer.Option(
         ..., "--out", help="Test name (used in rest of flow)"
+    ),
+    pk_dir: str = typer.Option(
+        None,
+        "--pk-dir",
+        help="pk-build output directory of the proxy kernel the program runs "
+        "under (recorded in the manifest, used by the run recipes)",
     ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
@@ -85,6 +95,7 @@ def sw_compile(
             "march": march,
             "mabi": mabi,
             "preprocessor_directives": preprocessor_directives,
+            "pk_dir": pk_dir,
         },
         quiet=quiet,
     )
@@ -190,7 +201,7 @@ def sw_compile(
         f"{tools_path}/bin/{compiler}",
         *src_files,
         *[f"-I{inc}" for inc in inc_dirs],
-        f"-T{linker_file}",
+        *([f"-T{linker_file}"] if linker_file else []),
         *[f"-{option}" for option in options],
         f"-march={march}",
         f"-mabi={mabi}",
@@ -368,6 +379,10 @@ def sw_compile(
         "load_err_word",
     }
 
+    # Under pk, the test ends through the tohost of pk
+    if pk_dir:
+        optional_symbols.add("tohost")
+
     for symbol_name in wanted_symbols:
         if symbol_name in symbols:
             report.success(f"{symbol_name}: 0x{symbols[symbol_name]}")
@@ -404,6 +419,9 @@ def sw_compile(
             # Symbol addresses (raw hex, no 0x prefix) consumed by the
             # simulation recipes (*_uvm_run plusargs, spike-run check)
             "symbols": symbols,
+            # Proxy kernel the program runs under: the run recipes load it
+            # and give it the program as its argument
+            "pk_dir": pk_dir,
         },
         report=report,
     )

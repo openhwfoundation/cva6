@@ -1,6 +1,0 @@
-# The gate count is not measured yet.
-coremark_cycle: 379078
-dhrystone_cycle: 27865
-# GTECH synthesis (dc-shell-synth --gtech): not measured yet
-# gtech_cells:
-# gtech_registers:

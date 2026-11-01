@@ -138,7 +138,7 @@ def uvm_run_testlist(
     elif simulator == Simulator.questa:
         run_function = questa_uvm_run
     else:
-        report.error_exit(f"Unknown simulator: {simulator}", env=True)
+        report.error_exit(f"Unknown simulator: {simulator.value}", env=True)
 
     repo_dir = Path.cwd()
 

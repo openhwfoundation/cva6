@@ -1,7 +1,0 @@
-gates: 97499
-coremark_cycle: 367132
-dhrystone_cycle: 25220
-gtech_cells: 66909
-gtech_registers: 10638
-yosys_cells: 113824
-yosys_registers: 10685

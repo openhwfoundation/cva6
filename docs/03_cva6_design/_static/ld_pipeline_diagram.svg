@@ -142,7 +142,7 @@
 <text transform="matrix(1 0 0 1 538.5186 90.2898)" font-family="'Arial-ItalicMT'" font-size="9.9997">Two cycle memory access. The cache is </text>
 <text transform="matrix(1 0 0 1 538.5186 102.2898)" font-family="'Arial-ItalicMT'" font-size="9.9997">physically indexed and virtually tagged.</text>
 <text transform="matrix(1 0 0 1 538.5186 178.8156)" font-family="'Arial-ItalicMT'" font-size="9.9997">Multicycle memory access. Address translation</text>
-<text transform="matrix(1 0 0 1 538.5186 190.8152)" font-family="'Arial-ItalicMT'" font-size="9.9997">is perforemd in the same cycle.</text>
+<text transform="matrix(1 0 0 1 538.5186 190.8152)" font-family="'Arial-ItalicMT'" font-size="9.9997">is performed in the same cycle.</text>
 <text transform="matrix(1 0 0 1 538.5186 261.1848)" font-family="'Arial-ItalicMT'" font-size="9.9997">Same as option one but the addressing of the </text>
 <text transform="matrix(1 0 0 1 538.5186 273.1843)" font-family="'Arial-ItalicMT'" font-size="9.9997">cache needs to be delayed until the whole address</text>
 <text transform="matrix(1 0 0 1 538.5186 285.1838)" font-family="'Arial-ItalicMT'" font-size="9.9997">has successfully been translated.</text>

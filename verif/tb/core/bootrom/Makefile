@@ -1,6 +1,6 @@
 ###############################################################################
 #    $@ is the file being generated.
-#    $< is first prerequiste.
+#    $< is first prerequisite.
 #    $^ is all prerequisites.
 #    $* is file_name (w/o extension) of target
 

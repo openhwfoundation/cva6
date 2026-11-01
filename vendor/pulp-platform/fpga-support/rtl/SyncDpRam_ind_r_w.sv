@@ -38,7 +38,9 @@ module SyncDpRam_ind_r_w
 (* ramstyle = "mlab" *) logic [DATA_WIDTH-1:0] mem [DATA_DEPTH-1:0]= '{default:0};
 
   // WRITE
-  always_ff @(posedge Clk_CI)
+  // always, not always_ff: mem also has an initial value, and always_ff
+  // forbids any other process from writing the variable it drives.
+  always @(posedge Clk_CI)
   begin
     if (WrEn_SI) begin
       mem[WrAddr_DI] <= WrData_DI;

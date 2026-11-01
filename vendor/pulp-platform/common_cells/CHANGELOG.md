@@ -71,8 +71,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `addr_decode`: Use `cf_math_pkg::idx_width` for computing the index width, inline documentation.
 - `lzc`: Use `cf_math_pkg::idx_width` for computing the index width, inline documentation.
 - `Bender`: Change levels of modules affected by depending on `cf_math_pkg::idx_width()`.
-- `stream_xbar`: Fully connected stream bassed interconnect with variable number of inputs and outputs.
-- `stream_xbar`: Fully connected stream-bassed interconnect with a variable number of inputs and outputs.
+- `stream_xbar`: Fully connected stream based interconnect with variable number of inputs and outputs.
+- `stream_xbar`: Fully connected stream-based interconnect with a variable number of inputs and outputs.
 - `stream_omega_net`: Stream-based network implementing an omega topology. Variable number of inputs,
   outputs and radix. Topology is isomorphic to a butterfly network.
 
@@ -128,8 +128,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## 1.14.0 - 2019-10-08
 
 ### Added
-- Added spubstitution-permutation hash function module
-- Added couning-bloom-filter module
+- Added substitution-permutation hash function module
+- Added counting-bloom-filter module
 - `spill_register`: Added Bypass parameter
 - `counter`: Added sticky overflow
 - Added counter with variable delta

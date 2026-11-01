@@ -217,7 +217,7 @@ Here is _how_ and _to what_ CV-X-IF interfaces are connected to the CVA6.
     to take a result from coprocessor for an accepted offloaded instruction.
   ** Response:
     *** Result response is directly connected to writeback bus of the CV-X-IF
-    functionnal unit.
+    functional unit.
     *** Valid signal of result interface is connected to valid signal of
     writeback bus.
     *** Id signal of result interface is connected to scoreboard id of
@@ -247,7 +247,7 @@ CVA6 supports all coprocessors supporting the CV-X-IF specification with the exc
   then initialize an issue transaction.
 * Stateful coprocessors.
   ** CVA6 will commit on the Commit interface all its issue transactions. Speculation
-  informations are only kept in the CVA6 and speculation process is only done in CVA6.
+  information is only kept in the CVA6 and speculation process is only done in CVA6.
   The coprocessor shall be stateless otherwise it will not be able to revert its state if CVA6 kills an
   in-flight instruction (in case of mispredict or flush).
 

@@ -37,8 +37,6 @@ module load_store_unit
     input logic rst_ni,
     // Flush - CONTROLLER
     input logic flush_i,
-    // TO_BE_COMPLETED - ACC_DISPATCHER
-    input logic stall_st_pending_i,
     // No store pending - COMMIT_STAGE
     output logic no_st_pending_o,
     // Shared TLB is busy processing a multi-cycle flush
@@ -446,7 +444,6 @@ module load_store_unit
       .clk_i,
       .rst_ni,
       .flush_i,
-      .stall_st_pending_i,
       .no_st_pending_o,
       .store_buffer_empty_o(store_buffer_empty),
 

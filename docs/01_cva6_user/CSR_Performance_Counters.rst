@@ -97,7 +97,7 @@ Each of the six generic performance counters is able to monitor events from one 
 
 Controlling the counters from software
 ---------------------------------------
-All performance counters are enabled after reset. The ``mcountinhibit`` CSR at address ``0x320`` controls which of the performance counters increment as described in the RISC-V Privileged Specification, version 1.11 (see Machine Counter-Inhibit CSR, Section 3.1.12). For instance, bit 0 is set to 0 for ``mcycle(h)`` to increment as usual, bit 2 for ``minstrert(h)`` and bit X for event counter mhpmcounterX(h).
+All performance counters are enabled after reset. The ``mcountinhibit`` CSR at address ``0x320`` controls which of the performance counters increment as described in the RISC-V Privileged Specification, version 1.11 (see Machine Counter-Inhibit CSR, Section 3.1.12). For instance, bit 0 is set to 0 for ``mcycle(h)`` to increment as usual, bit 2 for ``minstret(h)`` and bit X for event counter mhpmcounterX(h).
 
 The lower 32 bits of all counters can be accessed through the base register, whereas the upper 32 bits are accessed through the h-register.
 

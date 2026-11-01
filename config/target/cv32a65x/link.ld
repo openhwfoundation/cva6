@@ -1,3 +1,8 @@
+/* Copyright (c) 2012-2015, The Regents of the University of California
+   (Regents). All Rights Reserved.
+   SPDX-License-Identifier: BSD-3-Clause
+   Taken from the riscv-tests environment, see its LICENSE for the terms. */
+
 /*======================================================================*/
 /* Proxy kernel linker script                                           */
 /*======================================================================*/

@@ -452,7 +452,7 @@ Once hardware wiring and constraints are in place with ITI, Encoder, Encapsulato
 > We used Vivado version: 2018.2
 ```bash
 make clean
-make fpga TARGET=cv32a6_imac_sv32
+make fpga TARGET=fpga_linux_cv32a6
 ```
 
 Then upload the generated ariane_xilinx.bit via Vivado Lab or your preferred hardware manager.

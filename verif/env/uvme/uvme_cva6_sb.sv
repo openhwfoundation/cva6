@@ -237,6 +237,9 @@ function bit uvme_cva6_sb_c::is_trap_delegated(uvma_isacov_instr_c trapping,
   if (cause[XLEN-1])
     return 1'b0;
 
+  // Without S-mode there is no medeleg, and every trap is taken in M-mode
+  if (!handler.rvfi.name_csrs.exists("medeleg"))
+    return 1'b0;
   medeleg_value = handler.rvfi.name_csrs["medeleg"].rdata;
 
   // Causes above the width of medeleg cannot be delegated.

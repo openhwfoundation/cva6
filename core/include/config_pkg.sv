@@ -364,7 +364,6 @@ package config_pkg;
     bit          XF8Vec;
     int unsigned NrRgprPorts;
     int unsigned NrWbPorts;
-    bit          EnableAccelerator;
     bit          PerfCounterEn;
     bit          MmuPresent;
     bit          RVS;                  //Supervisor mode
