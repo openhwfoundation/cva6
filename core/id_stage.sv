@@ -151,6 +151,7 @@ module id_stage #(
   logic                                               stall_macro_deco_zcmp;
   logic                                               is_last_macro_instr;
   logic                                               is_double_rd_macro_instr;
+  logic                                               is_macro_instr_atomic;
 
   // ZCMT decoder signals
   logic                                               is_illegal_zcmt;
@@ -194,6 +195,7 @@ module id_stage #(
           .is_macro_instr_i          (is_macro_instr[0]),
           .clk_i                     (clk_i),
           .rst_ni                    (rst_ni),
+          .flush_i                   (flush_i),
           .instr_o                   (instruction_zcmp),
           .illegal_instr_i           (is_illegal_rvc[0]),
           .is_compressed_i           (is_compressed_rvc[0]),
@@ -202,7 +204,8 @@ module id_stage #(
           .is_compressed_o           (is_compressed_zcmp),
           .fetch_stall_o             (stall_macro_deco_zcmp),
           .is_last_macro_instr_o     (is_last_macro_instr),
-          .is_double_rd_macro_instr_o(is_double_rd_macro_instr)
+          .is_double_rd_macro_instr_o(is_double_rd_macro_instr),
+          .is_macro_instr_atomic_o   (is_macro_instr_atomic)
       );
     end else begin
       assign instruction_zcmp         = instruction_rvc;
@@ -211,6 +214,7 @@ module id_stage #(
       assign stall_macro_deco_zcmp    = '0;
       assign is_last_macro_instr      = '0;
       assign is_double_rd_macro_instr = '0;
+      assign is_macro_instr_atomic    = '0;
     end
 
     if (CVA6Cfg.RVZCMT) begin
@@ -284,6 +288,9 @@ module id_stage #(
       assign stall_instr_fetch[0] = stall_macro_deco;
     end
   end else begin
+    assign is_last_macro_instr      = 1'b0;
+    assign is_double_rd_macro_instr = 1'b0;
+    assign is_macro_instr_atomic    = 1'b0;
     for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
       assign is_illegal_rvc[i] = 1'b0;
       assign instruction_rvc[i] = fetch_entry_i[i].instruction;
@@ -335,6 +342,7 @@ module id_stage #(
         .is_zcmt_i                 (is_zcmt_instr[i]),
         .is_last_macro_instr_i     (is_last_macro_instr),
         .is_double_rd_macro_instr_i(is_double_rd_macro_instr),
+        .is_macro_instr_atomic_i   (is_macro_instr_atomic),
         .jump_address_i            (jump_address),
         .is_illegal_i              (is_illegal_deco[i]),
         .instruction_i             (instruction_deco[i]),

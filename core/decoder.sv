@@ -48,6 +48,8 @@ module decoder
     input logic is_last_macro_instr_i,
     // Is mvsa01/mva01s macro instruction - macro_decoder
     input logic is_double_rd_macro_instr_i,
+    // Current macro expansion is in an atomic commit window - macro_decoder
+    input logic is_macro_instr_atomic_i,
     // Zcmt instruction - FRONTEND
     input logic is_zcmt_i,
     // Jump address - zcmt_decoder
@@ -1975,7 +1977,8 @@ module decoder
       interrupt_cause = INTERRUPTS.M_EXT;
     end
 
-    if (interrupt_cause[CVA6Cfg.XLEN-1] && irq_ctrl_i.global_enable) begin
+    if (interrupt_cause[CVA6Cfg.XLEN-1] && irq_ctrl_i.global_enable &&
+        !is_macro_instr_atomic_i) begin
       // However, if bit i in mideleg is set, interrupts are considered to be globally enabled if the hart’s current privilege
       // mode equals the delegated privilege mode (S or U) and that mode’s interrupt enable bit
       // (SIE or UIE in mstatus) is set, or if the current privilege mode is less than the delegated privilege mode.

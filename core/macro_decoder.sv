@@ -17,19 +17,21 @@
 module macro_decoder #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 ) (
-    input  logic [31:0] instr_i,
-    input  logic        clk_i,                      // Clock
-    input  logic        rst_ni,                     // Synchronous reset
-    input  logic        is_macro_instr_i,           // Instruction is of macro extension
-    input  logic        illegal_instr_i,            // From compressed decoder
-    input  logic        is_compressed_i,
-    input  logic        issue_ack_i,                // Check if the instruction is acknowledged
+    input logic [31:0] instr_i,
+    input logic clk_i,  // Clock
+    input logic rst_ni,  // Synchronous reset
+    input logic flush_i,  // Flush the current macro-instruction expansion
+    input logic is_macro_instr_i,  // Instruction is of macro extension
+    input logic illegal_instr_i,  // From compressed decoder
+    input logic is_compressed_i,
+    input logic issue_ack_i,  // Check if the instruction is acknowledged
     output logic [31:0] instr_o,
-    output logic        illegal_instr_o,
-    output logic        is_compressed_o,
-    output logic        fetch_stall_o,              // Wait while push/pop/move instructions expand
-    output logic        is_last_macro_instr_o,
-    output logic        is_double_rd_macro_instr_o
+    output logic illegal_instr_o,
+    output logic is_compressed_o,
+    output logic fetch_stall_o,  // Wait while push/pop/move instructions expand
+    output logic is_last_macro_instr_o,
+    output logic is_double_rd_macro_instr_o,
+    output logic is_macro_instr_atomic_o
 );
 
   // FSM States
@@ -63,6 +65,11 @@ module macro_decoder #(
 
   riscv::itype_t itype_inst;
   assign instr_o = instr_o_reg;
+  // Defer interrupts while completing a double-move or a popret[z] atomic tail.
+  // An intervening interrupt could otherwise expose a partial register update or adjust the stack
+  // pointer twice when the macro instruction is replayed.
+  assign is_macro_instr_atomic_o = (state_q == MOVE) || (state_q == POPRETZ_1) ||
+                                   ((state_q == PUSH_ADDI) && (popretz_inst_q != 2'b00));
   always_comb begin
     illegal_instr_o            = 1'b0;
     fetch_stall_o              = 1'b0;
@@ -767,6 +774,12 @@ module macro_decoder #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
+      state_q <= IDLE;
+      offset_q <= '0;
+      popretz_inst_q <= '0;
+      reg_numbers_q <= '0;
+      store_reg_q <= '0;
+    end else if (flush_i) begin
       state_q <= IDLE;
       offset_q <= '0;
       popretz_inst_q <= '0;
