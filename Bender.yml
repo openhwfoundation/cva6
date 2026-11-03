@@ -91,7 +91,7 @@ sources:
           - core/cva6_accel_first_pass_decoder_stub.sv
 
       # MMU
-      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdc_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdch_sv39_wb, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32)
+      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdc_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdch_sv39_wb, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv64a60ax)
         files:
           - core/cva6_mmu/cva6_tlb.sv
           - core/cva6_mmu/cva6_shared_tlb.sv
