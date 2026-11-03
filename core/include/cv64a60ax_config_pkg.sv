@@ -43,7 +43,7 @@ localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
    NrLoadBufEntries: unsigned'(8),
    RVF: bit'(1),
    RVD: bit'(1),
-   XF16: bit'(0),
+   XF16: bit'(1),
    XF16ALT: bit'(0),
    XF8: bit'(0),
    RVA: bit'(1),

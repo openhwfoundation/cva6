@@ -77,6 +77,10 @@ sources:
         files:
           - core/include/cv64a60ax_config_pkg_cvfpu-uvm.sv
 
+      - target: cv64a60ax
+        files:
+          - core/include/cv64a60ax_config_pkg.sv
+
       # General config infrastructure
       - core/include/riscv_pkg.sv
       - core/include/ariane_pkg.sv
