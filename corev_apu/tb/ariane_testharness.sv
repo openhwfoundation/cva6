@@ -288,6 +288,25 @@ module ariane_testharness #(
   );
 
 
+  AXI_BUS #(
+    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH            ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH               ),
+    .AXI_ID_WIDTH   ( ariane_axi_soc::IdWidthSlave ),
+    .AXI_USER_WIDTH ( AXI_USER_WIDTH               )
+  ) debug_atop_filtered();
+
+  axi_atop_filter_intf #(
+    .AXI_ID_WIDTH       ( ariane_axi_soc::IdWidthSlave ),
+    .AXI_ADDR_WIDTH     ( AXI_ADDRESS_WIDTH            ),
+    .AXI_DATA_WIDTH     ( AXI_DATA_WIDTH               ),
+    .AXI_USER_WIDTH     ( AXI_USER_WIDTH               ),
+    .AXI_MAX_WRITE_TXNS ( 1                            )
+  ) i_debug_atop_filter (
+    .clk_i,
+    .rst_ni ( rst_ni                    ),
+    .slv    ( master[ariane_soc::Debug] ),
+    .mst    ( debug_atop_filtered       )
+  );
   axi2mem #(
     .AXI_ID_WIDTH   ( ariane_axi_soc::IdWidthSlave ),
     .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH            ),
@@ -296,7 +315,7 @@ module ariane_testharness #(
   ) i_dm_axi2mem (
     .clk_i      ( clk_i                     ),
     .rst_ni     ( rst_ni                    ),
-    .slave      ( master[ariane_soc::Debug] ),
+    .slave      ( debug_atop_filtered       ),
     .req_o      ( dm_slave_req              ),
     .we_o       ( dm_slave_we               ),
     .addr_o     ( dm_slave_addr             ),
@@ -345,6 +364,25 @@ module ariane_testharness #(
   logic [AXI_ADDRESS_WIDTH-1:0] rom_addr;
   logic [AXI_DATA_WIDTH-1:0]    rom_rdata;
 
+  AXI_BUS #(
+    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH            ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH               ),
+    .AXI_ID_WIDTH   ( ariane_axi_soc::IdWidthSlave ),
+    .AXI_USER_WIDTH ( AXI_USER_WIDTH               )
+  ) rom_atop_filtered();
+
+  axi_atop_filter_intf #(
+    .AXI_ID_WIDTH       ( ariane_axi_soc::IdWidthSlave ),
+    .AXI_ADDR_WIDTH     ( AXI_ADDRESS_WIDTH            ),
+    .AXI_DATA_WIDTH     ( AXI_DATA_WIDTH               ),
+    .AXI_USER_WIDTH     ( AXI_USER_WIDTH               ),
+    .AXI_MAX_WRITE_TXNS ( 1                            )
+  ) i_rom_atop_filter (
+    .clk_i,
+    .rst_ni ( ndmreset_n              ),
+    .slv    ( master[ariane_soc::ROM] ),
+    .mst    ( rom_atop_filtered       )
+  );
   axi2mem #(
     .AXI_ID_WIDTH   ( ariane_axi_soc::IdWidthSlave ),
     .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH            ),
@@ -353,7 +391,7 @@ module ariane_testharness #(
   ) i_axi2rom (
     .clk_i  ( clk_i                   ),
     .rst_ni ( ndmreset_n              ),
-    .slave  ( master[ariane_soc::ROM] ),
+    .slave  ( rom_atop_filtered       ),
     .req_o  ( rom_req                 ),
     .we_o   (                         ),
     .addr_o ( rom_addr                ),
@@ -547,6 +585,25 @@ module ariane_testharness #(
   logic ipi;
   logic timer_irq;
 
+  AXI_BUS #(
+    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH            ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH               ),
+    .AXI_ID_WIDTH   ( ariane_axi_soc::IdWidthSlave ),
+    .AXI_USER_WIDTH ( AXI_USER_WIDTH               )
+  ) clint_atop_filtered();
+
+  axi_atop_filter_intf #(
+    .AXI_ID_WIDTH       ( ariane_axi_soc::IdWidthSlave ),
+    .AXI_ADDR_WIDTH     ( AXI_ADDRESS_WIDTH            ),
+    .AXI_DATA_WIDTH     ( AXI_DATA_WIDTH               ),
+    .AXI_USER_WIDTH     ( AXI_USER_WIDTH               ),
+    .AXI_MAX_WRITE_TXNS ( 1                            )
+  ) i_clint_atop_filter (
+    .clk_i,
+    .rst_ni ( ndmreset_n              ),
+    .slv    ( master[ariane_soc::CLINT] ),
+    .mst    ( clint_atop_filtered       )
+  );
   ariane_axi_soc::req_slv_t  axi_clint_req;
   ariane_axi_soc::resp_slv_t axi_clint_resp;
 
@@ -569,8 +626,8 @@ module ariane_testharness #(
     .ipi_o       ( ipi            )
   );
 
-  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
-  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
+  `AXI_ASSIGN_TO_REQ(axi_clint_req, clint_atop_filtered)
+  `AXI_ASSIGN_FROM_RESP(clint_atop_filtered, axi_clint_resp)
 
   // ---------------
   // Peripherals
