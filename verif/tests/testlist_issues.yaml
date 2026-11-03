@@ -126,6 +126,13 @@ testlist:
     iterations: 1
     asm_tests: <path_var>/custom/issues/decoder-zip-unzip-rv64.S
 
+  - test: hfence-rd-non-zero-rv64
+    <<: *common_test_config
+    description: >
+      Check that HFENCE.VVMA/HFENCE.GVMA trap as illigal instructions (mcause 2), instead of virtual instruction (mcause 22).
+    iterations: 1
+    asm_tests: <path_var>/custom/issues/hfence-rd-non-zero-rv64.S
+
   - test: pmp-misalign-priority-over-access-fault
     description: >
       Misaligned hsv.d/hlv.d to a PMP-denied paddr must report

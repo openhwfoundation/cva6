@@ -317,6 +317,7 @@ module decoder
                       // check privilege level, HFENCE.VVMA can only be executed in M/S mode
                       // otherwise decode an illegal instruction or virtual illegal instruction
                       if (v_i) begin
+                        illegal_instr = (instr.itype.rd == '0) ? illegal_instr : 1'b1;
                         virtual_illegal_instr = 1'b1;
                       end else begin
                         illegal_instr    = ((priv_lvl_i inside {riscv::PRIV_LVL_M, riscv::PRIV_LVL_S}) && instr.itype.rd == '0) ? 1'b0 : 1'b1;
@@ -326,6 +327,7 @@ module decoder
                       // check privilege level, HFENCE.GVMA can only be executed in M/S mode
                       // otherwise decode an illegal instruction or virtual illegal instruction
                       if (v_i) begin
+                        illegal_instr = (instr.itype.rd == '0) ? illegal_instr : 1'b1;
                         virtual_illegal_instr = 1'b1;
                       end else begin
                         illegal_instr    = ((priv_lvl_i inside {riscv::PRIV_LVL_M, riscv::PRIV_LVL_S}) && instr.itype.rd == '0) ? 1'b0 : 1'b1;
