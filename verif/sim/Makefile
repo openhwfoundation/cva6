@@ -72,6 +72,81 @@ else
   spike_params_final := $(spike_params_final) --extension=cvxif
 endif
 
+
+# ==============================================================================
+# CVA6 ACT 4.0 Certification Targets (cv32a65x)
+# ==============================================================================
+
+# Updated paths for CVA6 directory structure
+certification_PROGRAM_PATH    = $(ACT4_PKG)/work/cv32a65x/elfs
+certification_PROGRAM_RELPATH = ../../vendor_lib/cva6/external/act4/work/cv32a65x/elfs
+VERI_LOG_DIR = $(CVA6_REPO_DIR)/verif/sim/simulation_results
+
+.PHONY: gen
+gen: $(ACT4_PKG)
+	@command -v uv >/dev/null 2>&1 || { echo "Error: 'uv' not found. Install from https://docs.astral.sh/uv/getting-started/installation/"; exit 1; }
+	@echo "* Cleaning ACT4.0 directory..."
+	$(MAKE) -C $(ACT4_PKG) clean
+	@echo "* Generating ACT4.0 tests for CVA6 (cv32a65x)..."
+	# Test generation now relies on the YAML config for extensions and parameters
+	$(MAKE) -C $(ACT4_PKG) \
+		CONFIG_FILES=config/cores/cva6/cv32a65x/test_config.yaml EXTENSIONS=""  EXCLUDE_EXTENSIONS="InterruptsSm,Sm" \
+		--jobs $(shell nproc)
+	@echo "* Tests generated in: $(certification_PROGRAM_PATH)"
+
+.PHONY: certify
+certify: TEST = certification
+certify: 
+	@echo "$(BANNER)"
+	@echo "* Running ALL compliance ELFs with CVA6 Verilator Model"
+	@echo "$(BANNER)"
+	@set -e; \
+	mkdir -p "$(VERI_LOG_DIR)"; \
+	SUMMARY="$(VERI_LOG_DIR)/certification_summary.txt"; \
+	echo "RESULT  TEST" > "$$SUMMARY"; \
+	echo "------  ----" >> "$$SUMMARY"; \
+	ROOT="$(certification_PROGRAM_PATH)"; \
+	ELFS="$$(find -L "$$ROOT" \( -type f -o -type l \) -a \( -iname '*.elf' -o -iname '*.elf32' \) 2>/dev/null | sort)"; \
+	if [ -z "$$ELFS" ]; then \
+	  echo "No .elf files found under $$ROOT"; \
+	  exit 2; \
+	fi; \
+	PASS=0; FAIL=0; TOTAL=0; \
+	for ELF in $$ELFS; do \
+	  TOTAL=$$((TOTAL+1)); \
+	  REL="$${ELF#$$ROOT/}"; \
+	  LOG="$(VERI_LOG_DIR)/$${REL%.*}.log"; \
+	  mkdir -p "$$(dirname "$$LOG")"; \
+	  # CVA6 requires the exact tohost address to be passed as a plusarg\
+	  TOHOST_ADDR=$$(riscv64-unknown-elf-nm -B $$ELF | grep -w tohost | cut -d' ' -f1); \
+	  set +e; \
+	  # Using the CVA6 Variane_testharness binary directly \
+	  $(CVA6_REPO_DIR)/work-ver/Variane_testharness \
+	    $$ELF \
+	    +elf_file=$$ELF \
+	    +tohost_addr=0x$$TOHOST_ADDR \
+	    +signature=$$ELF.signature_output \
+	    > "$$LOG" 2>&1; \
+	  RC=$$?; \
+	  set -e; \
+	  # CVA6 testbench signals success with "ALL TESTS PASSED"\
+	  if [ $$RC -eq 0 ] && grep -q "PASSED" "$$LOG"; then \
+	    echo "PASS    $$REL" | tee -a "$$SUMMARY"; \
+	    PASS=$$((PASS+1)); \
+	  else \
+	    echo "FAIL    $$REL" | tee -a "$$SUMMARY"; \
+	    FAIL=$$((FAIL+1)); \
+	  fi; \
+	done; \
+	echo "" | tee -a "$$SUMMARY"; \
+	echo "TOTAL=$$TOTAL PASS=$$PASS FAIL=$$FAIL" | tee -a "$$SUMMARY"; \
+	echo "Summary saved to: $$SUMMARY"; \
+	true
+
+.PHONY: gen-certify
+gen-certify: gen certify
+
+
 ##############################################
 # Waveform configuration
 ##############################################

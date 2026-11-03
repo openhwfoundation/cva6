@@ -52,3 +52,6 @@
 [submodule "corev_apu/fpga/src/gpio"]
 	path = corev_apu/fpga/src/gpio
 	url = https://github.com/pulp-platform/gpio.git
+[submodule "external/act4"]
+	path = external/act4
+	url = https://github.com/riscv-non-isa/riscv-arch-test.git

@@ -16,7 +16,10 @@ jobs:
     - uses: actions/checkout@v7
       with:
         submodules: recursive
-
+    - name: Fix submodule sync
+      run: |
+           git submodule sync --recursive
+           git submodule update --init --recursive
     - name: Get specific submodule hash
       id: core-v-submodule-hash
       run: |
@@ -136,9 +139,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SPIKE_TANDEM: 1
+      RISCV: ${{ github.workspace }}/tools/riscv-toolchain
     strategy:
       matrix:
-        testcase:  [ dv-riscv-arch-test, cv32a6_tests ]
+        testcase:  [ dv-riscv-arch-test, cv32a6_tests, wrapper-cv32a65x-act]
         config:    [ cv32a65x ]
         simulator: [ veri-testharness ]
     needs:
