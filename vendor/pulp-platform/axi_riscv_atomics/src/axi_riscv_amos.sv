@@ -915,11 +915,11 @@ module axi_riscv_amos #(
      */
 
     assign big_endian     = (atop_q[3] == axi_pkg::ATOP_BIG_END);
-    assign op_a           = big_endian ? {<<8{r_data_q & strb_ext}} : (r_data_q & strb_ext);
-    assign op_b           = big_endian ? {<<8{w_data_q & strb_ext}} : (w_data_q & strb_ext);
+    assign op_a           = big_endian ? type(op_a)'({<<8{r_data_q & strb_ext}}) : (r_data_q & strb_ext);
+    assign op_b           = big_endian ? type(op_b)'({<<8{w_data_q & strb_ext}}) : (w_data_q & strb_ext);
     assign sign_a         = |(op_a & ~(strb_ext >> 1));
     assign sign_b         = |(op_b & ~(strb_ext >> 1));
-    assign alu_result_ext = big_endian ? {<<8{res}} : res;
+    assign alu_result_ext = big_endian ? type(alu_result_ext)'({<<8{res}}) : res;
 
     generate
         if (AXI_ALU_RATIO == 1 && RISCV_WORD_WIDTH == 32) begin
