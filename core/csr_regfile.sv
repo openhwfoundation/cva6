@@ -2061,8 +2061,9 @@ module csr_regfile
       mstatus_d.vs = riscv::Dirty;
     end
     // hardwired extension registers
-    if (CVA6Cfg.RVS || CVA6Cfg.RVF) begin
-      mstatus_d.sd = (mstatus_d.xs == riscv::Dirty) | (mstatus_d.fs == riscv::Dirty);
+    if (CVA6Cfg.RVS || CVA6Cfg.RVF || CVA6Cfg.RVV) begin
+      mstatus_d.sd = (mstatus_d.xs == riscv::Dirty) | (mstatus_d.fs == riscv::Dirty) |
+                     (mstatus_d.vs == riscv::Dirty);
     end else begin
       mstatus_d.sd = riscv::Off;
     end
