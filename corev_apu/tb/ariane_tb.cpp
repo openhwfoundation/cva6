@@ -343,10 +343,25 @@ done_processing:
   long long len;
 
   size_t mem_size = 0xFFFFFF;
+  constexpr uint64_t dram_base = 0x80000000ULL;
+  const uint64_t dram_size = static_cast<uint64_t>(mem_size);
   while(get_section(&addr, &len))
   {
-    if (addr == 0x80000000)
-        read_section_void(addr, (void *) MEM , mem_size);
+    if (addr >= 0 && len >= 0) {
+      const uint64_t section_addr = static_cast<uint64_t>(addr);
+      const uint64_t section_size = static_cast<uint64_t>(len);
+
+      if (section_addr >= dram_base) {
+        const uint64_t offset = section_addr - dram_base;
+
+        // Check the range without computing offset + section_size, which
+        // could overflow before it is compared with dram_size.
+        if (offset <= dram_size && section_size <= dram_size - offset) {
+          auto *destination = reinterpret_cast<uint8_t *>(MEM) + offset;
+          read_section_void(addr, destination, section_size);
+        }
+      }
+    }
     if (addr == 0x84000000)
         try {
           read_section_void(addr, (void *) MEM_USER , mem_size);
