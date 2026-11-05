@@ -70,7 +70,7 @@ run a test of the other.
 | Sources | `verif/tb/uvmt/`, core-v-verif agents | `corev_apu/tb/`, `verif/tb/core/Flist.testharness*` |
 | Core interface | AXI or OBI, driven by the UVM agents of core-v-verif | AXI, through the SoC of `corev_apu` |
 | Targets | all | targets declaring `hier: axi` only, checked by the recipes |
-| Verdict | UVM scoreboard, optional tandem against SPIKE | `tohost` written by the program |
+| Verdict | UVM scoreboard, optional tandem against SPIKE | `tohost` written by the program, optional live SPIKE tandem on Verilator |
 | Recipes | `<simulator>-uvm-comp`, `<simulator>-uvm-run`, `uvm-run-testlist` | `<simulator>-testharness-comp`, `<simulator>-testharness-run`, `testharness-run-testlist` |
 | Outputs | `build/<target>/{elab,simulation}/sim_<comp_mode>/` | `build/<target>/{elab,simulation}/sim_<comp_mode>_<simulator>_testharness/` |
 
@@ -996,10 +996,9 @@ the verdict is read from both the log and the exit code:
   `uvm_error` and ends with `$finish`, so the simulator exits 0 whatever
   the program did. The log decides.
 - **Verilator**: the C++ driver returns the `tohost` value, so a failing
-  program also fails the command. The log alone is not enough: on
-  SIGTERM, which is how a timeout ends the run, the driver prints
-  `*** SUCCESS ***` and exits 0. A timeout or a crash is therefore
-  reported as such, before the log is looked at.
+  program also fails the command. An interrupted run or a stop without a
+  completion result returns a non-zero code too. The recipe reports a
+  timeout, crash or non-zero exit before considering the success marker.
 
 In both cases a log carrying `*** FAILED ***`, `SIMULATION FAILED`,
 `[FAILED]`, `UVM_ERROR` or `UVM_FATAL` fails the test, and one without
@@ -1044,6 +1043,15 @@ Common to all of them:
   `verif/tb/core/Flist.testharness_top` (the `ariane_tb` top and the
   real UART); Verilator drives the harness from C++ instead.
 
+On Verilator, `--tandem-enabled` also compares the core's committed
+instructions with the vendor SPIKE model during simulation. Enable it
+both when compiling the model and when running the test or testlist;
+the run rejects a model built for the other mode. It loads
+`config/target/<target>/spike.yaml` and analyzes the native
+`testharness.log.yaml` alongside the software result. Installing SPIKE
+or preparing its tool configuration alone does not enable comparison.
+The default remains RTL-only.
+
 #### `verilator-testharness-comp`
 
 Build the Verilator model of the harness.
@@ -1058,12 +1066,16 @@ Build the Verilator model of the harness.
 **Optional:**
 - `--trace-mode [notrace|fast|compact]` - `fast` dumps VCD, `compact` FST; `gui` is rejected (default: `notrace`)
 - `-j, --jobs INTEGER` - Parallel jobs of the C++ build (default: 8)
+- `--tandem-enabled / --no-tandem-enabled` - Build with live SPIKE comparison (default: disabled)
 
 The Verilator of the path is used, `setenv.sh` putting the one of
 `VERILATOR_INSTALL_DIR` there; the version is recorded in
 `verilator.version` next to the model.
 
 **Output:** `build/<target>/elab/sim_rtl_verilator_testharness/Variane_testharness`
+
+With tandem enabled, the mode directory is
+`sim_rtl_verilator_testharness_tandem/`.
 
 #### `verilator-testharness-run`
 
@@ -1081,6 +1093,11 @@ Run one test on the Verilator model.
 - `--trace-mode [notrace|fast|compact]` - Must match the build (default: `notrace`)
 - `--sim-timeout INTEGER` - Timeout in seconds (default: 500)
 - `--run-name TEXT` - Name of the output directory (default: the test name)
+- `--tandem-enabled / --no-tandem-enabled` - Run with live SPIKE comparison; must match the model (default: disabled)
+
+With tandem enabled, the mode directory is
+`sim_rtl_verilator_testharness_tandem/`. The run writes the native
+comparison result to `testharness.log.yaml` in the run directory.
 
 **Output:** `build/<target>/simulation/sim_rtl_verilator_testharness/<run>/`
 
@@ -1181,6 +1198,7 @@ Run every test of a testlist on one simulator.
 - `-s, --simulator [verilator|vcs|questa|xcelium]` - (default: `verilator`)
 - `--trace-mode`, `--sim-timeout` - Passed to each run
 - `--uvm-verbosity` - Passed to the event-driven simulators, ignored by Verilator (default: `LOW`)
+- `--tandem-enabled / --no-tandem-enabled` - Enable live comparison for every test; Verilator only (default: disabled)
 
 Each entry of the testlist runs as `<test>_<iteration>`, the name
 `sw-compile-testlist` gives it: compile with the same testlist first.
@@ -1188,6 +1206,9 @@ Each entry of the testlist runs as `<test>_<iteration>`, the name
 **Output:** one directory per test as for the run recipes, and the
 result table in
 `build/<target>/simulation/testharness_<simulator>_<testlist>/cook_report.yml`
+
+With tandem enabled, `_tandem` is appended to the testlist directory
+name; the individual runs use `sim_rtl_verilator_testharness_tandem/`.
 
 #### Example
 
