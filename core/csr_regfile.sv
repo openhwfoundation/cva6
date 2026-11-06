@@ -263,6 +263,8 @@ CVA6Cfg.NrCommitPorts
   logic [CVA6Cfg.XLEN-1:0] csr_wdata, csr_rdata;
   riscv::priv_lvl_t trap_to_priv_lvl;
   logic             trap_to_v;
+  // an ebreak that enters Debug Mode: dcsr.ebreak* is set for the current mode
+  logic             ebreak_to_debug;
   // register for enabling load store address translation, this is critical, hence the register
   logic en_ld_st_translation_d, en_ld_st_translation_q;
   logic en_ld_st_g_translation_d, en_ld_st_g_translation_q;
@@ -2173,9 +2175,21 @@ CVA6Cfg.NrCommitPorts
     // we got an exception update cause, pc and stval register
     trap_to_priv_lvl = riscv::PRIV_LVL_M;
     trap_to_v = 1'b0;
+    ebreak_to_debug = 1'b0;
+    if (CVA6Cfg.DebugEn && ex_i.valid && ex_i.cause == riscv::BREAKPOINT) begin
+      unique case (priv_lvl_o)
+        riscv::PRIV_LVL_M: ebreak_to_debug = dcsr_q.ebreakm;
+        riscv::PRIV_LVL_S:
+        if (CVA6Cfg.RVS) ebreak_to_debug = (CVA6Cfg.RVH && v_q) ? dcsr_q.ebreakvs : dcsr_q.ebreaks;
+        riscv::PRIV_LVL_U:
+        if (CVA6Cfg.RVU) ebreak_to_debug = (CVA6Cfg.RVH && v_q) ? dcsr_q.ebreakvu : dcsr_q.ebreaku;
+        default: ;
+      endcase
+    end
     // Exception is taken and we are not in debug mode
-    // exceptions in debug mode don't update any fields
-    if (!debug_mode && ex_cause_is_not_debug_request && ex_i.valid) begin
+    // exceptions in debug mode don't update any fields, and neither does
+    // entering debug mode: by request, or by an ebreak dcsr sends there
+    if (!debug_mode && ex_cause_is_not_debug_request && !ebreak_to_debug && ex_i.valid) begin
       // do not flush, flush is reserved for CSR writes with side effects
       flush_o = 1'b0;
       // figure out where to trap to
