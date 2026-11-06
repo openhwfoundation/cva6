@@ -116,9 +116,6 @@ module store_unit
     return data_tmp[CVA6Cfg.XLEN-1:0];
   endfunction
 
-  // it doesn't matter what we are writing back as stores don't return anything
-  assign result_o = lsu_ctrl_i.data;
-
   // directly forward exception fields (valid bit is set below)
   // A store trigger reports its own cause and the faulting address; otherwise
   // the exception carried in from the MMU passes through unchanged.
@@ -176,6 +173,13 @@ module store_unit
 
   logic ex_s0, ex_s1;
   logic stall_translation;
+
+  // A store writes nothing back. An AMO writes back its virtual address, which
+  // the commit stage reports as tval of a load data trigger match on the AMO.
+  logic [CVA6Cfg.VLEN-1:0] vaddr_q;
+  assign result_o = (CVA6Cfg.RVA && (CVA6Cfg.MmuPresent ? amo_buffer_valid_q : instr_is_amo)) ?
+      {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, (CVA6Cfg.MmuPresent ? vaddr_q : lsu_ctrl_i.vaddr)} :
+      lsu_ctrl_i.data;
 
   // output assignments
   assign vaddr_o = lsu_ctrl_i.vaddr;  // virtual address
@@ -372,6 +376,7 @@ module store_unit
       st_data_q                     <= '0;
       st_data_size_q                <= '0;
       trans_id_q                    <= '0;
+      vaddr_q                       <= '0;
       amo_op_q                      <= AMO_NONE;
       cbo_op_q                      <= ariane_pkg::CBO_NONE;
       amo_buffer_valid_q            <= '0;
@@ -381,6 +386,7 @@ module store_unit
       st_be_q                       <= st_be_n;
       st_data_q                     <= st_data_n;
       trans_id_q                    <= trans_id_n;
+      vaddr_q                       <= lsu_ctrl_i.vaddr;
       st_data_size_q                <= st_data_size_n;
       amo_op_q                      <= amo_op_d;
       cbo_op_q                      <= cbo_op_d;

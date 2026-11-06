@@ -143,6 +143,10 @@ module load_unit
   // Load address trigger: match on the presented load, its registered copy
   // for the physical phase, and the kill of that phase
   logic sdtrig_load_match, sdtrig_match_q, sdtrig_kill_s1;
+  // The cancel of the trigger module is valid only for a match whose load was
+  // not flushed in the match cycle. A flushed load has no lsu_bypass entry
+  // and no scoreboard entry left to retire.
+  logic sdtrig_cancel_live_q, sdtrig_load_cancel;
 
   logic [CVA6Cfg.PLEN-1:0] paddr_q;
   ldbuf_id_t aid_q;
@@ -323,6 +327,7 @@ module load_unit
   // the request cycle does.
   assign sdtrig_load_match = CVA6Cfg.SdtrigMcontrol6LoadAddr && valid_i &&
                              !sdtrig_load_cancel_i && sdtrig_load_action_i != '0;
+  assign sdtrig_load_cancel = sdtrig_load_cancel_i && sdtrig_cancel_live_q;
   // Capture while the request is still the one being presented.
   assign sdtrig_trans_id_d = (valid_i && sdtrig_load_action_i != '0) ? lsu_ctrl_i.trans_id
                                                                     : sdtrig_trans_id_q;
@@ -397,14 +402,14 @@ module load_unit
       ex_o.valid = 1'b1;
       ex_s1_held_d = 1'b0;
       // RETIRE EXCEPTION (low priority)
-    end else if (ex_s1 || sdtrig_load_cancel_i) begin
-      trans_id_o = (CVA6Cfg.SdtrigMcontrol6LoadAddr && sdtrig_load_cancel_i) ? sdtrig_trans_id_q :
+    end else if (ex_s1 || sdtrig_load_cancel) begin
+      trans_id_o = (CVA6Cfg.SdtrigMcontrol6LoadAddr && sdtrig_load_cancel) ? sdtrig_trans_id_q :
                    (CVA6Cfg.TwoPhaseReq ? ldbuf_q[ldbuf_windex_q].trans_id : lsu_ctrl_i.trans_id);
       valid_o = 1'b1;
       ex_o.valid = 1'b1;
       // With TwoPhaseReq the faulting load released its lsu_bypass entry in its
       // first phase: only a load accepted in this cycle is released here.
-      pop_ld_o = (CVA6Cfg.TwoPhaseReq && !sdtrig_load_cancel_i) ? ldbuf_w && !sdtrig_load_match
+      pop_ld_o = (CVA6Cfg.TwoPhaseReq && !sdtrig_load_cancel) ? ldbuf_w && !sdtrig_load_match
                                                                 : !stall_translation;
       // RETIRE EXCEPTION (low priority)
     end else if (CVA6Cfg.MmuPresent && ex_s0) begin
@@ -489,6 +494,7 @@ module load_unit
       ldbuf_windex_q <= '0;
       ldbuf_w_q <= '0;
       sdtrig_match_q <= 1'b0;
+      sdtrig_cancel_live_q <= 1'b0;
     end else begin
       if (ypb_a_state_q == TRANSPARENT) begin
         paddr_q <= paddr;
@@ -501,6 +507,7 @@ module load_unit
       ldbuf_windex_q <= ldbuf_windex;
       ldbuf_w_q <= ldbuf_w;
       sdtrig_match_q <= sdtrig_load_match;
+      sdtrig_cancel_live_q <= sdtrig_load_match && !flush_i;
       //end
     end
   end
