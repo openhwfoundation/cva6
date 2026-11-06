@@ -203,10 +203,9 @@ module cva6_hpicache_if_adapter
   //  {{{
 `ifndef HPDCACHE_ASSERT_OFF
   forward_one_request_assert :
-  assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1) ($onehot0(
-      {forward_fetch, forward_flush}
-  )))
-  else $error("Only one request shall be forwarded");
+  assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1)
+      (forward_flush |-> !ypb_fetch_rsp_o.pgnt))
+  else $error("Fetch shall not be granted while an icache flush is in flight");
 
   v_and_p_request_active_assert :
   assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1)
