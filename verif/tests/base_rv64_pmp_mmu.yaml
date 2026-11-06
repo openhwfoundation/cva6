@@ -23,3 +23,9 @@ testlist:
     path_var: TESTS_PATH
     gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/custom/env"
     asm_tests: <path_var>/custom/sv39/vm_noncanonical_fetch.S
+
+  - test: vm_pte_pmp_fault_store
+    iterations: 1
+    path_var: TESTS_PATH
+    gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/custom/env"
+    asm_tests: <path_var>/custom/sv39/vm_pte_pmp_fault_store.S
