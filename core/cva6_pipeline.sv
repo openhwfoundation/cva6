@@ -511,6 +511,13 @@ module cva6_pipeline
   // Load data trigger: data of the load retiring in the load unit, and the break
   logic sdtrig_load_data_valid;
   logic [CVA6Cfg.XLEN-1:0] sdtrig_load_data, sdtrig_load_data_action;
+  // An lr or AMO (not sc) gets its value from the cache when it commits: that
+  // value goes to the load data trigger compare in place of the load unit one.
+  // The AMO flushes the pipeline as it commits, so a younger load that retires
+  // in the same cycle is discarded.
+  logic sdtrig_amo_load;
+  assign sdtrig_amo_load = CVA6Cfg.RVA && CVA6Cfg.SdtrigMcontrol6LoadData && ypb_amo_rsp_i.rvalid &&
+                           !(commit_instr_id_commit[0].op inside {AMO_SCW, AMO_SCD});
   logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_operand_a;
   logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_operand_c;
   logic sdtrig_lsu_inputs_we, sdtrig_lsu_inputs_valid;
@@ -1016,7 +1023,7 @@ CVA6Cfg.NrCommitPorts
       .sdtrig_load_action_i         (sdtrig_load_action),
       .sdtrig_load_data_valid_o     (sdtrig_load_data_valid),
       .sdtrig_load_data_o           (sdtrig_load_data),
-      .sdtrig_load_data_action_i    (sdtrig_load_data_action),
+      .sdtrig_load_data_action_i    (sdtrig_amo_load ? '0 : sdtrig_load_data_action),
       .sdtrig_store_stall_i         (sdtrig_store_stall),
       .sdtrig_store_action_i        (sdtrig_store_action)
   );
@@ -1074,7 +1081,8 @@ CVA6Cfg.NrCommitPorts
       .sdtrig_commit_icount_valid_i(sdtrig_commit_icount_valid),
       .sdtrig_commit_icount_nr_instr_i(sdtrig_commit_icount_nr_instr),
       .sdtrig_commit_action_i(sdtrig_commit_action),
-      .sdtrig_commit_std_exception_valid_i(sdtrig_commit_std_exception_valid)
+      .sdtrig_commit_std_exception_valid_i(sdtrig_commit_std_exception_valid),
+      .sdtrig_amo_data_action_i(sdtrig_amo_load ? sdtrig_load_data_action : '0)
   );
 
   if (CVA6Cfg.SpeculativeSb) begin
@@ -1198,8 +1206,8 @@ CVA6Cfg.NrCommitPorts
       .sdtrig_lsu_inputs_fu_i             (sdtrig_lsu_inputs_we),
       .sdtrig_lsu_inputs_op_i             (sdtrig_lsu_inputs_op),
       .sdtrig_lsu_inputs_valid_i          (sdtrig_lsu_inputs_valid),
-      .sdtrig_load_data_i                 (sdtrig_load_data),
-      .sdtrig_load_valid_i                (sdtrig_load_data_valid),
+      .sdtrig_load_data_i                 (sdtrig_amo_load ? ypb_amo_rsp_i.rdata : sdtrig_load_data),
+      .sdtrig_load_valid_i                (sdtrig_amo_load || sdtrig_load_data_valid),
       .sdtrig_load_data_action_o          (sdtrig_load_data_action),
       .sdtrig_load_cancel_o               (sdtrig_load_cancel),
       .sdtrig_load_action_o               (sdtrig_load_action),
