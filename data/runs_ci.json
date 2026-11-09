@@ -1,5 +1,26 @@
 [
   {
+    "id": 42642078916,
+    "source": "github-actions",
+    "simulator": "verilator",
+    "run_number": 6709,
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/openhwfoundation/cva6/actions/runs/42642078916",
+    "head_branch": "master_candidate",
+    "head_sha": "22214bb3",
+    "event": "push",
+    "created_at": "2026-11-09T15:11:11Z",
+    "updated_at": "2026-11-09T15:11:11Z",
+    "run_started_at": "2026-11-09T15:11:11Z",
+    "duration_seconds": 0,
+    "total_jobs": 0,
+    "passed_jobs": 0,
+    "failed_jobs": 0,
+    "skipped_jobs": 0,
+    "jobs": []
+  },
+  {
     "id": 42271783675,
     "source": "github-actions",
     "simulator": "verilator",
@@ -3752,26 +3773,5 @@
         "simulator": "veri-testharness"
       }
     ]
-  },
-  {
-    "id": 39916512144,
-    "source": "github-actions",
-    "simulator": "verilator",
-    "run_number": 6659,
-    "status": "completed",
-    "conclusion": "failure",
-    "html_url": "https://github.com/openhwfoundation/cva6/actions/runs/39916512144",
-    "head_branch": "jchen/master-candidate-openhw-tier-ci",
-    "head_sha": "c0456d49",
-    "event": "pull_request",
-    "created_at": "2026-10-23T07:14:49Z",
-    "updated_at": "2026-10-23T07:14:49Z",
-    "run_started_at": "2026-10-23T07:14:49Z",
-    "duration_seconds": 0,
-    "total_jobs": 0,
-    "passed_jobs": 0,
-    "failed_jobs": 0,
-    "skipped_jobs": 0,
-    "jobs": []
   }
 ]
