@@ -277,20 +277,18 @@ class CItype:
     constgen = ["C.LI", "C.LUI"]
     regimm = ["C.ADDI", "C.ADDIW", "C.ADDI16SP", "C.SLLI"]
 
-    Woffset = (
-        lambda i: (((i >> 12) & 1) << 5) | (((i >> 4) & 7) << 2) | (((i >> 2) & 3) << 6)
+    Woffset = lambda i: (
+        (((i >> 12) & 1) << 5) | (((i >> 4) & 7) << 2) | (((i >> 2) & 3) << 6)
     )
-    Doffset = (
-        lambda i: (((i >> 12) & 1) << 5) | (((i >> 5) & 3) << 3) | (((i >> 2) & 7) << 6)
+    Doffset = lambda i: (
+        (((i >> 12) & 1) << 5) | (((i >> 5) & 3) << 3) | (((i >> 2) & 7) << 6)
     )
-    Qoffset = (
-        lambda i: (((i >> 12) & 1) << 5)
-        | (((i >> 6) & 1) << 4)
-        | (((i >> 2) & 15) << 6)
+    Qoffset = lambda i: (
+        (((i >> 12) & 1) << 5) | (((i >> 6) & 1) << 4) | (((i >> 2) & 15) << 6)
     )
     imm = lambda i: (((i >> 12) & 1) << 5) | ((i >> 2) & 31)
-    immsp = (
-        lambda i: (((i >> 12) & 1) << 9)
+    immsp = lambda i: (
+        (((i >> 12) & 1) << 9)
         | (((i >> 6) & 1) << 4)
         | (((i >> 5) & 1) << 6)
         | (((i >> 3) & 3) << 7)
@@ -350,12 +348,12 @@ class CIWtype:
             self.rs1 = Reg.sp
 
 
-CLS_Woffset = (
-    lambda i: (((i >> 10) & 7) << 3) | (((i >> 6) & 1) << 2) | (((i >> 5) & 1) << 6)
+CLS_Woffset = lambda i: (
+    (((i >> 10) & 7) << 3) | (((i >> 6) & 1) << 2) | (((i >> 5) & 1) << 6)
 )
 CLS_Doffset = lambda i: (((i >> 10) & 7) << 3) | (((i >> 5) & 3) << 6)
-CLS_Qoffset = (
-    lambda i: (((i >> 11) & 3) << 4) | (((i >> 10) & 1) << 8) | (((i >> 5) & 3) << 6)
+CLS_Qoffset = lambda i: (
+    (((i >> 11) & 3) << 4) | (((i >> 10) & 1) << 8) | (((i >> 5) & 3) << 6)
 )
 
 
@@ -457,8 +455,8 @@ class CJtype:
         self.jump_target = (instr.bin >> 2) & 0x7FF
         self.op = instr.bin & 3
 
-    offset = (
-        lambda i: (((i >> 12) & 1) << 11)
+    offset = lambda i: (
+        (((i >> 12) & 1) << 11)
         | (((i << 11) & 1) << 4)
         | (((i >> 9) & 3) << 8)
         | (((i >> 8) & 1) << 10)
