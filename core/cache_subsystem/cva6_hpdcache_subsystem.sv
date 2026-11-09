@@ -182,7 +182,6 @@ module cva6_hpdcache_subsystem
     userCfg.victimSel = hpdcache_pkg::HPDCACHE_VICTIM_RANDOM;
     userCfg.dataWaysPerRamWord = __minu(CVA6Cfg.ICACHE_SET_ASSOC, 128 / userCfg.wordWidth);
     userCfg.dataSetsPerRam = userCfg.sets;
-    userCfg.dataRamByteEnable = 1'b1;
     userCfg.accessWords = __maxu(CVA6Cfg.AxiDataWidth / userCfg.wordWidth, userCfg.reqWords);
     userCfg.mshrSets = 1;
     userCfg.mshrWays = 1;
@@ -320,7 +319,6 @@ module cva6_hpdcache_subsystem
     userCfg.victimSel = hpdcache_pkg::HPDCACHE_VICTIM_RANDOM;
     userCfg.dataWaysPerRamWord = __minu(CVA6Cfg.DCACHE_SET_ASSOC, 128 / CVA6Cfg.XLEN);
     userCfg.dataSetsPerRam = CVA6Cfg.DCACHE_NUM_WORDS;
-    userCfg.dataRamByteEnable = 1'b1;
     userCfg.accessWords = __maxu(CVA6Cfg.AxiDataWidth / userCfg.wordWidth, userCfg.reqWords);
     userCfg.mshrSets = CVA6Cfg.NrLoadBufEntries < 16 ? 1 : CVA6Cfg.NrLoadBufEntries / 2;
     userCfg.mshrWays = CVA6Cfg.NrLoadBufEntries < 16 ? CVA6Cfg.NrLoadBufEntries : 2;

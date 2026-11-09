@@ -66,21 +66,15 @@ submodule_patches:
       fixed upstream.
   core/cache_subsystem/hpdcache:
     patches:
-      - "verif/patches/hpdcache-blackbox-ecc-sram-port-list.patch"
       - "verif/patches/hpdcache-bufferable-attribute.patch"
     reason: >
-      The blackbox model of hpdcache_sram_wbyteenable_ecc_1rw misses the comma
-      between rdata and the ECC ports, so a synthesis that reads the blackbox
-      SRAM models instead of the behavioural ones fails to parse it. Still
-      present on cv-hpdcache master: drop this patch once fixed upstream.
       The memory requests of the HPDcache only carry the cacheable attribute,
       and the AXI adapters derive a fixed AxCACHE from it: write-back for
-      every cacheable access, non-bufferable for every other one. The second
-      patch adds a bufferable bit to the request PMA and to the memory
-      requests, set by every emitter, and builds AxCACHE from both
-      attributes, so a write-through region and a non-cacheable bufferable
-      region reach the bus with their own memory type. To be proposed
-      upstream.
+      every cacheable access, non-bufferable for every other one. The patch
+      adds a bufferable bit to the request PMA and to the memory requests, set
+      by every emitter, and builds AxCACHE from both attributes, so a
+      write-through region and a non-cacheable bufferable region reach the bus
+      with their own memory type (openhwfoundation/cv-hpdcache#163).
 
 riscv-tests:
   repo: "https://github.com/riscv-software-src/riscv-tests.git"
