@@ -37,6 +37,8 @@ At the end of the simulation, the model prints statistics with the `print_stats`
 With `--timed`, these statistics are computed on the timed part only, which is filtered with the `filter_timed_part` function: the instructions between the two `csrr minstret`.
 Feel free to modify the `filter_timed_part` function to suit your needs.
 
+**Note:** You can use [`pypy3` (PyPy)](https://pypy.org/) instead of `python3` (CPython) to improve the execution time of the model.
+
 
 ### Exploring design space
 
