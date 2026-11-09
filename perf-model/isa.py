@@ -119,7 +119,7 @@ class Rtype:
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
 
 
 class Itype:
@@ -129,7 +129,7 @@ class Itype:
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(instr.bin >> 20, 11)
 
 
@@ -140,7 +140,7 @@ class Stype:
         self.rs2 = (instr.bin >> 20) & 31
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(((instr.bin >> 25) << 5) | ((instr.bin >> 7) & 31), 11)
 
 
@@ -151,7 +151,7 @@ class Btype:
         self.rs2 = (instr.bin >> 20) & 31
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(
             ((instr.bin >> 31) << 12)
             | (((instr.bin >> 7) & 1) << 11)
@@ -168,7 +168,7 @@ class Utype:
         self.imm_31_12 = instr.bin >> 12
         self.imm_4_0 = (instr.bin >> 7) & 31
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = self.imm_31_12 << 12
 
 
@@ -177,7 +177,7 @@ class Jtype:
 
     def __init__(self, instr):
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(
             ((instr.bin >> 31) << 20)
             | (((instr.bin >> 12) & 0xFF) << 12)
@@ -203,7 +203,7 @@ class MOItype:
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
 
 
 class CRtype:
