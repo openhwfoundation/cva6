@@ -12,6 +12,8 @@
 #   and PMP entries.
 #     - pmp-hlvx-access-fault and pmp-misalign-priority: PMP checks on HLVX and
 #       on misaligned hypervisor loads and stores.
+#     - pmp-instr-guest-page-fault-priority: a failed G-stage translation of an
+#       instruction fetch reports a guest-page fault, not a PMP access fault.
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -30,3 +32,8 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/issues/pmp-misalign-priority-over-access-fault.S
+
+  - test: pmp-instr-guest-page-fault-priority
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/issues/pmp-instr-guest-page-fault-priority-rv64.S
