@@ -32,7 +32,8 @@ runs:
       id: gcc
       with:
         path: tools/riscv-toolchain
-        key: cook-smoke-ubuntu24-gcc-v1-${{ hashFiles('ci/install-toolchain.sh') }}
+        # Change with the toolchain URL of the install step.
+        key: cook-smoke-ubuntu24-gcc13.2.0-embecosm10-v1
     - uses: actions/cache/restore@v6
       id: spike
       with:

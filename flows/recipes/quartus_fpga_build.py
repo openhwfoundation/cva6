@@ -77,8 +77,8 @@ app = typer.Typer()
 DIFF_UTILIZATION = 2.0
 
 # Project name of the Quartus flow, and so the basename of every file it
-# produces. The same as corev_apu/altera/Makefile: the `.qsf` written
-# below is read back by name by every quartus_* executable.
+# produces: the `.qsf` written below is read back by name by every
+# quartus_* executable.
 PROJECT = "Example-Project"
 
 # CSV files of `corev_apu/altera/` feeding the `.qsf`, and the assignment

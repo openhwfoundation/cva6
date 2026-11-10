@@ -282,7 +282,7 @@ def flist_substitutions(target, repo_dir=None):
     """
     Return the (placeholder, value) pairs used inside a CVA6 filelist.
 
-    A filelist is written with the placeholders the Makefile flow exports;
+    A filelist is written with placeholders (`${CVA6_REPO_DIR}`, ...);
     expanding them is what lets `read_config_or_exit_flist` follow the
     `-F` includes and hand absolute paths to the tools.
 

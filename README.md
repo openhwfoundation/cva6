@@ -1,4 +1,4 @@
-# CVA6 RISC-V CPU [![Build Status](https://github.com/openhwgroup/cva6/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/openhwgroup/cva6/actions/workflows/ci.yml) [![master_candidate](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/badge.svg)](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/) [![Documentation Status](https://readthedocs.com/projects/openhw-group-cva6-user-manual/badge/?version=latest)](https://docs.openhwgroup.org/projects/cva6-user-manual/?badge=latest) [![GitHub release](https://img.shields.io/github/release/openhwgroup/cva6?include_prereleases=&sort=semver&color=blue)](https://github.com/openhwgroup/cva6/releases/)
+# CVA6 RISC-V CPU [![Build Status](https://github.com/openhwgroup/cva6/actions/workflows/cook-testharness-smoke.yml/badge.svg?branch=master_candidate)](https://github.com/openhwgroup/cva6/actions/workflows/cook-testharness-smoke.yml) [![master_candidate](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/badge.svg)](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/) [![Documentation Status](https://readthedocs.com/projects/openhw-group-cva6-user-manual/badge/?version=latest)](https://docs.openhwgroup.org/projects/cva6-user-manual/?badge=latest) [![GitHub release](https://img.shields.io/github/release/openhwgroup/cva6?include_prereleases=&sort=semver&color=blue)](https://github.com/openhwgroup/cva6/releases/)
 
 CVA6 is a 6-stage, single-issue, in-order CPU which implements the 64-bit RISC-V instruction set. It fully implements I, M, A and C extensions as specified in Volume I: User-Level ISA V 2.3 as well as the draft privilege extension 1.10. It implements three privilege levels M, S, U to fully support a Unix-like operating system. Furthermore, it is compliant to the draft external debug spec 0.13.
 
@@ -97,7 +97,10 @@ git submodule update --init --recursive
 
 # Install Spike ISA simulator (requires: gcc, g++, device-tree-compiler, libboost-dev)
 # See verif/regress/install-spike.sh for details
-(cd verif/regress && source ./install-spike.sh)
+source verif/regress/install-spike.sh
+
+# Install Verilator for the TestHarness recipes (requires: autoconf, flex, bison, help2man)
+source verif/regress/install-verilator.sh
 
 # Configure your environment (adapt to your setup)
 # Edit flows/config/setenv.sh - Set paths to your CAD tools (VCS, Xcelium, Questa, etc.)
@@ -172,10 +175,11 @@ This BSP is used by both `core` testbench and `uvmt_cva6` UVM verification envir
 - **docs**:    verification plans and specifications.
 - **env**:     UVM environment (`uvme`) and riscv-dv extensions (`corev-dv`).
 - **patches**: patches applied to the submodules by `cook.py git-dependencies`.
-- **regress**: scripts of the former flow to install tools and run test suites.
-- **sim**:     riscv-dv simulation environment.
+- **regress**: Spike and Verilator installation scripts, patches of the external test suites.
+- **sim**:     riscv-dv submodule, verification plan, coverage exclusion list and trace conversion scripts.
+  The generated tests of a target are listed in `config/target/<target>/verif/generated_test.yaml`.
 - **tb**:      testbench module instancing the core
-- **tests**:   test lists (`*.yaml`, read by `cook.py`) and the sources of the custom, unit and UVM tests
+- **tests**:   test lists (`*.yaml`, read by `cook.py`) and the sources of the custom and UVM tests
 
 # Planned Improvements
 

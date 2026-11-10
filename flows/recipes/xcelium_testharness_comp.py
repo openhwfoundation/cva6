@@ -158,8 +158,7 @@ def xcelium_testharness_comp(
         "-access",
         "+rwc" if trace_mode != TraceMode.notrace else "+r",
     ]
-    # Raised by the CVA6 sources on every run, the XRUN_DISABLED_WARNINGS
-    # of the root Makefile
+    # Raised by the CVA6 sources on every run
     for warning in ("BIGWIX", "ZROMCW", "STRINT", "ENUMERR", "SPDUSD", "RNDXCELON"):
         options += ["-nowarn", warning]
 

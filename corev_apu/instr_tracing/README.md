@@ -127,10 +127,13 @@ The overall role of the ITI module in the trace infrastructure is summarized in 
 </picture>
 
 ---
-### Continuous Integration for ITI
+### Checking the ITI
 
-The CI (Continuous Integration) test for the ITI is contained in Instr_tracing_test.sh and consist of running a simulation on ariane_testharness with the previous test iti_test.sh and extracting the iti.trace. Then it run the regressionFlow from the [E-Trace specification](https://github.com/riscv-non-isa/riscv-trace-spec) and compare both files.
-We cleaned both file to compare what is comparable ,we exclude the start and the end because it's not matching based spike version
+`verif/regress/Instr_tracing_test.sh` checks the ITI; it is not run by the CI. It runs `verif/regress/iti_test.sh`, which compiles `verif/tests/custom/ITI` and simulates it on ariane_testharness with cook.py, then compares the `iti.traces` of the simulation directory with the output of the regressionFlow of the [E-Trace specification](https://github.com/riscv-non-isa/riscv-trace-spec), excluding the start and the end, which depend on the Spike version:
+```bash
+bash verif/regress/Instr_tracing_test.sh
+```
+`ITI_TARGET` (AXI target, default `profile_perf32_axi`), `ITI_TOOLCHAIN` (default `gcc-15`) and `ITI_SIMULATOR` (`verilator` or `vcs`) select the configuration. The traces and the comparison files are in `build/<target>/instr_tracing/`.
 
 
 ## 2. Encoder + Encapsulator
@@ -308,10 +311,9 @@ This design enables modular evolution: improvements or full spec-compliance in t
 
 > While the [encapsulation specification](https://github.com/riscv-non-isa/e-trace-encap) also defines support for **source IDs** , **null packets** (e.g., `null.idle`, `null.alignment`), and **synchronization sequences**, these features are **not yet implemented** in the current prototype.
 
-### Continuous Integration for Encoder + Encapsulator
+### Checking the Encoder + Encapsulator
 
-The CI (Continuous Integration) test for the Encoder and  Encapsulator is also contained in Instr_tracing_test.sh and consists in running a simulation on ariane_testharness with the previous test iti_test.sh and extracting the `encoded.trace`, it will convert them in decaspulated csv format with the Decapsuler. Then it runs the regressionFlow from the [E-Trace specification](https://github.com/riscv-non-isa/riscv-trace-spec) and compare both files.
-We cleaned both file to compare what is comparable, again we exclude the start and the end because it's not matching based spike version.
+`verif/regress/Instr_tracing_test.sh` also checks the Encoder and Encapsulator: it converts the `encaps.traces` of the same simulation to the decapsulated csv format with the Decapsuler and compares it with the regressionFlow output, with the same exclusions.
 
 
 ---
@@ -451,11 +453,10 @@ Because both channels are occupied, we have two deployment options:
 Once hardware wiring and constraints are in place with ITI, Encoder, Encapsulator, etc. :
 > We used Vivado version: 2018.2
 ```bash
-make clean
-make fpga TARGET=fpga_linux_cv32a6
+./cook.py vivado-fpga-build -t fpga_linux_cv32a6
 ```
 
-Then upload the generated ariane_xilinx.bit via Vivado Lab or your preferred hardware manager.
+Then upload the generated build/fpga_linux_cv32a6/fpga/genesys2/ariane_xilinx.bit via Vivado Lab or your preferred hardware manager.
 
 ---
 ## 4. Software-Side Reception

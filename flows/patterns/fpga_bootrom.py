@@ -24,7 +24,7 @@ steps that turn an ELF into something the RTL can instantiate:
   instantiates as `bootrom_32` / `bootrom_64`.
 
 One ROM per register width, not per target: the FPGA top level reads
-`bootrom_<XLEN>.sv` (see `fpga_src` in the root Makefile), so the same
+`bootrom_<XLEN>.sv`, so the same
 binary serves every target of that width. Hence the ISA below.
 
 ## Why `rv<XLEN>im_zicsr`

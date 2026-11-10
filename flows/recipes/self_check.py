@@ -196,7 +196,7 @@ def self_check(
             report.success(f"{p}: exist")
         else:
             report.error(
-                f"{p}: Not found see verif/regress/install-spike (MANDATORY)",
+                f"{p}: Not found, see verif/regress/install-spike.sh (MANDATORY)",
                 env=True,
             )
 
@@ -235,7 +235,7 @@ def self_check(
             report.success(f"{p}: exist")
         else:
             report.error(
-                f"{p}: Not found, see verif/regress/install-riscv-tests (MANDATORY)",
+                f"{p}: Not found, run ./cook.py git-dependencies (MANDATORY)",
                 env=True,
             )
 
@@ -250,7 +250,7 @@ def self_check(
         if Path(p).exists():
             report.success(f"{p}: exist")
         else:
-            report.warning(f"{p}: Not found, see verif/regress/install-compliance")
+            report.warning(f"{p}: Not found, run ./cook.py git-dependencies")
 
     report.step("riscv-arch-test installation")
 
@@ -263,7 +263,7 @@ def self_check(
         if Path(p).exists():
             report.success(f"{p}: exist")
         else:
-            report.warning(f"{p}: Not found, see verif/regress/install-arch-test")
+            report.warning(f"{p}: Not found, run ./cook.py git-dependencies")
 
     report.step("Specific organisation configuration files")
 
