@@ -22,7 +22,6 @@
 #   hstatus.HU does not affect a cbo in host U mode, and henvcfg does not
 #   affect HS mode.
 #
-#   The cases come from verif/tb/decoder_unit/zicbom_permissions_test.sv.
 #   Translation is off at both stages (satp, vsatp and hgatp at 0).
 #
 #   Requires RVH and RVZiCbom, and RV64.

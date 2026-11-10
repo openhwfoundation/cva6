@@ -122,14 +122,11 @@ def _build_tcl(out_dir, repo_dir, target, board, jobs, bootrom_sv, rtl_files):
     """
     Return the Vivado script building the bitstream.
 
-    Merges what `corev_apu/fpga/scripts/prologue.tcl` and `run.tcl` did,
-    with three deliberate differences: every path is absolute, so the
-    project is created in the recipe output directory instead of the
-    source tree; the parameters come from the board table rather than
-    from environment variables; and the post implementation reports do
-    not wipe the post synthesis ones (`run.tcl` ran `rm -rf reports/*`
-    twice, which destroyed the CDC and clock interaction reports it had
-    just produced).
+    Every path is absolute, so the project is created in the recipe
+    output directory instead of the source tree; the parameters come from
+    the board table rather than from environment variables; and the post
+    implementation reports do not wipe the post synthesis ones (CDC and
+    clock interaction reports).
     """
     params = board_params(board)
     fpga_dir = repo_dir / "corev_apu" / "fpga"

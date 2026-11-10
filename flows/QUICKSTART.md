@@ -52,6 +52,10 @@ export NUM_JOBS=8
 ./verif/regress/install-spike.sh
 ```
 
+Verilator, for the TestHarness recipes, is installed (patched) by
+`./verif/regress/install-verilator.sh`, in `tools/verilator-<version>`:
+point `VERILATOR_INSTALL_DIR` of `setenv.sh` at it.
+
 **5. Clone the external test suites and patch the submodules**
 
 The suites the `base_*` testlists run are not submodules. The same recipe

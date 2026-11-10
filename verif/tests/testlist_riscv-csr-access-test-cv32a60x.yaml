@@ -28,63 +28,63 @@ testlist:
   - test: M_RW_CSR
     iterations: 1
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_m_rw_csr_test_0.S
 
   - test: S_RW_CSR
     iterations: 1
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_s_rw_csr_test_0.S
 
   - test: M_RO_CSR
     iterations: 1
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_m_ro_csr_test_0.S
 
   - test: M_MCYCLE_CSR
     iterations: 0
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_mcycle_csr_test_0.S
 
   - test: M_MCYCLEH_CSR
     iterations: 0
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_mcycleh_csr_test_0.S
 
   - test: M_MINSTRET_CSR
     iterations: 0
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_minstret_csr_test_0.S
 
   - test: M_MINSTRETH_CSR
     iterations: 0
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_minstreth_csr_test_0.S
 
   - test: U_CYCLE_CSR
     iterations: 0
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_cycle_csr_test_0.S
 
   - test: U_INSTRET_CSR
     iterations: 0
     <<: *common_test_config
-    # Prerequisite: install riscv-arch-test (== run 'cva6/regress/install-riscv-arch-test.sh') first.
+    # Prerequisite: ./cook.py git-dependencies clones riscv-arch-test.
     # It will populate '<path_var>/riscv-arch-test/riscv-target/spike/' using the current Spike installation.
     asm_tests: <path_var>/custom/CSR/csr_access_tests/riscv_instret_csr_test_0.S
 

@@ -4,13 +4,7 @@ Customize and Extend Generator
 Add custom instructions
 -----------------------
 
-- To generate a test containing the cvxif custom instructions, run the commands below, in sim directory:
-  ```bash
-     cp ../env/corev-dv/custom/riscv_custom_instr_enum.sv ./dv/src/isa/custom/
-     python3 cva6.py --testlist=dv/yaml/base_testlist.yaml --test riscv_arithmetic_basic_test --iss_yaml cva6.yaml --target cv64a6_imafdc_sv39 --iss=vcs-uvm
-     -cs ../env/corev-dv/target/rv64gc/ --mabi lp64 --isa rv64gc --sim_opts="+uvm_set_inst_override=riscv_asm_program_gen,cva6_asm_program_gen_c,'uvm_test_top.asm_gen'" --simulator_yaml ../env/corev-dv/simulator.yaml
- ```
-  The command generates the riscv_arithmetic_basic_test described in dv/yaml/base_testlist.yaml, you can define your own testlist.yaml.
+- The generator is built and run with `cook.py` (`vcs-generator-comp`, which copies `custom/riscv_custom_instr_enum.sv` into riscv-dv, then `vcs-generator-run` or `vcs-generator-run-testlist`), see [flows/README.md](../../../flows/README.md).
 
 - Supported targets: `rv64gc` and `rv32imc`
 

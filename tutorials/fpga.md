@@ -83,7 +83,7 @@ zephyr natively supports the cva6 SoC and the **Genesys 2** board in two configu
 `fpga_linux_cv64a6` is the configuration that will be synthesized when you follow the steps [below](#generating-a-bitstream).
 In order to build `fpga_linux_cv32a6`, the configuration Zephyr calls `cv32a6_imac_sv32`, use the following command instead:
 ```bash
-target=fpga_linux_cv32a6 make fpga
+./cook.py vivado-fpga-build -t fpga_linux_cv32a6
 ```
 
 In order to build a zephyr application, follow the [zephyr getting started guide](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) to setup the build dependencies and install zephyr's meta tool *west*.
@@ -127,28 +127,24 @@ See the `zephyr-build` recipe in [flows/README.md](../flows/README.md) for the t
 To generate the FPGA bitstream (and memory configuration) yourself for the Genesys II board run:
 
 ```
-make fpga
+./cook.py vivado-fpga-build -t fpga_linux_cv64a6 --mcs
 ```
 
-This will produce a bitstream file and memory configuration file (in `fpga/work-fpga`) which you can permanently flash by running the above commands.
+This will produce a bitstream file and memory configuration file (in `build/fpga_linux_cv64a6/fpga/genesys2`) which you can permanently flash by running the above commands, or load with `./cook.py vivado-fpga-program`.
 
 - **Agilex 7**
 
 To generate the FPGA bitstream yourself for the Agilex 7 board run:
 
 ```
-make altera
+./cook.py quartus-fpga-build -t <target> --board agilex7
 ```
 
 We recommend to set the parameter FpgaAlteraEn (and also FpgaEn) to benefit from the FPGA optimizations.
 
-This will produce a bitstream file (in `altera/output_files`) which you can program following the previous instructions. **Note: Bear in mind that you need a Quartus Pro Licence to be able to generate this bitstream**
+This will produce a bitstream file (in `build/<target>/fpga_altera/agilex7/output_files`) which you can program following the previous instructions, or with `./cook.py quartus-fpga-program`. **Note: Bear in mind that you need a Quartus Pro Licence to be able to generate this bitstream**
 
-To clean the project after generating the bitstream, use
-
-```
-make clean-altera
-```
+See the FPGA recipes in [flows/README.md](../flows/README.md) for the options.
 
 ## Debugging
 

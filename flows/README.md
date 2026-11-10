@@ -87,10 +87,9 @@ one to reach for when an open-source simulator is required.
 | Xcelium (Cadence) | **not verified** | **not verified** |
 | Verilator | — | supported |
 
-*Not verified* means the recipes exist, follow the reference flow of the
-Makefile and of the verified recipes, but have not been run to the end
-of a test. Expect to have to fix them on first use, and report what you
-find.
+*Not verified* means the recipes exist, follow the verified recipes,
+but have not been run to the end of a test. Expect to have to fix them on
+first use, and report what you find.
 
 Synthesis runs on DC shell, RTL lint on SpyGlass, and the FPGA flows
 drive both Vivado (Xilinx) and Quartus (Intel/Altera). The documentation
@@ -1164,8 +1163,7 @@ keeps the one Questa ships off the loader path.
 
 **Not verified.** Same options as the VCS recipes.
 
-Written after `xrun_comp` and `xrun_sim` of the Makefile and after
-`xcelium-uvm-comp`, but never run: Xcelium was not available. The
+Written after `xcelium-uvm-comp`, but never run: Xcelium was not available. The
 compilation is `xrun -elaborate`; the run reopens the snapshot with
 `xrun -R` and loads the SPIKE libraries with `+sv_lib`, as on the other
 simulators.

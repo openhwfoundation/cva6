@@ -206,9 +206,8 @@ def vcs_testharness_run(
     # ==========================================================
     # BUILD SIMV COMMAND
     # ==========================================================
-    # The plusargs of `COMMON_RUN_ARGS` in verif/sim/Makefile. The Spike
-    # libraries are the whole DPI of the harness, loaded in dependency
-    # order: a library providing symbols for another comes first.
+    # The Spike libraries are the whole DPI of the harness, loaded in
+    # dependency order: a library providing symbols for another comes first.
     simv_cmd = [
         str(simv),
         "+permissive",

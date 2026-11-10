@@ -1,7 +1,0 @@
-../../include/riscv_pkg.sv
-../../src/riscv-dbg/src/dm_pkg.sv
-../../include/ariane_pkg.sv
-../../src/common_cells/src/lzc.sv
-../../src/serdiv.sv
-hdl/tb_pkg.sv
-hdl/tb.sv
