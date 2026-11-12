@@ -68,7 +68,7 @@ def vcs_uvm_run(
     tb_performance_mode: bool = typer.Option(False, help="Enable tb perf mode"),
     stats: bool = typer.Option(False, help="Enable RTL perf tracer"),
     sim_profile: bool = typer.Option(False, help="Enable simulation profiling"),
-    interactive_gui: bool = typer.Option(
+    gui: bool = typer.Option(
         False, help="Launch VERDI for interactive simulation"
     ),
     run_opts: list[str] = typer.Option([], "--run_opts", help="Simulation run options"),
@@ -380,10 +380,9 @@ def vcs_uvm_run(
         f"+irq_ipi_addr={irq_ipi_addr}",
         f"+irq_ipi_delay={irq_ipi_delay}",
         f"+GLOBAL_PATTERN_end={add_end_window}",
-        "--gui",
     ]
 
-    if interactive_gui:
+    if gui:
         options += ["-gui"]
     if cycle_timeout is not None:
         options += [f"+time_out={cycle_timeout}"]
@@ -452,9 +451,9 @@ def vcs_uvm_run(
         report=report,
         cwd=elab_dir,
         env=None,
-        error_patterns=["(ERROR:|^Error-|UVM_ERROR|UVM_FATAL|^Fatal-)"],
-        warning_patterns=["(WARNING:|^Warning-|UVM_WARNING)"],
-        highlight_patterns=None,
+        error_patterns=["(ERROR:|^Error-|UVM_ERROR|UVM_FATAL|^Fatal-)", "ASSERT FAILED"],
+        warning_patterns=["(WARNING:|^Warning-|UVM_WARNING)", "Timing violation"],
+        highlight_patterns=["INFO: GLOBAL_PATTERN"],
         log_file=log_file,
         timeout=sim_timeout,
         check=False,
