@@ -13,7 +13,7 @@ import typer
 
 from flows.recipes.sw_compile_testlist import sw_compile_testlist
 from flows.recipes.vcs_generator_run_testlist import vcs_generator_run_testlist
-from flows.recipes.uvm_run_testlist import uvm_run_testlist
+from flows.recipes.uvm_run_testlist import Simulator, uvm_run_testlist
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.autocompletion import (
     CompMode,
@@ -46,7 +46,8 @@ def macro_vcs_generator_testlist(
         ...,
         "--testlist",
         "-l",
-        help="Testlist (YML file) in verif/tests",
+        help="riscv-dv testlist (YML file), e.g. "
+        "config/target/<target>/verif/generated_test.yaml",
         autocompletion=autocompletion_testlist,
     ),
     test_name: list[str] = typer.Option(
@@ -75,7 +76,11 @@ def macro_vcs_generator_testlist(
     sim_profile: bool = typer.Option(False, help="Enable simulation profiling"),
     run_opts: list[str] = typer.Option([], "--run_opts", help="Simulation run options"),
     batch_size: int = typer.Option(1, help="Number of tests to generate per run batch"),
-    seed: int = typer.Option(None, help="randomized if not provided"),
+    seed: int = typer.Option(
+        None,
+        help="Generator seed of the first iteration of each test, "
+        "incremented per iteration (randomized if not provided)",
+    ),
     uvm_seed: str = typer.Option(
         str(random.getrandbits(31)), help="Randomize UVM seed"
     ),
@@ -118,10 +123,15 @@ def macro_vcs_generator_testlist(
     results = report.metric("Macro steps")
 
     # cook_report.yml locations of the sub-recipes (their out_dir)
+    # (testlist wrappers write theirs in a subdirectory named after the
+    # testlist)
+    testlist_name = Path(testlist).stem
     generator_report = (
-        repo_dir / "build" / "cv32a65x" / "dv_generated" / "cook_report.yml"
+        repo_dir / "build" / target / "dv_generated" / testlist_name / "cook_report.yml"
     )
-    sw_compile_report = repo_dir / "build" / target / "compile" / "cook_report.yml"
+    sw_compile_report = (
+        repo_dir / "build" / target / "compile" / testlist_name / "cook_report.yml"
+    )
     inout_dir = {
         CompMode.rtl: "sim_rtl",
         CompMode.coverage: "sim_cov",
@@ -129,7 +139,13 @@ def macro_vcs_generator_testlist(
         CompMode.gate_wc_power: "sim_gate_wc_power",
     }[comp_mode]
     uvm_run_report = (
-        repo_dir / "build" / target / "simulation" / inout_dir / "cook_report.yml"
+        repo_dir
+        / "build"
+        / target
+        / "simulation"
+        / inout_dir
+        / testlist_name
+        / "cook_report.yml"
     )
 
     # ==========================================
@@ -138,6 +154,7 @@ def macro_vcs_generator_testlist(
     try:
         report.step("STEP 1: RUN GENERATOR")
         vcs_generator_run_testlist(
+            target=target,
             testlist=testlist,
             test_name=test_name,
             seed=seed,
@@ -183,7 +200,7 @@ def macro_vcs_generator_testlist(
     try:
         report.step("STEP 3: UVM RUN")
         uvm_run_testlist(
-            simulator="vcs",
+            simulator=Simulator.vcs,
             target=target,
             testlist=testlist,
             test_name=test_name,

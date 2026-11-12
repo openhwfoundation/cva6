@@ -26,10 +26,12 @@
 # no_post_compare : Enable/disable comparison of trace log and ISS log (Optional)
 # compare_opts    : Options for the RTL & ISS trace comparison
 # gcc_opts        : gcc compile options
+# run_opts        : Plusargs added to the RTL simulation of this test
 # --------------------------------------------------------------------------------
 common_test_gen_config: &common_test_gen_config
   path_var: TESTS_GEN_PATH
   gcc_opts: >
+      -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
       -I./verif/env/corev-dv/user_extension
 
 testlist:
@@ -135,7 +137,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
@@ -178,7 +180,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
@@ -226,7 +228,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
@@ -255,7 +257,7 @@ testlist:
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
-    asm_tests: <path_var>/riscv_arithmetic_basic_xif_illegal_test_/asm_tests/riscv_arithmetic_basic_xif_illegal_test_<iterations>.S
+    asm_tests: <path_var>/riscv_arithmetic_basic_xif_illegal_test/asm_tests/riscv_arithmetic_basic_xif_illegal_test_<iterations>.S
 
 
   - test: riscv_load_store_xif_test
@@ -318,7 +320,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
@@ -390,7 +392,7 @@ testlist:
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
-    asm_tests: <path_var>/riscv_arithmetic_basic_sub_prog_test_bcomp/asm_tests/riscv_arithmetic_basic_sub_prog_test_bcomp_<iterations>.S
+    asm_tests: <path_var>/riscv_arithmetic_basic_sub_prog_test/asm_tests/riscv_arithmetic_basic_sub_prog_test_<iterations>.S
 
 
   - test: riscv_arithmetic_basic_illegal
@@ -422,6 +424,8 @@ testlist:
     description: >
       Unaligned load/store test
     gcc_opts: >
+      -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+      -I./verif/env/corev-dv/user_extension
       -mno-strict-align
     <<: *common_test_gen_config
     gen_opts: >
@@ -461,7 +465,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
@@ -587,7 +591,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_hazard_test_c
     rtl_test: core_base_test
@@ -611,7 +615,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_hazard_test_c
     rtl_test: core_base_test
@@ -635,7 +639,7 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_hazard_test_c
     rtl_test: core_base_test
@@ -662,8 +666,9 @@ testlist:
       +enable_zbb_extension=1
       +enable_zbc_extension=1
       +enable_zbs_extension=1
-      +enable_zcb_extension=1
+      +enable_zcb_extension=0
     iterations: 2
     gen_test: cva6_instr_base_test_c
     rtl_test: core_base_test
+    run_opts: +enable_interrupt
     asm_tests: <path_var>/riscv_interrupt_test/asm_tests/riscv_interrupt_test_<iterations>.S

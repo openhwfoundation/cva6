@@ -918,6 +918,13 @@ Run all tests (or a single test) from a testlist with any simulator.
 - `--run_opts TEXT` - Additional simulation run options
 - `--uvm-seed TEXT` - UVM randomization seed
 
+**Testlist keys read:** `test`, `iterations` (default 1, `0` disables the
+test) and the optional `run_opts`: a string of plusargs added, after the
+global `--run_opts`, to the simulation of that test only, e.g.
+`run_opts: +enable_interrupt` (the interrupt agent drives nothing without
+it). A testlist whose path contains `cvxif` also gets `+enabled_cvxif` on
+every test.
+
 **Example:**
 ```bash
 # Run entire testlist with VCS
@@ -1212,17 +1219,35 @@ RISC-V DV random instruction generator integration.
 
 #### `vcs-generator-comp`
 
-Compile the RISC-V DV generator project.
+Elaborate the riscv-dv generator (`verif/sim/dv`) with the corev-dv
+extensions (`verif/env/corev-dv/cva6-files.f`) for a target.
 
 ```bash
-./cook.py vcs-generator-comp
+./cook.py vcs-generator-comp -t <target> [OPTIONS]
 ```
 
-No options required. This elaborates the test generation environment.
+**Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration
+
+**Optional:**
+- `--core-setting TEXT` - corev-dv core setting, a directory of
+  `verif/env/corev-dv/target/` (`rv32imcb`, `rv32imac`, `rv64gc`). Derived
+  from the `march` of `config/target/<target>/isa.yml` when omitted:
+  `rv64*` -> `rv64gc`, `rv32` with Zba/Zbb/Zbc/Zbs -> `rv32imcb`, `rv32` with
+  A -> `rv32imac`; any other march needs the option.
+- `-q, --quiet` - Suppress output (errors only)
+
+**Outputs:** `build/<target>/dv_generator/` (`simv`, `compilation.log`,
+`cook_manifest.yml` with the core setting).
+
+The recipe copies `verif/env/corev-dv/custom/riscv_custom_instr_enum.sv`
+into `verif/sim/dv/src/isa/custom/` (the riscv-dv submodule then shows
+as modified): riscv-dv includes it as `isa/custom/riscv_custom_instr_enum.sv`,
+which corev-dv has no include directory to override.
 
 **Example:**
 ```bash
-./cook.py vcs-generator-comp
+./cook.py vcs-generator-comp -t cv32a60x
 ```
 
 #### `vcs-generator-run`
@@ -1230,10 +1255,13 @@ No options required. This elaborates the test generation environment.
 Run RISC-V DV to generate random instruction tests.
 
 ```bash
-./cook.py vcs-generator-run [OPTIONS]
+./cook.py vcs-generator-run -t <target> -n <test> [OPTIONS]
 ```
 
+**Prerequisite:** `vcs-generator-comp -t <target>`.
+
 **Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration (the generator elaborated for it)
 - `-n, --testname TEXT` - Test name to generate
 
 **Optional:**
@@ -1247,18 +1275,24 @@ Run RISC-V DV to generate random instruction tests.
 - `--illegal-instr-ratio INTEGER` - Illegal instruction ratio (default: 0)
 - `--unsupported-instr-ratio INTEGER` - Unsupported instruction ratio (default: 0)
 - `--num-of-sub-program INTEGER` - Number of sub-programs (default: 0)
-- `--seed INTEGER` - Random seed (randomized if not provided)
+- `--seed INTEGER` - Seed of the first iteration, incremented per iteration (randomized if not provided)
 - `--tvec-alignment INTEGER` - Trap vector alignment value (default: 8)
 - `-v, --verbose` - Enable UVM_HIGH verbosity
-- `--options TEXT` - Additional options
+- `--options TEXT` - Generator plusargs (repeatable) replacing all the options above (the `gen_opts` of a testlist)
+
+**Outputs:** `build/<target>/dv_generated/<test>/asm_tests/<test>_<i>.S`
+(the `TESTS_GEN_PATH` of the riscv-dv testlists, see `sw-compile-testlist`),
+the generator logs and `seed.yaml`; the seeds are also appended to
+`build/<target>/dv_generated/seedlist.yaml`. The recipe fails when a
+program is missing or the generator logs a `UVM_ERROR`/`UVM_FATAL`.
 
 **Example:**
 ```bash
 # Generate simple random test
-./cook.py vcs-generator-run -n my_random_test
+./cook.py vcs-generator-run -t cv32a60x -n my_random_test
 
 # Generate with extensions and iterations
-./cook.py vcs-generator-run \
+./cook.py vcs-generator-run -t cv32a60x \
   -n stress_test \
   --gen-test cva6_instr_base_test_c \
   --instr-cnt 1000 \
@@ -1267,7 +1301,7 @@ Run RISC-V DV to generate random instruction tests.
   --directed-instr "cva6_load_store_rand_instr_stream_c,20"
 
 # Generate with specific seed
-./cook.py vcs-generator-run \
+./cook.py vcs-generator-run -t cv32a60x \
   -n reproducible_test \
   --seed 12345 \
   --instr-cnt 500 \
@@ -1276,30 +1310,33 @@ Run RISC-V DV to generate random instruction tests.
 
 #### `vcs-generator-run-testlist`
 
-Generate and run tests from a testlist.
+Generate the programs of a riscv-dv testlist (`gen_test`, `gen_opts`,
+`iterations` of each entry), one `vcs-generator-run` per test.
 
 ```bash
-./cook.py vcs-generator-run-testlist [OPTIONS]
+./cook.py vcs-generator-run-testlist -t <target> -l <testlist> [OPTIONS]
 ```
 
 **Required Options:**
-- `-l, --testlist TEXT` - Testlist YAML file in `verif/tests`
+- `-t, --target TEXT` - CVA6 user configuration (the generator elaborated for it)
+- `-l, --testlist TEXT` - riscv-dv testlist, e.g. `config/target/cv32a60x/verif/generated_test.yaml`
 
 **Optional:**
-- `-n, --testname TEXT` - Single test of the testlist
-- `--seed INTEGER` - Random seed (randomized if not provided)
+- `-n, --testname TEXT` - Test of the testlist (repeatable)
+- `--seed INTEGER` - Seed of the first iteration of each test, incremented per iteration (randomized if not provided)
 - `--batch-size INTEGER` - Tests to generate per batch (default: 1)
 - `-q, --quiet` - Suppress output (errors only)
 
 **Example:**
 ```bash
 # Generate all tests in testlist
-./cook.py vcs-generator-run-testlist -l verif/tests/<generator-testlist>.yaml
+./cook.py vcs-generator-run-testlist -t cv32a60x \
+  -l config/target/cv32a60x/verif/generated_test.yaml
 
 # Generate specific test with seed
-./cook.py vcs-generator-run-testlist \
-  -l verif/tests/<generator-testlist>.yaml \
-  -n arithmetic_test \
+./cook.py vcs-generator-run-testlist -t cv32a60x \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
+  -n riscv_arithmetic_basic_test_comp \
   --seed 98765 \
   --batch-size 4
 ```
@@ -2139,13 +2176,16 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 ./cook.py macro-vcs-generator-testlist [OPTIONS]
 ```
 
+**Prerequisites:** `vcs-generator-comp -t <target>` and
+`vcs-uvm-comp -t <target>` (with `--tandem-enabled` for a tandem run).
+
 **Required Options:**
-- `-t, --target TEXT` - CVA6 user configuration
-- `-l, --testlist TEXT` - Testlist YAML file in `verif/tests`
+- `-t, --target TEXT` - CVA6 user configuration (passed to every step)
+- `-l, --testlist TEXT` - riscv-dv testlist, e.g. `config/target/cv32a60x/verif/generated_test.yaml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 
 **Optional:**
-- `-n, --testname TEXT` - Single test of the testlist
-- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-n, --testname TEXT` - Test of the testlist (repeatable)
 - `--march TEXT` - Custom march
 - `--mabi TEXT` - Custom mabi
 - `--comp-mode [rtl|gate_wc_power|gate_wc_timing|coverage]` - Hardware compilation mode (default: `rtl`)
@@ -2157,7 +2197,7 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 - `--sim-profile / --no-sim-profile` - Enable simulation profiling (default: disabled)
 - `--run_opts TEXT` - Simulation run options
 - `--batch-size INTEGER` - Tests to generate per batch (default: 1)
-- `--seed INTEGER` - Random seed (randomized if not provided)
+- `--seed INTEGER` - Generator seed of the first iteration of each test, incremented per iteration (randomized if not provided)
 - `--uvm-seed TEXT` - UVM randomization seed
 
 **Example:**
@@ -2165,16 +2205,17 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 # Run complete random test generation flow
 ./cook.py macro-vcs-generator-testlist \
   -t cv32a60x \
-  -l verif/tests/<generator-testlist>.yaml \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
   -c llvm-22 \
   --trace-mode fast \
   --batch-size 4
 
 # Single test with tandem verification
 ./cook.py macro-vcs-generator-testlist \
-  -t cv32a65x \
-  -l verif/tests/<generator-testlist>.yaml \
-  -n arithmetic_stress \
+  -t cv32a60x \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
+  -n riscv_arithmetic_basic_test_comp -n riscv_load_store_test \
+  --seed 1 \
   -c gcc-15 \
   --tandem-enabled \
   --stats

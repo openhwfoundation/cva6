@@ -191,7 +191,8 @@ config/target/<target_name>/
 ├── expected_values.yml       # Baselines of the cycle counts and of the area
 ├── expected_lint.yml         # Baseline of the open-source lint (slang, Verilator)
 ├── expected_spyglass.rpt     # Baseline of the Spyglass lint (optional)
-└── verif/regression.yaml     # Test list of the former verif/sim flow (optional, not read by cook.py)
+├── verif/regression.yaml     # Test list of the former verif/sim flow (optional, not read by cook.py)
+└── verif/generated_test.yaml # riscv-dv generated tests of the target (optional)
 ```
 
 ## Configuration Files Reference

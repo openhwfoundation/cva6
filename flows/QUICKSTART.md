@@ -192,13 +192,14 @@ recorded in the report of each run.
 ### Random tests
 
 ```bash
-# 1. Elaborate the generator
-./cook.py vcs-generator-comp
+# 1. Elaborate the generator and the UVM testbench (with Spike tandem)
+./cook.py vcs-generator-comp -t cv32a60x
+./cook.py vcs-uvm-comp -t cv32a60x --tandem-enabled
 
-# 2. Generate and run, in batches, against Spike
+# 2. Generate, compile and run, in batches, against Spike
 ./cook.py macro-vcs-generator-testlist \
   -t cv32a60x \
-  -l verif/tests/<generator-testlist>.yaml \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
   -c llvm-22 \
   --batch-size 8 \
   --trace-mode compact \
