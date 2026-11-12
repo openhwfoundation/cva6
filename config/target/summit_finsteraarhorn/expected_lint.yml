@@ -16,8 +16,8 @@ slang:
     seq-no-match: 6
 verilator:
   warning:
+    ASCRANGE: 5
     CASEINCOMPLETE: 2
-    LITENDIAN: 8
     SELRANGE: 52
-    WIDTHEXPAND: 67
+    WIDTHEXPAND: 62
     WIDTHTRUNC: 37
