@@ -16,10 +16,10 @@ slang:
     seq-no-match: 4
 verilator:
   warning:
+    ASCRANGE: 5
     CMPCONST: 1
-    LITENDIAN: 7
     SELRANGE: 50
     UNSIGNED: 3
     WIDTHCONCAT: 2
-    WIDTHEXPAND: 28
+    WIDTHEXPAND: 23
     WIDTHTRUNC: 21

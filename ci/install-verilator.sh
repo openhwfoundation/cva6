@@ -10,8 +10,7 @@ fi
 VERILATOR_REPO="https://github.com/verilator/verilator.git"
 VERILATOR_BRANCH="master"
 # Use the release tag instead of a full SHA1 hash.
-VERILATOR_HASH="v5.008"
-VERILATOR_PATCH="$ROOT/verif/regress/verilator-v5.patch"
+VERILATOR_HASH="v5.050"
 
 VERILATOR_BUILD_DIR=$PWD/verilator-$VERILATOR_HASH/verilator
 VERILATOR_INSTALL_DIR="$(dirname $VERILATOR_BUILD_DIR)"
@@ -22,15 +21,11 @@ if [ ! -e "$VERILATOR_INSTALL_DIR/bin/verilator" ]; then
     echo "VERILATOR_REPO=$VERILATOR_REPO"
     echo "VERILATOR_BRANCH=$VERILATOR_BRANCH"
     echo "VERILATOR_HASH=$VERILATOR_HASH"
-    echo "VERILATOR_PATCH=$VERILATOR_PATCH"
     mkdir -p $VERILATOR_BUILD_DIR
     cd $VERILATOR_BUILD_DIR
     sudo apt install libfl-dev help2man
     [ -d .git ] || git clone $VERILATOR_REPO -b $VERILATOR_BRANCH .
     git checkout $VERILATOR_HASH
-    if [[ -n "$VERILATOR_PATCH" && -f "$VERILATOR_PATCH" ]] ; then
-      git apply $VERILATOR_PATCH || true
-    fi
     # Generate the config script and configure Verilator.
     autoconf && ./configure --prefix="$VERILATOR_INSTALL_DIR" && make -j${NUM_JOBS}
     # FORNOW: Accept failure in 'make test' (segfault issue on Debian10)

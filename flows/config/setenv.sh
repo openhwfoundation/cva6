@@ -48,7 +48,7 @@ export QUARTUS_SETUP=/altera_path/quartus/version/setup/bashrc.example
 #Generic tool
 export VERIBLE_PATH=/verible_path/verible-v0.0-3922-g26d4b0e0/bin
 # Verilator of the TestHarness recipes, also put in PATH below
-export VERILATOR_INSTALL_DIR=/verilator_path/verilator-v5.008
+export VERILATOR_INSTALL_DIR=/verilator_path/verilator-v5.050
 # Yosys with its slang plugin (yosys-synth), e.g. the OSS CAD Suite
 export YOSYS_PATH=/yosys_path/oss-cad-suite/bin
 #Python
