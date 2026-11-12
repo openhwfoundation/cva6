@@ -339,6 +339,7 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
       always_ff @(posedge clk_i or negedge rst_ni) begin : flush_ff
         if (!rst_ni) begin
           flush_fsm_q <= FLUSH_IDLE;
+          flush_not_sent <= '0;
         end else begin
           flush_fsm_q <= flush_fsm_d;
 

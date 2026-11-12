@@ -97,6 +97,7 @@ module cva6_hpicache_if_adapter
   always_ff @(posedge clk_i or negedge rst_ni) begin : flush_ff
     if (!rst_ni) begin
       flush_fsm_q <= FLUSH_IDLE;
+      flush_not_sent <= '0;
     end else begin
       flush_fsm_q <= flush_fsm_d;
 
