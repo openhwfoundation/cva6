@@ -32,6 +32,7 @@ from flows.utils.target_config import (
     read_config_expected_value,
     top_elaborate as get_top_elaborate,
 )
+from flows.utils.autocompletion import Cva6Hier
 
 app = typer.Typer()
 
@@ -478,7 +479,7 @@ def dc_shell_synth(
     # ==========================================================
 
     env_vars = {
-        "TOP": "cva6_top",
+        "TOP": "cva6",
         "TOP_ELABORATE": top_elaborate,
         "TOP_SYNTHESIS": "cva6_top__*",
         "TARGET": target,
@@ -498,6 +499,7 @@ def dc_shell_synth(
         "TERM": "vt100",
         "SCRIPTS_DIR": "",
         "SNPSLMD_QUEUE": "TRUE",
+        "CVA6_TYPE": "HPDCACHE" if cva6_hier == Cva6Hier.axi else "",
     }
 
     env_vars |= techno
@@ -507,7 +509,7 @@ def dc_shell_synth(
     # ==========================================================
     report.step("Generate Flist.cva6_synth")
 
-    rtl_files = read_config_or_exit_flist(target, report)
+    rtl_files = read_config_or_exit_flist(target, report, filename="Flist.cva6_synth")
     analyse_files = [
         f"analyze -f sverilog -lib ariane_lib -define {define_one_string} {f}\n"
         for f in rtl_files
