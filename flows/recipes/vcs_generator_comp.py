@@ -13,8 +13,40 @@ import typer
 from flows.utils.manifest import write_manifest
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import autocompletion_target
+from flows.utils.target_config import read_config_or_exit_isa
 
 app = typer.Typer()
+
+
+# corev-dv core settings (verif/env/corev-dv/target/<setting>/
+# riscv_core_setting.sv): the ISA groups, privilege modes and CSRs the
+# generator may use. derive_core_setting() picks one from the march of the
+# target; --core-setting overrides it.
+COREV_DV_TARGET_DIR = Path("verif") / "env" / "corev-dv" / "target"
+
+
+def derive_core_setting(march):
+    """
+    Name of the corev-dv core setting matching `march`, or None.
+
+    The settings are not generated from the target: the closest one that
+    generates nothing the target lacks is chosen (rv32imcb: I, M, C and
+    Zba/Zbb/Zbc/Zbs, no A; rv32imac: I, M, A, C; rv64gc).
+    """
+    march = march.lower()
+    if march.startswith("rv64"):
+        return "rv64gc"
+    if not march.startswith("rv32"):
+        return None
+    base, *exts = march[4:].split("_")
+    if not {"i", "m", "c"} <= set(base) and not base.startswith("g"):
+        return None
+    if {"zba", "zbb", "zbc", "zbs"} <= set(exts):
+        return "rv32imcb"
+    if "a" in base or base.startswith("g"):
+        return "rv32imac"
+    return None
 
 
 # ==========================================================
@@ -24,15 +56,32 @@ app = typer.Typer()
 
 @app.command()
 def vcs_generator_comp(
+    target: str = typer.Option(
+        ...,
+        "--target",
+        "-t",
+        help="CVA6 user configuration",
+        autocompletion=autocompletion_target,
+    ),
+    core_setting: str = typer.Option(
+        None,
+        "--core-setting",
+        help="corev-dv core setting (directory of verif/env/corev-dv/target); "
+        "derived from the march of the target if not provided",
+    ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
-    )
+    ),
 ):
     """
-    VCS UVM compilation / elaboration flow
+    VCS elaboration of the riscv-dv random instruction generator
+    (with the corev-dv extensions)
     """
     report = RecipeReport(
-        "vcs-generator-comp", title="VCS DESIGN ELABORATION", context={}, quiet=quiet
+        "vcs-generator-comp",
+        title="VCS GENERATOR ELABORATION",
+        context={"target": target, "core_setting": core_setting},
+        quiet=quiet,
     )
 
     # Test tools in path
@@ -45,8 +94,25 @@ def vcs_generator_comp(
     # Create files and folder paths
     repo_dir = Path.cwd()
     build_root = repo_dir / "build"
-    elab_dir = build_root / "dv"
+    elab_dir = build_root / target / "dv_generator"
     report.set_out_dir(elab_dir)
+
+    # Core setting of the generator
+    report.step("Core setting")
+    march, _ = read_config_or_exit_isa(target, report)
+    if core_setting is None:
+        core_setting = derive_core_setting(march)
+        if core_setting is None:
+            report.error_exit(
+                f"No corev-dv core setting matches march {march} of {target}: "
+                f"pass --core-setting (one of "
+                f"{sorted(d.name for d in (repo_dir / COREV_DV_TARGET_DIR).iterdir())})",
+                env=True,
+            )
+    setting_dir = repo_dir / COREV_DV_TARGET_DIR / core_setting
+    if not (setting_dir / "riscv_core_setting.sv").exists():
+        report.error_exit(f"Missing {setting_dir / 'riscv_core_setting.sv'}", env=True)
+    report.success(f"core setting {core_setting} (march {march})")
 
     # ==========================================================
     # CLEAN
@@ -78,13 +144,17 @@ def vcs_generator_comp(
     # FILELIST
     flist = []
 
+    # The core setting comes first so that it wins over the default
+    # riscv_core_setting.sv of riscv-dv; riscv-dv user_extension holds the
+    # user_extension.svh included by riscv_instr_pkg (cva6-files.f adds the
+    # corev-dv user_extension, which holds the headers of the tests).
     incdirs = [
-        str(repo_dir / "verif" / "env" / "corev-dv" / "target" / "cv32a65x"),
-        str(repo_dir / "verif" / " sim" / "dv" / "user_extension"),
+        str(setting_dir),
+        str(repo_dir / "verif" / "sim" / "dv" / "user_extension"),
     ]
 
     flist += [
-        str(repo_dir / "verif" / "sim" / "dv" / "cva6-files.f"),
+        str(repo_dir / "verif" / "env" / "corev-dv" / "cva6-files.f"),
     ]
     # DEFINES
     defines = [
@@ -115,11 +185,11 @@ def vcs_generator_comp(
     for d in defines:
         vcs_cmd += [f"+define+{d}"]
 
-    for f in flist:
-        vcs_cmd += ["-f", str(f)]
-
     for d in incdirs:
         vcs_cmd += [f"+incdir+{d}"]
+
+    for f in flist:
+        vcs_cmd += ["-f", str(f)]
 
     vcs_cmd += [
         "-top",
@@ -213,6 +283,8 @@ def vcs_generator_comp(
         elab_dir,
         "vcs-generator-comp",
         {
+            "target": target,
+            "core_setting": core_setting,
             "top": "cva6_instr_gen_tb_top",
             "defines": defines,
         },

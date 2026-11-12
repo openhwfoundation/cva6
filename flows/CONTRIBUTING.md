@@ -379,6 +379,12 @@ build/
 │   │           ├── spike_dasm.log  # the same, disassembled
 │   │           ├── trace.fsdb   # waveforms (--trace-mode gui/compact)
 │   │           └── cook_report.yml
+│   ├── dv_generator/            # riscv-dv generator (vcs-generator-comp)
+│   │   ├── simv
+│   │   └── cook_manifest.yml    # core setting of the generator
+│   ├── dv_generated/            # Generated programs (TESTS_GEN_PATH)
+│   │   ├── <test>/asm_tests/<test>_<i>.S
+│   │   └── seedlist.yaml
 │   ├── synthesis/               # Synthesis results
 │   │   ├── build_config.yaml
 │   │   └── ...
@@ -490,7 +496,7 @@ framework provides `flows/utils/manifest.py`:
 | `vcs-uvm-gui` | FSDB trace of the test | `vcs-uvm-run --trace-mode gui/fast` |
 | `*-uvm-comp` in a gate mode | synthesized netlist | `dc-shell-synth` |
 | `spyglass-run` | design read setup | `spyglass-design-read` |
-| `vcs-generator-run` | generator `simv` | `vcs-generator-comp` |
+| `vcs-generator-run` | generator `simv` of the target | `vcs-generator-comp -t <target>` |
 | `vivado-fpga-build` | bootloader of the board | `fpga-bootrom` |
 | `quartus-fpga-build` | bootloader of the board | `fpga-bootrom` |
 | `vivado-fpga-program` | bitstream of the board | `vivado-fpga-build` |
