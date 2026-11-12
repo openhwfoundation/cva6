@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from dataclasses import dataclass
 import subprocess
 import sys
@@ -66,6 +67,24 @@ class RvfiInstr:
             assert next_line is not None
             self.mem_address = int(re_mem.search(next_line).group(1), 16)
 
+    def is_call(self):
+        base = self.op.base()
+        f = self.op.fields()
+        return (
+            base == "C.JAL"
+            or base == "C.J[AL]R/C.MV/C.ADD"
+            and f.name == "C.JALR"
+            or base in ["JAL", "JALR"]
+            and f.rd == isa.Reg.ra
+        )
+
+    def is_ret(self):
+        base = self.op.base()
+        f = self.op.fields()
+        return (
+            base == "C.J[AL]R/C.MV/C.ADD" and f.name == "C.JR" or base == "JALR"
+        ) and f.rs1 == isa.Reg.ra
+
     def load_trace(path):
         with open(path, "r", encoding="utf8") as f:
             lines = f.readlines()
@@ -108,30 +127,33 @@ class RvfiInstr:
 class CallStack:
     def __init__(self, functions):
         self.stack = []
-        self.fns = {f.start_addr(): f for f in functions}
+        self.fns = sorted(functions, key=lambda fn: fn.start_addr())
+        self.last_instr = None
 
-    def run(self, instr):
-        addr = instr.address
+    def run(self, new_instr):
+        to_return = None
 
-        f = self.fns.get(addr)
-        if f:
-            e = RawEvent(stack=self.stack_names(), cycle=instr.cycle)
-            self.stack.append(f)
-            return e
+        if self.last_instr is not None:
+            instr = self.last_instr
 
-        if len(self.stack) > 0:
-            curr = self.stack[-1]
-            if not curr.contains(addr) and any(
-                f.contains(addr) for f in self.fns.values()
-            ):
-                e = RawEvent(stack=self.stack_names(), cycle=instr.cycle)
+            if instr.is_call():
+                to_return = RawEvent(stack=self.stack_names(), cycle=new_instr.cycle)
+                self.stack.append(self.find_fn(new_instr))
+            elif instr.is_ret():
+                to_return = RawEvent(stack=self.stack_names(), cycle=new_instr.cycle)
                 self.stack.pop()
-                return e
+        else:
+            self.stack.append(self.find_fn(new_instr))
 
-        return None
+        self.last_instr = new_instr
+        return to_return
 
     def stack_names(self):
         return [f.name for f in self.stack]
+
+    def find_fn(self, instr):
+        i = bisect_right(self.fns, instr.address, key=lambda fn: fn.start_addr())
+        return self.fns[i-1]
 
 
 @dataclass
@@ -225,8 +247,6 @@ def build_stats(events, inst_analysis=False):
     last_stack = []
 
     for event in events:
-        if len(event.stack) == 0:
-            continue
         stack = event.stack
         # Current function, in the which event.duration has been spent
         func = stack[-1]
