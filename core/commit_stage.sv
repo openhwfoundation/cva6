@@ -44,6 +44,8 @@ CVA6Cfg.NrCommitPorts
 ) : 1)-1:0] sdtrig_commit_icount_nr_instr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_commit_action_i,
     input logic sdtrig_commit_std_exception_valid_i,
+    // Action of a load data trigger match on the value an AMO loads - TRIGGER_MODULE
+    input logic [CVA6Cfg.XLEN-1:0] sdtrig_amo_data_action_i,
     // The instruction we want to commit - ISSUE_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_i,
     // The instruction is cancelled - ISSUE_STAGE
@@ -411,6 +413,13 @@ CVA6Cfg.NrCommitPorts
           ex_next_instr_d = commit_instr_i[0].ex;
         end else if (CVA6Cfg.NrCommitPorts > 1 && commit_instr_i[1].ex.timing && commit_ack_o[1]) begin
           ex_next_instr_d = commit_instr_i[1].ex;
+        end else if (CVA6Cfg.RVA && instr_0_is_amo && sdtrig_amo_data_action_i != '0) begin
+          // An lr or AMO gets its value at commit: its break is held the same
+          // way, with the virtual address the store unit wrote back as tval.
+          ex_next_instr_d        = '0;
+          ex_next_instr_d.cause  = sdtrig_amo_data_action_i;
+          ex_next_instr_d.tval   = commit_instr_i[0].result;
+          ex_next_instr_d.timing = 1'b1;
         end
       end
       if (sdtrig_load_data_break) begin
@@ -452,12 +461,15 @@ CVA6Cfg.NrCommitPorts
 
     // A commit-time trigger raises its own exception: icount once its counter
     // has run out, or an exception/interrupt trigger having swallowed the trap
-    // it matched on.
-    if ((CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == '0)
-    || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i && commit_instr_i[0].valid)) begin
+    // it matched on. The trigger action is taken on a valid instruction, when
+    // the commit stage is not halted.
+    if (commit_instr_i[0].valid && !halt_i
+    && ((CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == '0)
+    || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i))) begin
       exception_o.valid = 1'b1;
       exception_o.cause = sdtrig_commit_action_i;
-      exception_o.tval  = (CVA6Cfg.TvalEn) ? commit_instr_i[0].pc : '0;
+      // icount, itrigger and etrigger write 0 to tval
+      exception_o.tval  = '0;
     end
 
     // A load data trigger fires once the loaded value is known, after the load:
