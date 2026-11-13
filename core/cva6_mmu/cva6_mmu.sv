@@ -759,26 +759,16 @@ module cva6_mmu
           // an error makes the translation valid
           lsu_valid_o = 1'b1;
           // Any fault of the page table walk should be based of the original access type
-          if (lsu_is_store_q && !CVA6Cfg.RVH && CVA6Cfg.PtLevels == 3) begin
-            lsu_exception_o.cause = riscv::ST_ACCESS_FAULT;
-            lsu_exception_o.valid = 1'b1;
-            if (CVA6Cfg.TvalEn)
-              lsu_exception_o.tval = {
-                {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, update_vaddr
-              };
-          end else begin
-            // the page table walker can only throw page faults
-            lsu_exception_o.cause = riscv::LD_ACCESS_FAULT;
-            lsu_exception_o.valid = 1'b1;
-            if (CVA6Cfg.TvalEn)
-              lsu_exception_o.tval = {
-                {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, update_vaddr
-              };
-            if (CVA6Cfg.RVH) begin
-              lsu_exception_o.tval2 = '0;
-              lsu_exception_o.tinst = lsu_tinst_q;
-              lsu_exception_o.gva   = ld_st_v_i;
-            end
+          lsu_exception_o.cause = lsu_is_store_q ? riscv::ST_ACCESS_FAULT : riscv::LD_ACCESS_FAULT;
+          lsu_exception_o.valid = 1'b1;
+          if (CVA6Cfg.TvalEn)
+            lsu_exception_o.tval = {
+              {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, update_vaddr
+            };
+          if (CVA6Cfg.RVH) begin
+            lsu_exception_o.tval2 = '0;
+            lsu_exception_o.tinst = lsu_tinst_q;
+            lsu_exception_o.gva   = ld_st_v_i;
           end
         end
       end
