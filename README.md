@@ -74,7 +74,7 @@ whatever the others.
 
 #### cook.py
 
-`cook.py` is a Python-based command runner that provides a unified interface for CVA6 workflows including software compilation, RTL simulation with multiple simulators (VCS, Xcelium, Questa), synthesis, and analysis.
+`cook.py` is a Python-based command runner that provides a unified interface for CVA6 workflows including software compilation, RTL simulation with multiple simulators (VCS, Questa, Verilator, Xcelium), synthesis, FPGA and analysis.
 
 **Quick Start Example:**
 ```bash
@@ -116,39 +116,49 @@ source flows/config/setenv.sh
 ./cook.py --help
 
 # Compile a test program
-./cook.py hello-world --target cv32a60x --compiler llvm-22
+./cook.py hello-world --target cv32a60x --toolchain llvm-22
 
 # Compile RTL and run simulation with VCS
-./cook.py vcs-uvm-comp --target cv32a60x          #
+./cook.py vcs-uvm-comp --target cv32a60x
 ./cook.py vcs-uvm-run --target cv32a60x --testname hello-world
-
-# Or with Xcelium
-./cook.py xcelium-uvm-comp --target cv32a60x
-./cook.py xcelium-uvm-run --target cv32a60x --testname hello-world
 
 # Or with Questa
 ./cook.py questa-uvm-comp --target cv32a60x
 ./cook.py questa-uvm-run --target cv32a60x --testname hello-world
 ```
 
+Step by step, with the configuration of `$CONFIG_DIR`: [tutorials/getting_started.md](tutorials/getting_started.md).
+
 **For complete documentation**, see [flows/README.md](flows/README.md)
 
 # Tutorials
 
-* **[Running Simulations](tutorials/running_sim.md)**
-* **[ASIC Implementation](tutorials/asic.md)**
-* **[FPGA Implementation and running an OS](tutorials/fpga.md)**
+Task-oriented guides, sorted by use ([index, with a "which tutorial for me" chart](tutorials/README.md)):
+
+* **[Getting started](tutorials/getting_started.md)**: install the repository, the tools and `cook.py` (everybody, first)
+* **[Integrating CVA6 in a SoC](tutorials/integration/integrator.md)**: RTL, file lists, configuration, AXI or OBI
+* **Simulation** ([choose a testbench](tutorials/simulation/README.md)):
+  [UVM testbench](tutorials/simulation/uvm_testbench.md) (VCS, Questa, Xcelium),
+  [TestHarness](tutorials/simulation/testharness.md) (Verilator, VCS, Questa, Xcelium),
+  [random tests with riscv-dv](tutorials/simulation/generated_tests.md),
+  [gate-level simulation](tutorials/simulation/gate_level.md)
+* **Software**: [bare metal](tutorials/software/bare_metal.md),
+  [proxy kernel](tutorials/software/proxy_kernel.md),
+  [Zephyr](tutorials/software/zephyr.md), [Linux](tutorials/software/linux.md)
+* **[Synthesis](tutorials/synthesis/README.md)**: [Yosys](tutorials/synthesis/yosys.md),
+  [Design Compiler](tutorials/synthesis/dc_shell.md)
+* **[FPGA and running an OS](tutorials/fpga/README.md)**
+* **[Checking a change like the CI](tutorials/developer/ci_checks.md)**
 * **[Instruction Tracing](corev_apu/instr_tracing/README.md)**
 
 # Directory Structure:
 
-The directory structure separates the [CVA6 RISC-V CPU](#cva6-risc-v-cpu) core from the [CORE-V-APU FPGA Emulation Platform](tutorials/fpga.md#corev-apu-fpga-emulation).
+The directory structure separates the CVA6 RISC-V CPU core from the [CORE-V APU FPGA Emulation Platform](tutorials/fpga/README.md#core-v-apu-on-fpga).
 Files, directories and submodules under `cva6` are for the core _only_ and should not have any dependencies on the APU.
 Files, directories and submodules under `corev_apu` are for the FPGA Emulation platform.
 The CVA6 core can be compiled stand-alone, and obviously the APU is dependent on the core.
 
 The top-level directories of this repo:
-* **ci**: Scriptware of the former CI (toolchain and test suite builds).
 * **common**: Source code used by both the CVA6 Core and the COREV APU, under `local`.
 * **config**: Configurations of the core: one directory per target in `config/target`, see [config/README.md](config/README.md).
 * **core**: Source code for the CVA6 Core only. There should be no sources in this directory used to build anything other than the CVA6 core.
@@ -157,7 +167,7 @@ The top-level directories of this repo:
 * **flows**: `cook.py` recipes, CI pipeline and dashboard, see [flows/README.md](flows/README.md).
 * **pd**: Example and CI scripts to synthesis CVA6.
 * **perf-model**: Performance model of the core.
-* **tutorials**: Simulation, ASIC and FPGA tutorials.
+* **tutorials**: Task-oriented tutorials by use, see [tutorials/README.md](tutorials/README.md).
 * **util**: General utility scriptware.
 * **vendor**: Third-party IP maintained outside the repository.
 * **verif**: Verification environment for the CVA6. The verification files shared with other cores are in the [core-v-verif](https://github.com/openhwgroup/core-v-verif) repository on GitHub. core-v-verif is defined as a cva6 submodule.
