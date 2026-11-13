@@ -393,8 +393,8 @@ recipes that need it fail, not the others.
 
 It reports which tools are in `PATH`, the Spike install, the submodules, the
 external test suites and the configuration files, and fails only when none of
-`vcs`, `xrun` or `vsim` is found: the flows offer three simulators and several
-optional steps, so a missing one is not an error by itself.
+`vcs`, `xrun`, `vsim` or `verilator` is found: the flows offer four simulators
+and several optional steps, so a missing one is not an error by itself.
 
 Two of these variables are read by the recipes rather than by the shell:
 `CONFIG_DIR` to locate the configuration files, and `SPIKE_PATH` to find the
@@ -1361,7 +1361,7 @@ Run DC Shell synthesis flow.
 **Optional:**
 - `--gtech` - Technology independent synthesis with `pd/synth/gtech_dc.tcl`:
   the design is mapped on the GTECH cells of dc_shell, hierarchy kept, and
-  needs no PDK nor `RM_FLOW`. The files come from
+  needs no PDK nor site script. The files come from
   `config/target/<target>/Flist.cva6_synth`, which reads the HPDcache SRAMs
   as blackboxes. The GTECH cells have no area, so the recipe reports cell
   and register counts instead, checked against the `gtech_cells` and
@@ -1563,8 +1563,7 @@ sources after the include to overload the common list.
 ./cook.py vivado-fpga-build \
   -t fpga_linux_cv32a6 \
   --board nexys_video \
-  --mcs \
-  --no-bootrom
+  --mcs
 ```
 
 **Output:** `build/<target>/fpga/<board>/ariane_xilinx.bit` (+ `.mcs`,
@@ -1634,7 +1633,7 @@ Boot Linux on the programmed board and check it on the serial console.
 - `--cable TEXT` - JTAG cable, on a board whose console is a JTAG UART (default: `$JTAG_CABLE`)
 - `--juart-instance INTEGER` - Instance of the JTAG UART on the cable
 - `--baudrate INTEGER` - Console baudrate (default: the baudrate of the board)
-- `--boot-timeout INTEGER` - Boot timeout in seconds (default: 300)
+- `--boot-timeout INTEGER` - Boot timeout in seconds (default: 700)
 - `--expect TEXT` - Console line identifying a booted kernel (default: `Linux buildroot`)
 
 The recipe follows the console, answers the shell prompt with `uname -a`
@@ -1645,8 +1644,8 @@ port** on the Xilinx boards (`--uart`), the **JTAG UART** read through the
 Quartus terminal on the Altera ones (`--cable`). The detection logic is the
 same on both. The Linux image itself is **not** built here: it
 comes from the CVA6 SDK and must already be on the SD card of the board
-(see the FPGA section of the repository README for the SD card
-preparation).
+(see [tutorials/fpga/README.md](../tutorials/fpga/README.md#booting-linux) for the SD
+card preparation).
 
 The boot has a wall clock deadline, so a board that never boots fails on
 its own instead of hanging until the CI job times out. A board that says
@@ -1756,8 +1755,8 @@ does not name the actual controller: a discrepancy of the Agilex port,
 not of these flows, and the reason the transport cannot be inferred from
 the device tree.
 
-The `altera-boot` CI job runs the check, but stays `when: manual` until a
-runner carries the board.
+In the CI, the Altera images and their boot run only with
+`full-regression --altera`.
 
 #### Driving a board attached to another machine
 
@@ -1897,7 +1896,10 @@ it are listed in `build/<target>/verible/verible-check.log`.
 
 #### `black-python-formating`
 
-Format Python files with Black formatter.
+Check the formatting of the Python files with Black (`black --check
+--diff`): the diff is printed and the recipe fails, nothing is rewritten.
+The files are those of `cook.py`, `flows/`, `pd/`, `perf-model/` and
+`.gitlab-ci/` known to git at `HEAD`.
 
 ```bash
 ./cook.py black-python-formating

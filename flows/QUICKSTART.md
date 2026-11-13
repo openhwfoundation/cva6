@@ -1,5 +1,8 @@
 # Quick start
 
+Tutorials by use (integration, simulation, software, synthesis, FPGA,
+development): see the [tutorials](../tutorials/README.md).
+
 Worked examples, from a fresh clone to a design running on a board. Each
 one is a sequence to copy, with what it produces and where. The reference
 of every option is in [README.md](README.md), writing a new flow is in
