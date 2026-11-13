@@ -193,6 +193,14 @@ module cva6_mmu
   assign dtlb_lu_asid = (ld_st_v_i || flush_tlb_vvma_i) ? vs_asid_i : asid_i;
 
   assign new_fetch_req = fetch_areq_i.fetch_vaddr == fetch_vaddr_prev ? '0 : '1;
+
+  // The page table walker may still be busy with a walk that belongs to an
+  // earlier request: a wrong-path fetch the frontend has since left, or an
+  // access whose shared TLB lookup hit for the current one. Its result
+  // (page fault / access fault) must only be reported to the requester whose
+  // page it is walking, otherwise a spurious fault is raised on a valid page.
+  logic ptw_walks_fetch_page, ptw_walks_lsu_page;
+  assign ptw_walks_fetch_page = (update_vaddr[CVA6Cfg.VLEN-1:12] == fetch_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:12]);
   assign new_ptw_req = shared_tlb_vaddr == shared_tlb_vaddr_prev ? '0 : shared_tlb_access && !shared_tlb_hit;
 
   cva6_tlb #(
@@ -474,7 +482,7 @@ module cva6_mmu
             fetch_arsp_o.fetch_exception.gva   = v_i;
           end
         end
-      end else if (ptw_active && walking_instr && !new_fetch_req && !aborted_ptw_req) begin
+      end else if (ptw_active && walking_instr && ptw_walks_fetch_page && !new_fetch_req && !aborted_ptw_req) begin
         // ---------//
         // ITLB Miss
         // ---------//
@@ -529,6 +537,8 @@ module cva6_mmu
   logic lsu_is_store_n, lsu_is_store_q;
   logic dtlb_hit_n, dtlb_hit_q;
   logic [CVA6Cfg.PtLevels-2:0] dtlb_is_page_n, dtlb_is_page_q;
+
+  assign ptw_walks_lsu_page = (update_vaddr[CVA6Cfg.VLEN-1:12] == lsu_vaddr_q[CVA6Cfg.VLEN-1:12]);
 
   // check if we need to do translation or if we are always ready (e.g.: we are not translating anything)
   assign lsu_dtlb_hit_o = (en_ld_st_translation_i || en_ld_st_g_translation_i) ? dtlb_lu_hit : 1'b1;
@@ -695,7 +705,7 @@ module cva6_mmu
       // DTLB Miss
       // ---------
       // watch out for exceptions
-      if (ptw_active && !walking_instr) begin
+      if (ptw_active && !walking_instr && ptw_walks_lsu_page) begin
         // page table walker threw an exception
         if (ptw_error) begin
           // an error makes the translation valid

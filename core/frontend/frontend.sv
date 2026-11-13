@@ -533,7 +533,8 @@ module frontend
       ex_rvalid = 1'b0;
       // RETIRE EXCEPTION (low priority)
     end else if (CVA6Cfg.MmuPresent && ex_s1) begin
-      vaddr_rvalid = vaddr_q;
+      // arsp_i is the translation of npc_fetch_address, requested in this cycle
+      vaddr_rvalid = npc_fetch_address;
       rvalid    = arsp_i.fetch_valid && !bp_valid && !flush_i && !was_mispredicted;
       ex_rvalid = arsp_i.fetch_valid; //1'b1;
       pop_fetch = arsp_i.fetch_valid; // release lsu_bypass fifo
@@ -729,6 +730,14 @@ module frontend
   // re-align the cache line
   assign fetch_data = ex_rvalid && CVA6Cfg.MmuPresent ? '0 : ypb_fetch_rsp_i.rdata >> {shamt, 4'b0};
   assign fetch_valid_d = rvalid;
+  // The exception reported to the instruction queue is taken from the
+  // translation response only for the fetch it belongs to: with an MMU, a
+  // faulting fetch is never sent, it retires on the exception path (ex_rvalid);
+  // a fetch retiring with its data has no exception. Without an MMU the PMP
+  // check is that of the address requested in this cycle (unchanged here).
+  logic fetch_ex_from_arsp;
+  assign fetch_ex_from_arsp = CVA6Cfg.MmuPresent ? (ex_rvalid && arsp_i.fetch_exception.valid)
+                                                 : (arsp_i.fetch_valid && arsp_i.fetch_exception.valid);
   assign fetch_vaddr_d = vaddr_rvalid;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -752,9 +761,12 @@ module frontend
       speculative_q <= speculative_d;
       fetch_valid_q <= fetch_valid_d;
       if (fetch_valid_d) begin
+        // The translation response belongs to the address being translated
+        // now, not to the fetch whose data returns: with an MMU it only
+        // describes this fetch when the exception itself is retired.
         fetch_data_q  <= fetch_data;
         fetch_vaddr_q <= fetch_vaddr_d;
-        if (CVA6Cfg.RVH) begin
+        if (CVA6Cfg.RVH && fetch_ex_from_arsp) begin
           fetch_gpaddr_q <= arsp_i.fetch_exception.tval2[CVA6Cfg.GPLEN-1:0];
           fetch_tinst_q  <= arsp_i.fetch_exception.tinst;
           fetch_gva_q    <= arsp_i.fetch_exception.gva;
@@ -765,11 +777,11 @@ module frontend
         end
 
         // Map the only three exceptions which can occur in the frontend to a two bit enum
-        if (CVA6Cfg.MmuPresent && arsp_i.fetch_valid && arsp_i.fetch_exception.cause == riscv::INSTR_GUEST_PAGE_FAULT) begin
+        if (CVA6Cfg.MmuPresent && fetch_ex_from_arsp && arsp_i.fetch_exception.cause == riscv::INSTR_GUEST_PAGE_FAULT) begin
           fetch_ex_valid_q <= ariane_pkg::FE_INSTR_GUEST_PAGE_FAULT;
-        end else if (CVA6Cfg.MmuPresent && arsp_i.fetch_valid && arsp_i.fetch_exception.cause == riscv::INSTR_PAGE_FAULT) begin
+        end else if (CVA6Cfg.MmuPresent && fetch_ex_from_arsp && arsp_i.fetch_exception.cause == riscv::INSTR_PAGE_FAULT) begin
           fetch_ex_valid_q <= ariane_pkg::FE_INSTR_PAGE_FAULT;
-        end else if (CVA6Cfg.NrPMPEntries != 0 && arsp_i.fetch_valid && arsp_i.fetch_exception.cause == riscv::INSTR_ACCESS_FAULT) begin
+        end else if (CVA6Cfg.NrPMPEntries != 0 && fetch_ex_from_arsp && arsp_i.fetch_exception.cause == riscv::INSTR_ACCESS_FAULT) begin
           fetch_ex_valid_q <= ariane_pkg::FE_INSTR_ACCESS_FAULT;
         end else begin
           fetch_ex_valid_q <= ariane_pkg::FE_NONE;
