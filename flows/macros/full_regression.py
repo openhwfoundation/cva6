@@ -71,6 +71,8 @@ from flows.recipes.spyglass_design_read import spyglass_design_read
 from flows.recipes.spyglass_run import spyglass_run, RunType
 from flows.recipes.sw_compile_testlist import sw_compile_testlist
 from flows.recipes.uvm_run_testlist import uvm_run_testlist, Simulator
+from flows.recipes.vcs_generator_comp import vcs_generator_comp
+from flows.recipes.vcs_generator_run_testlist import vcs_generator_run_testlist
 from flows.recipes.vcs_uvm_comp import vcs_uvm_comp
 from flows.recipes.vcs_testharness_comp import vcs_testharness_comp
 from flows.recipes.vcs_testharness_run import vcs_testharness_run
@@ -85,6 +87,7 @@ from flows.utils.job_scheduler import JobFailure, Scheduler
 from flows.utils.fpga_board import is_altera_board
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.rtl_config import parse_rtl_cfg
+from flows.utils.target_config import target_dir as config_dir
 from flows.utils.uart_boot import DEFAULT_EXPECT
 from flows.utils.autocompletion import (
     AlteraBoard,
@@ -1219,48 +1222,71 @@ def _job_run(
     )
 
 
-def _job_testlist_compile(target, quiet):
+def _testlist_paths(target):
+    "Repository-relative paths of the hand-written testlists of a target"
+    return [f"verif/tests/{testlist}.yaml" for testlist in TESTLISTS.get(target, [])]
+
+
+def _generated_testlist(target):
     """
-    Compile every testlist of the target.
+    Repository-relative path of the riscv-dv testlist of a target, or None.
+
+    A target declares random generated tests by shipping
+    `verif/generated_test.yaml` in its configuration directory.
+    """
+    path = config_dir(target, Path(".")) / "verif" / "generated_test.yaml"
+    return str(path) if path.is_file() else None
+
+
+def _job_testlist_compile(target, testlists, quiet):
+    """
+    Compile the given testlists (repository-relative paths) of the target.
 
     A failing testlist does not stop the others: all of them are compiled
     and the job fails at the end.
     """
     failed = []
-    for testlist in TESTLISTS.get(target, []):
+    for testlist in testlists:
+        name = Path(testlist).stem
         try:
-            march = _march_with_f(target, quiet) if testlist.endswith("_v") else None
+            march = _march_with_f(target, quiet) if name.endswith("_v") else None
             _recipe(
                 sw_compile_testlist,
                 target=target,
                 toolchain=_target_toolchain(target),
-                testlist=f"verif/tests/{testlist}.yaml",
+                testlist=testlist,
                 test_name=None,
                 march=march,
                 mabi=None,
                 quiet=quiet,
             )
         except JobFailure:
-            failed.append(testlist)
+            failed.append(name)
     if failed:
         raise JobFailure(f"failed testlist(s): {', '.join(failed)}")
 
 
-def _job_testlist_run(target, quiet):
-    "Run every testlist of the target, one testlist after the other"
+def _job_testlist_run(target, testlists, tandem, quiet):
+    """
+    Run the given testlists of the target, one testlist after the other.
+
+    `tandem` compares every test with Spike: needed by the tests that do
+    not check their own result (the generated ones).
+    """
     failed = []
-    for testlist in TESTLISTS.get(target, []):
+    for testlist in testlists:
+        name = Path(testlist).stem
         try:
             _recipe(
                 uvm_run_testlist,
                 simulator=Simulator.vcs,
                 target=target,
-                testlist=f"verif/tests/{testlist}.yaml",
+                testlist=testlist,
                 test_name=None,
                 comp_mode=CompMode.rtl,
                 trace_mode=TraceMode.notrace,
                 uvm_verbosity=UvmVerbosity.none,
-                tandem_enabled=False,
+                tandem_enabled=tandem,
                 tb_performance_mode=False,
                 stats=False,
                 sim_profile=False,
@@ -1269,16 +1295,37 @@ def _job_testlist_run(target, quiet):
                 uvm_seed=str(random.getrandbits(31)),
                 sim_timeout=SIM_TIMEOUT,
                 cycle_timeout=(
-                    SIM_CYCLE_TIMEOUT_V
-                    if testlist.endswith("_v")
-                    else SIM_CYCLE_TIMEOUT
+                    SIM_CYCLE_TIMEOUT_V if name.endswith("_v") else SIM_CYCLE_TIMEOUT
                 ),
                 quiet=quiet,
             )
         except JobFailure:
-            failed.append(testlist)
+            failed.append(name)
     if failed:
         raise JobFailure(f"failed testlist(s): {', '.join(failed)}")
+
+
+def _job_generator_comp(target, quiet):
+    "VCS elaboration of the riscv-dv instruction generator"
+    _recipe(vcs_generator_comp, target=target, core_setting=None, quiet=quiet)
+
+
+def _job_testlist_generate(target, testlist, quiet):
+    """
+    Generate the tests of a riscv-dv testlist.
+
+    The seed is left to the recipe, which draws it and records it in its
+    report, so a failing generated test can be generated again.
+    """
+    _recipe(
+        vcs_generator_run_testlist,
+        target=target,
+        testlist=testlist,
+        test_name=None,
+        seed=None,
+        batch_size=1,
+        quiet=quiet,
+    )
 
 
 def _job_gtech_synth(target, quiet):
@@ -1668,15 +1715,77 @@ def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, select
         if TESTLISTS.get(target):
             testlist_compile = scheduler.add(
                 f"testlist-compile:{target}",
-                partial(_job_testlist_compile, target=target, quiet=quiet),
+                partial(
+                    _job_testlist_compile,
+                    target=target,
+                    testlists=_testlist_paths(target),
+                    quiet=quiet,
+                ),
                 target_dir / "compile",
                 deps=[deps_job],
             )
             scheduler.add(
                 f"testlist-run:{target}",
-                partial(_job_testlist_run, target=target, quiet=quiet),
+                partial(
+                    _job_testlist_run,
+                    target=target,
+                    testlists=_testlist_paths(target),
+                    tandem=False,
+                    quiet=quiet,
+                ),
                 target_dir / "simulation" / "sim_rtl",
                 deps=[elab_job, testlist_compile],
+                resource=VCS,
+            )
+
+        # --- Generated testlist (riscv-dv) ----------------------------
+        # The generated tests are then compiled and run as a testlist, in
+        # jobs of their own so the generation does not delay the
+        # hand-written testlists. They do not check their own result:
+        # they run with Spike in tandem, which the RTL elaboration has.
+        generated = _generated_testlist(target)
+        if generated:
+            gen_elab = scheduler.add(
+                f"dv-elab:{target}",
+                partial(_job_generator_comp, target=target, quiet=quiet),
+                target_dir / "dv_generator",
+                deps=[deps_job],  # the generator is patched by git-dependencies
+                resource=VCS,
+            )
+            gen_job = scheduler.add(
+                f"testlist-generate:{target}",
+                partial(
+                    _job_testlist_generate,
+                    target=target,
+                    testlist=generated,
+                    quiet=quiet,
+                ),
+                target_dir / "dv_generated" / Path(generated).stem,
+                deps=[gen_elab],
+                resource=VCS,
+            )
+            gen_compile = scheduler.add(
+                f"generated-compile:{target}",
+                partial(
+                    _job_testlist_compile,
+                    target=target,
+                    testlists=[generated],
+                    quiet=quiet,
+                ),
+                target_dir / "compile" / Path(generated).stem,
+                deps=[gen_job],
+            )
+            scheduler.add(
+                f"generated-run:{target}",
+                partial(
+                    _job_testlist_run,
+                    target=target,
+                    testlists=[generated],
+                    tandem=True,
+                    quiet=quiet,
+                ),
+                target_dir / "simulation" / "sim_rtl" / Path(generated).stem,
+                deps=[elab_job, gen_compile],
                 resource=VCS,
             )
 
