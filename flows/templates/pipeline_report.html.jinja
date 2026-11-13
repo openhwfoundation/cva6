@@ -304,8 +304,13 @@ function jobClass(j) {
   if (/-testharness-comp$/.test(r)) return "th_elab";
   if (/-testharness-run$/.test(r)) return "th_run";
   if (r === "sw-compile-testlist") return "testlist_comp";
+  /* The riscv-dv generator: its elaboration is not one of the RTL (listed
+   * in the detail only), its testlist run generates the tests a testlist
+   * compiles and runs next (a step of that testlist). */
+  if (r === "vcs-generator-comp") return "dv_elab";
+  if (r === "vcs-generator-run-testlist") return "testlist_gen";
   if (/run-testlist$/.test(r)) return "testlist_run";
-  if (/-(uvm|generator)-comp$/.test(r)) return gate ? "postsim_elab" : "rtl_elab";
+  if (/-uvm-comp$/.test(r)) return gate ? "postsim_elab" : "rtl_elab";
   if (/-(uvm|generator)-run$/.test(r) || r === "spike-run") {
     if (gate) return "postsim_run";
     if (test.includes("coremark")) return "coremark_run";
@@ -577,7 +582,7 @@ const MATRIX_MODEL = [
                   ["Sim VCS UVM", { classes: ["hello_run"] }],
                   ["Sim VCS TH", { classes: ["th_vcs_run"] }],
                   ["Sim Verilator TH", { classes: ["th_run"] }]]],
-  ["Testlist",   [["", { classes: ["testlist_comp", "testlist_run"],
+  ["Testlist",   [["", { classes: ["testlist_gen", "testlist_comp", "testlist_run"],
                          testlists: true }]]],
   /* Bench cells show the score KPI; when the benchmark jobs ran but
    * produced no score (compile/run failure), they fall back to the
@@ -1172,10 +1177,25 @@ function entryStatus(e) {  /* per-test comp/run entry: doc wins over row */
     return "pass-tandem";
   return (e.doc && e.doc.status) || e.status;
 }
-function testlistTests(jobs) {  /* test name -> {comp: {status, doc}, run: ...} */
+function testlistTests(jobs) {  /* test name -> {gen, comp, run: {status, doc}} */
   const tests = new Map();
+  const gens = [];  /* [test, entry] of the generation, bound once all keys exist */
   for (const j of jobs) {
     const kind = j._class === "testlist_comp" ? "comp" : "run";
+    if (j._class === "testlist_gen") {
+      for (const m of j.metrics || []) {
+        if (m.kind !== "rows") continue;
+        for (const r of m.data || []) {
+          if (!r.test) continue;
+          const key = childKeyFor(j, r.report);
+          gens.push([String(r.test), {
+            status: String(r.status || "").toLowerCase(),
+            doc: key ? j.children[key] : null,
+          }]);
+        }
+      }
+      continue;
+    }
     for (const m of j.metrics || []) {
       if (m.kind !== "rows") continue;
       for (const r of m.data || []) {
@@ -1189,10 +1209,24 @@ function testlistTests(jobs) {  /* test name -> {comp: {status, doc}, run: ...} 
       }
     }
   }
+  /* The generator records one row per test, <test>, for all its
+   * iterations; they are compiled and run as <test>_<i>. The generation
+   * is the first step of each of them, or a test of its own when none
+   * was compiled. */
+  for (const [test, entry] of gens) {
+    const keys = [...tests.keys()].filter((k) =>
+      k.startsWith(`${test}_`) && /^\d+$/.test(k.slice(test.length + 1)));
+    if (!keys.length) keys.push(test);
+    for (const k of keys) {
+      if (!tests.has(k)) tests.set(k, {});
+      tests.get(k).gen = entry;
+    }
+  }
   return tests;
 }
 function testlistCards(jobs) {
-  const tlJobs = jobs.filter((j) => ["testlist_comp", "testlist_run"].includes(j._class));
+  const tlJobs = jobs.filter((j) =>
+    ["testlist_gen", "testlist_comp", "testlist_run"].includes(j._class));
   if (!tlJobs.length) return plainCard(sectionHead(null, "Testlists"));
   const groups = new Map();  /* testlist name -> jobs[] */
   for (const j of tlJobs) {
@@ -1206,6 +1240,7 @@ function testlistCards(jobs) {
     let body = "";
     for (const [test, e] of tests) {
       const parts = [];
+      if (e.gen) parts.push(["Generation", e.gen]);
       if (e.comp) parts.push(["Compilation", e.comp]);
       if (e.run) parts.push(["Run simulation", e.run]);
       const worst = worstOf(parts.map(([, x]) => entryStatus(x)));
@@ -1236,7 +1271,15 @@ function targetSections(jobs) {
   html += groupCard("Lint", [
     ["Spyglass", by("spyglass")],
     ["slang + Verilator", by("rtl_lint")]]);
-  html += jobsCard("RTL elaboration", by("rtl_elab"));
+  /* The riscv-dv generator elaboration only where it ran, so the targets
+   * without generated tests keep a single-job card. */
+  if (by("dv_elab").length) {
+    html += groupCard("RTL elaboration", [
+      ["VCS UVM", by("rtl_elab")],
+      ["riscv-dv generator", by("dv_elab")]]);
+  } else {
+    html += jobsCard("RTL elaboration", by("rtl_elab"));
+  }
   html += groupCard("Helloworld", [
     ["Compilation", by("hello_comp")],
     ["Run simulation", by("hello_run")],
@@ -1268,7 +1311,7 @@ function targetSections(jobs) {
   if (post.some(([, js]) => js.length)) html += groupCard("Post simulation", post);
   const placedCls = ["spyglass", "rtl_lint", "rtl_elab", "hello_comp", "spike", "hello_run",
     "hello_run_stall", "th_vcs_elab", "th_vcs_run", "th_elab", "th_run",
-    "testlist_comp", "testlist_run", "coremark_comp", "coremark_run",
+    "dv_elab", "testlist_gen", "testlist_comp", "testlist_run", "coremark_comp", "coremark_run",
     "dhrystone_comp", "dhrystone_run", "synthesis", "synthesis_yosys", "docs",
     "fpga_bootrom_comp", "fpga_bootrom", "fpga_build", "fpga_program", "fpga_boot",
     "postsim_elab", "postsim_run"];

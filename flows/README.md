@@ -2163,6 +2163,10 @@ CAD licence pool.
 ./cook.py full-regression -j 32 --vcs-licenses 10
 ```
 
+A target with a riscv-dv testlist (`config/target/<target>/verif/generated_test.yaml`)
+also runs `dv-elab`, `testlist-generate`, `generated-compile` and
+`generated-run` (tandem): its random tests, as one more testlist.
+
 Scheduling, licence pools, reports, options, and how to add a job:
 [CONTINUOUS_INTEGRATION.md](CONTINUOUS_INTEGRATION.md#the-full-regression-macro).
 
