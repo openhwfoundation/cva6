@@ -19,11 +19,11 @@ command line and reports.
 
 import re
 import shutil
-import tempfile
 from pathlib import Path
 
 from flows.utils.manifest import write_manifest
 from flows.utils.run_cmd import run_cmd
+from flows.utils.tmp_dir import scratch_dir
 from flows.utils.target_config import (
     read_config_or_exit_doc,
     read_config_or_exit_rtl_cfg,
@@ -1047,7 +1047,7 @@ def _check_asciidoctor_tools(manuals, formats, report):
         # a failure of the pipeline, and what it returns is the output of the
         # tool, where asciidoctor prints `could not be loaded`.
         if required:
-            with tempfile.TemporaryDirectory() as probe_dir:
+            with scratch_dir() as probe_dir:
                 probe = Path(probe_dir) / "probe.adoc"
                 probe.write_text("= Probe\n\ncontent\n", encoding="utf-8")
                 for gem in required:

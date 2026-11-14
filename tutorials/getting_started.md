@@ -106,9 +106,12 @@ script installs it in `tools/verilator-v5.050`. Point
 ./cook.py self-check
 ```
 
-It lists the tools found in `PATH`, the Spike install, the submodules, the
-test suites and the configuration files. A missing optional tool is only a
-warning. See [`self-check`](../flows/README.md#self-check).
+It lists the tools found in `PATH` with their versions, the Spike
+install, the submodules, the test suites and the configuration files. A
+missing optional tool is only a warning. It also warns when the Verilator
+of `PATH` is not the one of `install-verilator.sh`: the OSS CAD Suite of
+Yosys ships its own, so put `$VERILATOR_INSTALL_DIR/bin` before
+`YOSYS_PATH` in `PATH`. See [`self-check`](../flows/README.md#self-check).
 
 Shell completion of the recipes, options and target names:
 

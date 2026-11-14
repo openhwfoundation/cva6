@@ -80,10 +80,15 @@ export DASHBOARD_USER_EMAIL=gituser@example.com
 export DASHBOARD_USER_NAME="gituser"
 export DASHBOARD_URL="git@exemple.com:group/dashboard.git"
 #Update Path
-export PATH=$PATH:$VERIBLE_PATH
-export PATH=$PATH:$VERILATOR_INSTALL_DIR/bin
-export PATH=$PATH:$YOSYS_PATH
-export PATH=$PATH:$PYTHON_PATH
+# The tools go first in PATH, so the versions above win over the ones of
+# the system. Each line goes in front of the previous ones: the last one
+# comes first. Verilator is added after YOSYS_PATH so that it comes before
+# it: the OSS CAD Suite of YOSYS_PATH ships another Verilator, and the lint
+# baselines and the TestHarness need this version.
+export PATH=$PYTHON_PATH:$PATH
+export PATH=$YOSYS_PATH:$PATH
+export PATH=$VERIBLE_PATH:$PATH
+export PATH=$VERILATOR_INSTALL_DIR/bin:$PATH
 # Activating the virtual environment last puts its interpreter first, so
 # `./cook.py` runs with it whatever the shell had before.
 if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
