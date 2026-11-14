@@ -9,12 +9,14 @@
 
 # Please refer to flows/README.md to add target
 
+import os
 from pathlib import Path
+import re
 import shutil
-import tempfile
 import typer
 from flows.utils.config_loader import load_techno_config, load_compiler_config
 from flows.utils.run_cmd import run_cmd
+from flows.utils.tmp_dir import scratch_dir
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.docs_manual import (
     ASCIIDOCTOR_REQUIRES,
@@ -23,6 +25,92 @@ from flows.utils.docs_manual import (
 )
 
 app = typer.Typer()
+
+# Command printing the version of a tool, and how to keep the line that
+# names it. Run in a scratch directory of build/tmp/ with no input: some
+# tools (dc_shell, Spyglass) write logs in the current directory.
+# A tool missing here gets no version, only its path.
+VERSION_COMMANDS = {
+    "vcs": (["vcs", "-ID"], r"Compiler version"),
+    "xrun": (["xrun", "-version"], None),
+    "vsim": (["vsim", "-version"], None),
+    "verilator": (["verilator", "--version"], None),
+    "slang": (["slang", "--version"], None),
+    "dc_shell": (["dc_shell", "-v"], r"version"),
+    "yosys": (["yosys", "-V"], None),
+    "vivado": (["vivado", "-version"], None),
+    "vivado_lab": (["vivado_lab", "-version"], None),
+    "quartus_sh": (["quartus_sh", "--version"], r"Version"),
+    "pt_shell": (["pt_shell", "-v"], r"version"),
+    "aipk_read": (["spyglass", "-version"], r"^Version "),
+    "aipk_run": (["spyglass", "-version"], r"^Version "),
+    "dtc": (["dtc", "--version"], None),
+    "wavedrom-cli": (["wavedrom-cli", "--version"], None),
+    "asciidoctor": (["asciidoctor", "--version"], None),
+    "sphinx-build": (["sphinx-build", "--version"], None),
+    "verible-verilog-format": (["verible-verilog-format", "--version"], None),
+    "black": (["black", "--version"], None),
+    "pylint": (["pylint", "--version"], None),
+}
+
+# The lint baselines (expected_lint.yml) and the TestHarness are built
+# with the Verilator installed by this script
+VERILATOR_INSTALL_SCRIPT = Path("verif") / "regress" / "install-verilator.sh"
+
+
+# Tools whose version is read from their installation path rather than
+# run: Verdi opens its GUI whatever the option.
+# /sw/synopsys/verdi/W-2024.09-SP1-1/bin/verdi -> W-2024.09-SP1-1
+VERSION_FROM_PATH = {"verdi": r"/verdi/([^/]+)/bin/"}
+
+
+def tool_version(tool_name, workdir, report):
+    "First line naming the version of a tool, or '' when it gives none"
+    path_pattern = VERSION_FROM_PATH.get(tool_name)
+    if path_pattern is not None:
+        match = re.search(path_pattern, shutil.which(tool_name) or "")
+        return match.group(1) if match else ""
+    command = VERSION_COMMANDS.get(tool_name)
+    if command is None:
+        return ""
+    cmd, pattern = command
+    log_file = Path(workdir) / f"{tool_name}_version.log"
+    # Quiet: the command stays recorded in the report, not on the console
+    quiet = report.quiet
+    report.set_quiet(True)
+    try:
+        with open(os.devnull, encoding="utf-8") as no_input:
+            run_cmd(
+                cmd=cmd,
+                report=report,
+                cwd=workdir,
+                stdin=no_input,
+                log_file=log_file,
+                timeout=60,
+                check=False,
+                capture_output=False,
+            )
+    finally:
+        report.set_quiet(quiet)
+    try:
+        output = log_file.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    for line in output.splitlines():
+        line = line.strip()
+        if line and (pattern is None or re.search(pattern, line)):
+            return line[:120]
+    return ""
+
+
+def expected_verilator_version(repo_dir):
+    "Version installed by install-verilator.sh (e.g. 5.050), or None"
+    try:
+        text = (repo_dir / VERILATOR_INSTALL_SCRIPT).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = re.search(r'^VERILATOR_HASH="v?([\d.]+)"', text, re.M)
+    return match.group(1) if match else None
 
 
 # ==========================================================
@@ -92,17 +180,35 @@ def self_check(
     tool_results = report.metric("Tools in path")
     found = set()
 
-    for tool_name, description in tools:
-        tool_path = shutil.which(tool_name)
-        if tool_path is not None:
-            found.add(tool_name)
-            report.success(f"{tool_name} ({description}): {tool_path}")
-            tool_results.add_row(
-                tool=tool_name, description=description, path=tool_path
-            )
-        else:
-            report.warning(f"{tool_name} ({description}): Not found")
-            tool_results.add_row(tool=tool_name, description=description, path="")
+    with scratch_dir() as scratch:
+        for tool_name, description in tools:
+            tool_path = shutil.which(tool_name)
+            if tool_path is not None:
+                found.add(tool_name)
+                version = tool_version(tool_name, scratch, report)
+                report.success(f"{tool_name}: found")
+                tool_results.add_row(
+                    description=description, path=tool_path, version=version
+                )
+            else:
+                report.warning(f"{tool_name} ({description}): Not found")
+                tool_results.add_row(description=description, path="", version="")
+
+        # Another Verilator in PATH (the OSS CAD Suite of Yosys ships one)
+        # gives other lint counts than the baselines and may not build the
+        # TestHarness
+        expected = expected_verilator_version(Path.cwd())
+        if "verilator" in found and expected:
+            version = tool_version("verilator", scratch, report)
+            if not re.search(rf"\b{re.escape(expected)}\b", version):
+                report.warning(
+                    f"verilator {version or '(unknown version)'} found at "
+                    f"{shutil.which('verilator')}, expected {expected} "
+                    f"({VERILATOR_INSTALL_SCRIPT}): put "
+                    "$VERILATOR_INSTALL_DIR/bin before the other tools in PATH"
+                )
+            else:
+                report.success(f"verilator: version {expected}, as expected")
 
     # rtl-lint falls back on the pyslang module when the slang binary is
     # not installed: only both missing leaves the lint without slang
@@ -155,7 +261,7 @@ def self_check(
         report.warning("asciidoctor: Not found, the specifications cannot be rendered")
     else:
         gem_results = report.metric("AsciiDoctor extensions")
-        with tempfile.TemporaryDirectory() as tmp:
+        with scratch_dir() as tmp:
             probe = Path(tmp) / "probe.adoc"
             probe.write_text("= Probe\n\ncontent\n", encoding="utf-8")
             for gem in ASCIIDOCTOR_REQUIRES:
