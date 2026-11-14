@@ -6,6 +6,23 @@ baselines work, and how to replay the CI on a workstation.
 **Prerequisites:** [getting_started.md](../getting_started.md). The
 contribution rules of the project are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
+## Before a pull request
+
+Run the open-source checks of the CI on every target. They need no
+licence and no FPGA board, and take about 25 minutes with 16 jobs on an
+18-core machine:
+
+```bash
+./cook.py full-regression --open-source -j 16
+```
+
+It runs the formatting checks, `rtl-lint` and `yosys-synth` of every
+target, hello-world on the Verilator TestHarness of the AXI targets, and
+the documentation. Then open `artifacts/reports/pipeline_report.html`
+(see [Reading the results](#reading-the-results)). To check only the
+targets you changed, add `-t <target>`. The job list is in
+[Open-source mode](../../flows/CONTINUOUS_INTEGRATION.md#open-source-mode).
+
 ## Formatting
 
 The CI checks the formatting. Run these before you push:
@@ -127,7 +144,9 @@ Options to fit your machine:
 - `--techno <name>`: adds the synthesis on a technology and the
   gate-level simulation;
 - `--docs-targets`, `--spyglass-targets`, `--gtech-targets`,
-  `--synth-targets`: a list of targets, `all` or `none`.
+  `--synth-targets`: a list of targets, `all` or `none`;
+- `--open-source`: only the open-source jobs, see
+  [Before a pull request](#before-a-pull-request).
 
 A failing job never stops the others: the whole pipeline runs, and the
 jobs that depend on a failure are skipped. With `-j` above 1 the recipes
