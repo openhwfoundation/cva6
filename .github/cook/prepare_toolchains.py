@@ -84,6 +84,7 @@ def gcc_entry(riscv: Path, prefix: str) -> tuple[dict[str, Any], dict[str, Any]]
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--tandem-enabled", action="store_true")
     args = parser.parse_args()
 
     try:
@@ -110,8 +111,9 @@ def main() -> None:
                     "sha256": sha256(find_tool("spike-dasm", "SPIKE_INSTALL_DIR")),
                 },
             },
-            "validation_mode": "rtl-only",
-            "reference_model": None,
+            # Requested preparation mode, not proof that a comparison has run.
+            "validation_mode": "live-tandem" if args.tandem_enabled else "rtl-only",
+            "reference_model": "vendor-spike" if args.tandem_enabled else None,
         }
 
         (output_dir / "compiler.yml").write_text(
