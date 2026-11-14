@@ -117,14 +117,113 @@ target per configuration. The `cook.py` flows only use the Flist files.
 | `cva6_example_axi` | `core/cva6_example_axi.sv` | instantiation example of `cva6_top` for an AXI target: defines the AXI types from the configuration |
 | `cva6_example_obi` | `core/cva6_example_obi.sv` | the same for an OBI target: the memory port is a set of OBI buses (fetch, load, store, AMO, page table walker, Zcmt) |
 
-The two examples are the tops that `rtl-lint`, `yosys-synth`,
-`dc-shell-synth` and Spyglass elaborate. Start from the one of your bus.
+In your SoC, instantiate `cva6_top` (with the lockstep option) or `cva6`
+(without), not the examples. The examples are the tops that `rtl-lint`,
+`yosys-synth`, `dc-shell-synth` and Spyglass elaborate: use them as the
+model of the types to give to `cva6_top`, see below.
 
 The common ports are the clock, the active-low asynchronous reset, the
 boot address, the hart id, the interrupts (`irq_i`, `ipi_i`,
 `time_irq_i`), the debug request, the CV-X-IF coprocessor interface, the
 memory port (`noc_req_o`/`noc_resp_i`) and the RVFI probes (can be left
 open). The comments of the port list in `core/cva6.sv` describe each one.
+
+## The types of the ports
+
+`cva6_top` and `cva6` take the configuration and the types of their ports
+as parameters. The bus types default to `logic`: define them from
+`CVA6Cfg`, as `core/cva6_example_axi.sv` and `core/cva6_example_obi.sv`
+do, and pass them to the instance:
+
+| Parameter | Content | Model |
+|---|---|---|
+| `CVA6Cfg` | `build_config_pkg::build_config(<package>::cva6_cfg)` | both examples |
+| `noc_req_t`, `noc_resp_t` | AXI: the `AXI_*` macros of `core/include/axi_types.svh`. OBI: a struct of six OBI buses (fetch, store, load, amo, mmu_ptw, zcmt) built with the `OBI_CFG_*` macros of `obi/typedef.svh` | the `noc_req_t` / `noc_resp_t` of the example of your bus |
+| `rvfi_probes_t` | a struct of the `RVFI_PROBES_CSR_T` and `RVFI_PROBES_INSTR_T` of `rvfi_types.svh` | both examples |
+
+The CV-X-IF types are derived inside the core from `CVA6Cfg`.
+
+## Several different cores in one design
+
+The configuration is a parameter of each instance, not a global setting.
+So one design can hold several CVA6 with different configurations, for
+instance a 32-bit embedded core on OBI next to a 64-bit application core
+on AXI, each with the types built from its own configuration:
+
+1. Give each configuration a package of its own. Copy the
+   `rtl_cfg_pkg.sv` of each target and rename its package, for instance
+   `cfg_a_pkg` and `cfg_b_pkg` instead of `cva6_config_pkg`.
+2. For each core, build its configuration and the types of its ports, and
+   pass them to its `cva6_top`:
+
+```systemverilog
+`include "obi/typedef.svh"
+`include "axi_types.svh"
+`include "rvfi_types.svh"
+
+// Core A: cv32a65x, OBI
+localparam config_pkg::cva6_cfg_t CfgA = build_config_pkg::build_config(cfg_a_pkg::cva6_cfg);
+// One OBI bus, as in cva6_example_obi.sv; the same for store, load, amo,
+// mmu_ptw and zcmt with CfgA.ObiStorebusCfg, ...
+localparam type a_fetch_a_opt_t = `OBI_CFG_ALL_A_OPTIONAL_T(CfgA.ObiFetchbusCfg);
+localparam type a_fetch_a_t     = `OBI_CFG_A_CHAN_T(CfgA.ObiFetchbusCfg, a_fetch_a_opt_t);
+localparam type a_fetch_req_t   = `OBI_CFG_INTEGRITY_REQ_T(a_fetch_a_t);
+localparam type a_fetch_r_opt_t = `OBI_CFG_ALL_R_OPTIONAL_T(CfgA.ObiFetchbusCfg);
+localparam type a_fetch_r_t     = `OBI_CFG_R_CHAN_T(CfgA.ObiFetchbusCfg, a_fetch_r_opt_t);
+localparam type a_fetch_rsp_t   = `OBI_CFG_INTEGRITY_RSP_T(a_fetch_r_t);
+// ...
+typedef struct packed {
+  a_fetch_req_t obi_fetch_req;  a_store_req_t obi_store_req;
+  a_load_req_t  obi_load_req;   a_amo_req_t   obi_amo_req;
+  a_ptw_req_t   obi_mmu_ptw_req; a_zcmt_req_t obi_zcmt_req;
+} a_noc_req_t;
+// a_noc_resp_t: the same with the *_rsp_t types
+localparam type a_rvfi_csr_t   = `RVFI_PROBES_CSR_T(CfgA);
+localparam type a_rvfi_instr_t = `RVFI_PROBES_INSTR_T(CfgA);
+typedef struct packed {a_rvfi_csr_t csr; a_rvfi_instr_t instr;} a_rvfi_probes_t;
+
+cva6_top #(
+    .CVA6Cfg(CfgA), .rvfi_probes_t(a_rvfi_probes_t),
+    .noc_req_t(a_noc_req_t), .noc_resp_t(a_noc_resp_t)
+) i_core_a (...);
+
+// Core B: profile_rva23s64, AXI. The AXI macros name the channel types
+// axi_*_chan_t: declare them in a scope of their own.
+localparam config_pkg::cva6_cfg_t CfgB = build_config_pkg::build_config(cfg_b_pkg::cva6_cfg);
+if (1) begin : gen_core_b
+  localparam type axi_ar_chan_t = `AXI_AR_CHAN_T(CfgB);
+  localparam type axi_aw_chan_t = `AXI_AW_CHAN_T(CfgB);
+  localparam type axi_w_chan_t  = `AXI_W_CHAN_T(CfgB);
+  localparam type axi_b_chan_t  = `AXI_B_CHAN_T(CfgB);
+  localparam type axi_r_chan_t  = `AXI_R_CHAN_T(CfgB);
+  localparam type b_noc_req_t   = `AXI_REQ_T(CfgB);
+  localparam type b_noc_resp_t  = `AXI_RSP_T(CfgB);
+  // b_rvfi_probes_t as for core A, with CfgB
+  cva6_top #(
+      .CVA6Cfg(CfgB), .rvfi_probes_t(b_rvfi_probes_t),
+      .noc_req_t(b_noc_req_t), .noc_resp_t(b_noc_resp_t)
+  ) i_core_b (...);
+end
+```
+
+3. Elaborate with the file list of the core (`core/Flist.cva6`) and the
+   two packages. `core/Flist.cva6` still reads one target package,
+   `config/target/${TARGET_CFG}/rtl_cfg_pkg.sv` (the `cva6_config_pkg`):
+   set `TARGET_CFG` to one of the targets.
+
+Each core keeps its own options, the lockstep included: `DclsEn` in the
+configuration of a core turns on its `cva6_top` lockstep only.
+
+**Limitation.** A few globals still read `cva6_config_pkg` instead of
+`CVA6Cfg`: `riscv::XLEN` in `core/perf_counters.sv` (the access to the
+`mhpmcounter` CSRs), and some constants of `ariane_pkg`. With two cores of
+different XLEN, the hardware performance counters of one of them are
+accessed with the wrong width. Avoid reading them, or disable them
+(`PerfCounterEn`), until these globals are removed.
+
+This two-core design (cv32a65x on OBI, with and without lockstep, and
+profile_rva23s64 on AXI) elaborates with slang and Verilator. It is not
+run by the CI.
 
 ## The bus: AXI or OBI
 
