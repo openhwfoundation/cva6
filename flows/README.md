@@ -2167,7 +2167,16 @@ CAD licence pool.
 ```bash
 ./cook.py full-regression --dry-run   # what would run here
 ./cook.py full-regression -j 32 --vcs-licenses 10
+./cook.py full-regression --open-source -j 16   # before a pull request
 ```
+
+`--open-source` keeps only the jobs of open-source tools, on every target:
+the formatting checks, `rtl-lint`, `yosys-synth` (not on the FPGA
+targets), hello-world on the Verilator TestHarness (AXI targets) and the
+documentation. No VCS, Spyglass, DC Shell, Vivado or Quartus job:
+`--techno`, `--fpga`, `--altera`, `--spyglass-targets`, `--gtech-targets`
+and `--synth-targets` are ignored, with a warning. The report records
+`open_source: true` in its context.
 
 A target with a riscv-dv testlist (`config/target/<target>/verif/generated_test.yaml`)
 also runs `dv-elab`, `testlist-generate`, `generated-compile` and

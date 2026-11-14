@@ -232,6 +232,41 @@ synthesis. They select within the targets of the run: a listed target
 that `--target` leaves out is not run, and a name that is not a target
 fails the macro.
 
+### Open-source mode
+
+`--open-source` runs only the jobs of open-source tools, on every target
+of the run. It is the quick check to run before a pull request: no
+licence, no FPGA board.
+
+```bash
+./cook.py full-regression --open-source -j 16
+```
+
+| Job | Targets | Needs |
+| --- | --- | --- |
+| `self-check` (may fail), `git-dependencies` | once | |
+| `verible-rtl-formating`, `black-python-formating`, `pylint-run` | once | |
+| `rtl-lint:<target>` | every target | |
+| `yosys-synth:<target>` | every target but the FPGA ones | |
+| `sw-compile:<target>` (hello-world) | AXI targets | |
+| `verilator-testharness-comp:<target>` | AXI targets | `git-dependencies` |
+| `verilator-testharness-run:<target>` (hello-world) | AXI targets | comp, `sw-compile` |
+| `docs:<target>` | `--docs-targets` (default `DOCS_TARGETS`) | |
+
+The jobs are the ones of the full mode, declared once: the open-source
+mode only leaves the others out. In the full mode `yosys-synth` waits for
+the VCS elaboration of its target; in open-source mode it waits for
+nothing, as it reads the core RTL only, which `git-dependencies` does not
+patch.
+
+The stages of commercial tools are dropped whatever the other options
+say: `--techno`, `--fpga`, `--altera`, `--spyglass-targets`,
+`--gtech-targets` and `--synth-targets` are ignored, with a warning, so
+adding `--open-source` to any command line is enough. `-t`, `-j`,
+`--docs-targets`, `--dry-run` and `-q` still apply. The report records
+`open_source: true` in its context, and the dashboard is built as in the
+full mode: a column without a job shows `-`.
+
 ### Scheduling and licences
 
 Jobs form a dependency graph (like `needs:` in GitLab CI) executed by
@@ -284,6 +319,7 @@ are described in the [Reports](README.md#reports) section of the README.
 - `--altera / --no-altera` - The same for the Intel/Altera images (default: off)
 - `--vivado-licenses INTEGER` - Concurrent Vivado builds (default: 1)
 - `--quartus-licenses INTEGER` - Concurrent Quartus builds (default: 1)
+- `--open-source / --no-open-source` - Only the jobs of open-source tools, see [Open-source mode](#open-source-mode) (default: off)
 - `--techno [...]` - Enable the synthesis and gate-level stages with this techno (disabled by default, like in the CI)
 - `--period TEXT` - Synthesis target period (default: 15)
 - `--docs-targets TEXT` - Targets the documentation is built for: list, `all` or `none` (default: `DOCS_TARGETS`)
@@ -308,6 +344,9 @@ Details of its own report. Use `--jobs 1` to get the verbose output back.
 
 # Single target, including synthesis and gate-level simulation
 ./cook.py full-regression -t cv32a65x --techno my_techno --period 10
+
+# Open-source checks of every target, before a pull request
+./cook.py full-regression --open-source -j 16
 
 # GTECH synthesis of every target, no Spyglass
 ./cook.py full-regression --gtech-targets all --spyglass-targets none
