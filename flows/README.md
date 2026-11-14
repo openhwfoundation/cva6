@@ -378,9 +378,15 @@ export NUM_JOBS=24                         # parallelism of the tool builds
 export SYN_VCS_BASHRC=/path/to/vcs/setup/bashrc
 export SYN_SG_BASHRC=/path/to/spyglass/setup/bashrc
 export VERIBLE_PATH=/path/to/verible/bin
-export PATH=$PATH:$VERIBLE_PATH
+export PATH=$VERIBLE_PATH:$PATH            # tools first in PATH
 #source $SYN_VCS_BASHRC                    # uncomment the tools you use
 ```
+
+The tools are put **first** in `PATH`, so the versions you chose win over
+the ones of the system. Each `export PATH=X:$PATH` goes in front of the
+previous ones: the last one comes first. The example `setenv.sh` adds
+Verilator last, after `YOSYS_PATH`, because the OSS CAD Suite of Yosys
+ships another Verilator.
 
 Only what you actually run has to be defined: a missing simulator makes the
 recipes that need it fail, not the others.
@@ -2394,6 +2400,14 @@ simulators and several optional steps (synthesis, STA, lint), so a missing
 tool is a warning. The recipe only fails when no simulator at all (`vcs`,
 `xrun`, `vsim`, `verilator`) is in the path, or when a mandatory
 dependency is missing (Spike, submodules, riscv-tests).
+
+Each tool found is listed with its path and, for most of them, its
+version (`--version` or equivalent; the version of Verdi is read from its
+installation path, Verdi opening its GUI on any option). The
+Verilator of the path is compared with the version installed by
+`verif/regress/install-verilator.sh`: the lint baselines and the
+TestHarness are built with it, and another one (the OSS CAD Suite of
+Yosys ships one) is reported as a warning.
 
 **Example:**
 ```bash
