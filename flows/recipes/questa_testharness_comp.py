@@ -26,7 +26,10 @@ from flows.utils.autocompletion import CompMode, TraceMode, autocompletion_targe
 from flows.utils.manifest import write_manifest
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
-from flows.utils.target_config import read_config_or_exit_testbench_cfg
+from flows.utils.target_config import (
+    TESTHARNESS_HIERS,
+    read_config_or_exit_testbench_cfg,
+)
 
 app = typer.Typer()
 
@@ -105,13 +108,7 @@ def questa_testharness_comp(
     # ==========================================================
     report.step("Check prerequisites")
 
-    cva6_hier = read_config_or_exit_testbench_cfg(target, report)
-    if cva6_hier.value != "axi":
-        report.error_exit(
-            f"The TestHarness requires an AXI target, {target} is "
-            f"{cva6_hier.value}",
-            env=True,
-        )
+    read_config_or_exit_testbench_cfg(target, report, supported=TESTHARNESS_HIERS)
     report.success("Prerequisites OK")
 
     # ==========================================================

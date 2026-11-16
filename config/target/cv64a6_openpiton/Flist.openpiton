@@ -17,8 +17,8 @@
 // Description: File list read by the OpenPiton flow (manycore.config,
 //              -cva6), CVA6_ROOT being the root of this repository:
 //              core/Flist.cva6 flattened (the OpenPiton sims tool does not
-//              expand -F), without dummy_l15_pkg.sv (OpenPiton provides
-//              l15_pkg,
+//              expand -F), without dummy_l15_pkg.sv and cva6_example_l15.sv
+//              (OpenPiton provides l15_pkg,
 //              piton/design/chip/tile/l15/rtl/l15_pkg.sv, compiled before
 //              this list), plus the OpenPiton rv64 platform peripherals and
 //              the wrapper of the tile.
