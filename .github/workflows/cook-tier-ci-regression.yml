@@ -1,0 +1,275 @@
+# Copyright 2026 OpenHW Foundation
+# SPDX-License-Identifier: Apache-2.0
+# ================================================================================
+# OpenHW CVA6 CI - Tier 1: Fast Verilator Sanity
+# ================================================================================
+#
+# PURPOSE:
+#   Provide bounded regression feedback using existing Cook recipes to compile
+#   and run upstream tests on the Verilator TestHarness.
+#   RV32 uses live Spike tandem; RV64 uses self-checking programs.
+#   Cook records software completion, applicable comparison results and failures.
+#
+# TRIGGER POLICY:
+#   push              -> Check updates to master_candidate.
+#   pull_request      -> Check PRs targeting master_candidate.
+#   workflow_dispatch -> On-demand rerun for manual validation.
+#
+# COVERED CONFIGURATIONS AND TESTS:
+#   Shared matrix for push, PR and manual runs:
+#     rv32-scalar -> fpga_linux_cv32a6: basic (5) + integer-extra (3).
+#     rv32-superscalar -> summit_titlis: basic (5) + integer-extra (3).
+#     rv64 -> profile_rva20s64: ALU + fence.i self-checks (2).
+#   These selections reuse the upstream test sources and startup.
+#   RV64 does not run live Spike comparison.
+#
+# CONFIGURATION AND RESULTS:
+#   .github/cook/prepare_testlists.py -> REGRESSION_CONFIG selects tests/targets.
+#   .github/cook/run-tier-regression.py -> Calls the existing Cook recipes.
+#   build/**/cook_report.yml -> Per-recipe results and the runner's verdict.
+#   artifacts/reports/pipeline_report.{html,yml} -> Unified Cook reports.
+#   ci-results/ -> Testlists, provenance, command logs, checkout SHA and submodule IDs.
+#   Artifacts retain diagnostic logs, native tandem YAML, Spike target configs,
+#   live filelists and tool versions; binaries, waveforms and disassembly are omitted.
+# ================================================================================
+
+name: openhw-cva6-ci-tier1
+
+on:
+  push:
+    branches: [master_candidate]
+  pull_request:
+    branches: [master_candidate]
+  # Dispatch requires this workflow on the repository's default branch.
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: openhw-cva6-ci-tier1-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  NUM_JOBS: "2"
+  NO_COLOR: "1"
+  TERM: dumb
+jobs:
+  execute-tier1:
+    name: ${{ matrix.core }} / ${{ matrix.mode }}
+    runs-on: ubuntu-24.04
+    env:
+      ARTIFACT_NAME: tier1-regression-${{ matrix.core }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # All triggers use these entries from REGRESSION_CONFIG.profiles.
+        include:
+          - profile: rv32-scalar
+            core: fpga_linux_cv32a6
+            mode: live Spike
+          - profile: rv32-superscalar
+            core: summit_titlis
+            mode: live Spike
+          - profile: rv64
+            core: profile_rva20s64
+            mode: self-check
+    steps:
+      # ============================================================
+      # Step 1: Prepare source, verification dependencies and tools
+      # ============================================================
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Record source
+        run: |
+          mkdir -p ci-results
+          git rev-parse HEAD > ci-results/source-revision.txt
+          git submodule status --recursive > ci-results/submodules-before.txt
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install Cook dependencies
+        run: |
+          python3 -m pip install -c .github/cook/constraints.txt -r flows/requirements.txt
+          python3 -m pip freeze > ci-results/python-packages.txt
+      - name: Prepare verification dependencies and submodule patches
+        run: |
+          set -o pipefail
+          env -u CONFIG_DIR python3 cook.py git-dependencies 2>&1 | tee ci-results/prepare-dependencies.log
+          git submodule status --recursive > ci-results/submodules-after.txt
+      - name: Prepare tools
+        uses: ./.github/cook/setup
+
+      # ============================================================
+      # Step 2: Run the selected regression through Cook
+      # ============================================================
+      - name: Run selected tests
+        id: regression
+        env:
+          CONFIG_DIR: ${{ github.workspace }}/ci-results/cook-config
+          PROFILE: ${{ matrix.profile }}
+          # Initial finite setting for the live model's observed 16 MiB stack overflow.
+          # Tune with runtime evidence and requirement, this is not a measured minimum.
+          TANDEM_STACK_KIB: "262144"
+        run: |
+          set -e -o pipefail
+          # Use the profile's mode for both tool metadata and the Cook runner.
+          tandem_enabled=$(PYTHONPATH=.github/cook python3 -c 'import os; from prepare_testlists import REGRESSION_CONFIG; print(REGRESSION_CONFIG["profiles"][os.environ["PROFILE"]]["tandem_enabled"])')
+          tandem_args=()
+          if [[ "$tandem_enabled" == True ]]; then
+            tandem_args+=(--tandem-enabled)
+            # Same-shell setting inherited by this live regression's child processes.
+            stack_log="ci-results/stack-limit.log"
+            stack_soft_before=$(ulimit -S -s)
+            stack_hard_before=$(ulimit -H -s)
+            printf 'requested_kib=%s\nbefore_soft_kib=%s\nbefore_hard_kib=%s\n' \
+              "$TANDEM_STACK_KIB" "$stack_soft_before" "$stack_hard_before" | tee "$stack_log"
+            if [[ ! "$TANDEM_STACK_KIB" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::TANDEM_STACK_KIB must be a positive finite integer" | tee -a "$stack_log"
+              exit 1
+            fi
+            if [[ "$stack_soft_before" != unlimited ]] && [ "$stack_soft_before" -lt "$TANDEM_STACK_KIB" ]; then
+              if ! ulimit -S -s "$TANDEM_STACK_KIB"; then
+                echo "::error::Cannot set tandem stack soft limit; check the hard limit" | tee -a "$stack_log"
+                exit 1
+              fi
+            fi
+            printf 'after_soft_kib=%s\nafter_hard_kib=%s\n' "$(ulimit -S -s)" "$(ulimit -H -s)" | tee -a "$stack_log"
+            python3 - <<'PY_STACK' | tee -a "$stack_log"
+          import os
+          import resource
+          soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
+          print(f"child_soft_bytes={soft} child_hard_bytes={hard} (-1=unlimited)")
+          if soft != resource.RLIM_INFINITY and soft < int(os.environ["TANDEM_STACK_KIB"]) * 1024:
+              raise SystemExit("Tandem stack limit was not inherited")
+          PY_STACK
+          fi
+          python3 .github/cook/prepare_toolchains.py --output-dir "$CONFIG_DIR" "${tandem_args[@]}"
+          python3 .github/cook/run-tier-regression.py --profile "$PROFILE"
+
+      # ============================================================
+      # Step 3: Generate reports and upload available results, even on failure
+      # ============================================================
+      - name: Render unified Cook reports
+        if: always()
+        env:
+          # Reuse Cook's CI_* metadata contract without its master-only GitHub wrapper.
+          CI_PIPELINE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          CI_PIPELINE_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_PIPELINE_SOURCE: ${{ github.event_name }}
+          CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+        run: |
+          export CI_COMMIT_SHA="$(git rev-parse HEAD)"
+          export CI_COMMIT_MESSAGE="$(git log -1 --format=%s)"
+          export CI_COMMIT_AUTHOR="$(git log -1 --format='%an <%ae>')"
+          python3 cook.py merge-reports --quiet
+          python3 cook.py report-html --quiet
+      - name: Upload available evidence, including failures
+        id: evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          retention-days: 14
+          if-no-files-found: error
+          # Keep reports and diagnostics without archiving complete build directories.
+          # Native tandem YAML needs its own pattern; spike_dasm.log is a trace.
+          path: |
+            ci-results/
+            artifacts/reports/pipeline_report.html
+            artifacts/reports/pipeline_report.yml
+            config/target/*/spike.yaml
+            build/**/cook_report.yml
+            build/**/cook_manifest.yml
+            build/**/*.log
+            build/**/testharness.log.yaml
+            build/**/compilation.command
+            build/**/Flist.live
+            build/**/verilator.version
+            !build/**/spike_dasm.log
+
+      - name: Summarize regression results
+        if: always()
+        env:
+          PROFILE: ${{ matrix.profile }}
+          MODE: ${{ matrix.mode }}
+          REGRESSION_STATUS: ${{ steps.regression.outcome }}
+          ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          try:
+              import yaml
+          except ImportError:
+              yaml = None
+
+          def read_report(path):
+              if yaml is None:
+                  return {}
+              try:
+                  data = yaml.safe_load(path.read_text())
+                  return data if isinstance(data, dict) else {}
+              except (OSError, yaml.YAMLError):
+                  return {}
+
+          def metric(report, name):
+              return next((m["data"] for m in report.get("metrics", []) if m["name"] == name), {})
+
+          profile = os.environ["PROFILE"]
+          report = read_report(Path("build/tier-regression") / profile / "cook_report.yml")
+          context = report.get("context", {})
+          target = context.get("target", "not recorded")
+          tandem_enabled = context.get("tandem_enabled", os.environ["MODE"] == "live Spike")
+          mode = "live Spike" if tandem_enabled else "self-check"
+          if "tandem_enabled" not in context:
+              mode += " (configured; no run report)"
+          suffix = "_tandem" if tandem_enabled else ""
+          tests = [test for suite in metric(report, "Selected tests").values() for test in suite]
+          rows, results, native = [], [], []
+          for test in tests:
+              path = Path("build") / target / f"simulation/sim_rtl_verilator_testharness{suffix}" / test
+              result = read_report(path / "cook_report.yml")
+              tandem = metric(result, "Tandem report")
+              status = result.get("status", "no report")
+              results.append(result)
+              native.append(tandem)
+              compared = tandem.get("instr_count")
+              mismatches = tandem.get("mismatches_count")
+              end = tandem.get("exit_cause") or "—"
+              if tandem_enabled:
+                  rows.append(f"| {test} | {status} | {compared if compared is not None else '—'} | "
+                              f"{mismatches if mismatches is not None else '—'} | {end} |")
+              else:
+                  rows.append(f"| {test} | {status} |")
+
+          passed = sum(result.get("status") == "pass" for result in results)
+          missing = sum(not result for result in results)
+          cook = f"{passed}/{len(tests)} passed" if results and missing < len(tests) else "unavailable"
+          if missing and missing < len(tests):
+              cook += f"; {missing} no report"
+
+          def total(field):
+              values = [data.get(field) for data in native]
+              return str(sum(values)) if values and all(type(value) is int for value in values) else "unavailable"
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              columns = "| Mode | Regression | Cook tests |"
+              separator = "|---|---|---|"
+              values = f"| {mode} | {os.environ.get('REGRESSION_STATUS') or 'not recorded'} | {cook} |"
+              if tandem_enabled:
+                  columns += " Spike comparisons | Mismatches |"
+                  separator += "---:|---:|"
+                  values += f" {total('instr_count')} | {total('mismatches_count')} |"
+              summary.write(f"{columns}\n{separator}\n{values}\n\n")
+              artifact = os.environ.get("ARTIFACT_URL")
+              summary.write(f"[Download artifact: {os.environ['ARTIFACT_NAME']}]({artifact})\n\n" if artifact else "Artifact unavailable; see the upload step.\n\n")
+              if tests:
+                  summary.write(f"<details>\n<summary>Testcases ({len(tests)})</summary>\n\n")
+                  if tandem_enabled:
+                      summary.write("| Testcase | Cook | Spike comparisons | Mismatches | Tandem end |\n")
+                      summary.write("|---|---|---:|---:|---|\n")
+                  else:
+                      summary.write("| Testcase | Cook self-check |\n|---|---|\n")
+                  summary.write("\n".join(rows) + "\n\n</details>\n")
+          PY
