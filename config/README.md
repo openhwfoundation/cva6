@@ -372,7 +372,7 @@ endpackage
 - `SuperscalarEn`, `ALUBypass`, `NrCommitPorts`: issue width; a superscalar core takes two commit ports
 - `MmuPresent`, `UseSharedTlb`, `SvnapotEn`: address translation
 - `NrPMPEntries`: PMP
-- `MemSubsystem` (`MEM_OBI` or `MEM_HPDCACHE_AXI`), `CacheWritePolicy`, cache sizes: memory subsystem; with `MEM_OBI` the core has no cache and the cache parameters are ignored
+- `MemSubsystem` (`MEM_OBI`, `MEM_HPDCACHE_AXI` or `MEM_HPDCACHE_L15`, the OpenPiton L1.5 cache), `CacheWritePolicy`, cache sizes: memory subsystem; with `MEM_OBI` the core has no cache and the cache parameters are ignored
 - `BPType`, `BHTEntries`, `BHTHist`: branch prediction
 - `NrLoadPipeRegs`, `NrStorePipeRegs`, `NrLoadBufEntries`: load and store pipeline
 - `FpgaEn`: FPGA RAMs; `FpgaAlteraEn` selects the Altera ones

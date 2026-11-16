@@ -405,7 +405,7 @@ module cva6_hpdcache_subsystem_l15_adapter
       .DcacheWritePort(DcacheWritePort),
       .DcacheAmoPort(DcacheAmoPort),
       .WriteByteMaskEnabled(1'b0),  //TODO!!!!!
-      .SwapEndianness(CVA6Cfg.NOCType == config_pkg::NOC_TYPE_L15_BIG_ENDIAN),
+      .SwapEndianness(1'b1),  // the L1.5 of OpenPiton is big endian
       .HPDcacheMemDataWidth(HPDcacheMemDataWidth),
       .hpdcache_mem_req_t(hpdcache_mem_req_t),
       .hpdcache_mem_req_w_t(hpdcache_mem_req_w_t),

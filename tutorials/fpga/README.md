@@ -292,8 +292,7 @@ There are two zero stage bootloaders:
 
 CVA6 has preliminary support for the OpenPiton distributed cache system:
 `core/cache_subsystem/cva6_hpdcache_subsystem_l15_adapter.sv`, selected by
-the `NOCType` parameter (`NOC_TYPE_L15_BIG_ENDIAN` or
-`NOC_TYPE_L15_LITTLE_ENDIAN`). The adapter is not connected to the
+`MemSubsystem` `MEM_HPDCACHE_L15`. The adapter is not connected to the
 HPDcache subsystem yet, and no target uses it. See the
 [OpenPiton repository](https://github.com/PrincetonUniversity/openpiton).
 
