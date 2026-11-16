@@ -116,6 +116,7 @@ target per configuration. The `cook.py` flows only use the Flist files.
 | `cva6_top` | `core/cva6_top.sv` | wraps `cva6`; adds the lockstep (DCLS) option of `DclsEn` |
 | `cva6_example_axi` | `core/cva6_example_axi.sv` | instantiation example of `cva6_top` for an AXI target: defines the AXI types from the configuration |
 | `cva6_example_obi` | `core/cva6_example_obi.sv` | the same for an OBI target: the memory port is a set of OBI buses (fetch, load, store, AMO, page table walker, Zcmt) |
+| `cva6_example_l15` | `core/cva6_example_l15.sv` | the same for an OpenPiton L1.5 target (`MEM_HPDCACHE_L15`): the memory port carries `l15_pkg::l15_req_t`/`l15_rtrn_t` |
 
 In your SoC, instantiate `cva6_top` (with the lockstep option) or `cva6`
 (without), not the examples. The examples are the tops that `rtl-lint`,
@@ -225,7 +226,7 @@ This two-core design (cv32a65x on OBI, with and without lockstep, and
 profile_rva23s64 on AXI) elaborates with slang and Verilator. It is not
 run by the CI.
 
-## The bus: AXI or OBI
+## The bus: AXI, OBI or L1.5
 
 The bus is chosen by `MemSubsystem` in `rtl_cfg_pkg.sv`:
 
@@ -233,7 +234,7 @@ The bus is chosen by `MemSubsystem` in `rtl_cfg_pkg.sv`:
 |---|---|---|---|
 | `MEM_HPDCACHE_AXI` | one AXI4 port (with atomics) | HPDcache, instruction and data | `axi` |
 | `MEM_OBI` | several OBI ports | none | `obi` |
-| `MEM_HPDCACHE_L15` | the L1.5 cache of OpenPiton | HPDcache, instruction and data | none yet |
+| `MEM_HPDCACHE_L15` | the L1.5 cache of OpenPiton | HPDcache, instruction and data | `l15` |
 
 `testbench_cfg.yml` tells the flows which testbench and which example top
 to use. It must agree with `MemSubsystem`: the recipes refuse a mismatch.
@@ -241,6 +242,18 @@ The AXI widths come from the `CVA6ConfigAxi*` localparams of
 `rtl_cfg_pkg.sv`. Only AXI targets run on the TestHarness
 ([simulation/testharness.md](../simulation/testharness.md)); both buses run
 on the UVM testbench ([simulation/uvm_testbench.md](../simulation/uvm_testbench.md)).
+
+### The OpenPiton L1.5 cache
+
+With `MEM_HPDCACHE_L15`, the caches are connected to the native interface of
+the L1.5 cache of [OpenPiton](https://github.com/PrincetonUniversity/openpiton),
+big endian, instead of AXI: the adapter
+`core/cache_subsystem/cva6_hpdcache_subsystem_l15_adapter.sv` takes the place
+of the AXI arbiter of the HPDcache subsystem. The `cv64a6_openpiton`
+target uses it, with `hier: l15` and the top `cva6_example_l15`: `rtl-lint`
+runs on it, the TestHarness and UVM recipes refuse it. The OpenPiton tile
+instantiates `corev_apu/openpiton/ariane_verilog_wrap.sv` and compiles
+`config/target/cv64a6_openpiton/Flist.openpiton`, with its own flow.
 
 ## Check your configuration
 
