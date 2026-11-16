@@ -40,7 +40,8 @@ module cva6_hpicache_wrapper
     parameter type hpdcache_req_t = logic,
     parameter type hpdcache_rsp_t = logic,
     parameter type hpdcache_wbuf_timecnt_t = logic,
-    parameter type hpdcache_data_be_t = logic
+    parameter type hpdcache_data_be_t = logic,
+    localparam type hpdcache_nline_t = logic [HPDcacheCfg.nlineWidth-1:0]
 )
 //  }}}
 
@@ -74,7 +75,11 @@ module cva6_hpicache_wrapper
 
     output logic                 icache_mem_resp_read_ready_o,
     input  logic                 icache_mem_resp_read_valid_i,
-    input  hpdcache_mem_resp_r_t icache_mem_resp_read_i
+    input  hpdcache_mem_resp_r_t icache_mem_resp_read_i,
+
+    // Invalidation of a cache line, sent with a read response (OpenPiton L1.5)
+    input logic            icache_mem_resp_read_inval_i,
+    input hpdcache_nline_t icache_mem_resp_read_inval_nline_i
 );
 
   logic                        icache_req_valid[1];
@@ -164,8 +169,8 @@ module cva6_hpicache_wrapper
       .mem_resp_read_valid_i(icache_mem_resp_read_valid_i),
       .mem_resp_read_i      (icache_mem_resp_read_i),
 
-      .mem_resp_read_inval_i      (1'b0),
-      .mem_resp_read_inval_nline_i('0),
+      .mem_resp_read_inval_i      (icache_mem_resp_read_inval_i),
+      .mem_resp_read_inval_nline_i(icache_mem_resp_read_inval_nline_i),
 
       .mem_req_write_ready_i(1'b1),
       .mem_req_write_valid_o(),

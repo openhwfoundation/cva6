@@ -216,6 +216,11 @@ ${HPDCACHE_DIR}/rtl/src/hpdcache_flush.sv
 ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_resp_demux.sv
 ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_to_axi_read.sv
 ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+${CVA6_REPO_DIR}/core/include/dummy_l15_pkg.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_to_l15.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_l15_req_arbiter.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_l15_resp_demux.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_subsystem_l15_adapter.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_subsystem.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/cva6_hpdcache_if_adapter.sv
