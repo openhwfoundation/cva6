@@ -24,6 +24,7 @@ measured in simulation, with an ideal memory:
 | `cv32a65x` | Thales | 4.69 |
 | `fpga_linux_cv32a6` | PlanV | 3.03 |
 | `fpga_linux_cv64a6` | PlanV | 2.73 |
+| `cv64a6_openpiton` | OpenPiton | - |
 
 ### cv32a60x
 
@@ -46,6 +47,13 @@ FPGA board: RV32IMAC, Sv32 MMU, S and U modes, PMP.
 
 Reference 64-bit configuration maintained by PlanV to boot Linux on the Genesys 2
 FPGA board: RV64GC + B, Sv39 MMU, S and U modes, PMP.
+
+### cv64a6_openpiton
+
+64-bit core maintained by [OpenPiton](https://github.com/PrincetonUniversity/openpiton)
+for its tile: RV64GC, Sv39 MMU, S and U modes, PMP,
+write-through HPDcache on the OpenPiton L1.5 cache. Only the OpenPiton flow
+simulates it, so it has no CoreMark figure here and the CI does not run it.
 
 ## Profiles and reference points
 
