@@ -228,10 +228,6 @@
      - ``copro_type_t``
      - Coprocessor type
 
-   * - ``NOCType``
-     - ``noc_type_e``
-     - NOC bus type
-
    * - ``AxiAddrWidth``
      - ``int unsigned``
      - AXI address width

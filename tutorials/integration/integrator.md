@@ -233,6 +233,7 @@ The bus is chosen by `MemSubsystem` in `rtl_cfg_pkg.sv`:
 |---|---|---|---|
 | `MEM_HPDCACHE_AXI` | one AXI4 port (with atomics) | HPDcache, instruction and data | `axi` |
 | `MEM_OBI` | several OBI ports | none | `obi` |
+| `MEM_HPDCACHE_L15` | the L1.5 cache of OpenPiton | HPDcache, instruction and data | none yet |
 
 `testbench_cfg.yml` tells the flows which testbench and which example top
 to use. It must agree with `MemSubsystem`: the recipes refuse a mismatch.
