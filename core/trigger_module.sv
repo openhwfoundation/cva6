@@ -897,7 +897,7 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[tselect_q].mc6_type.hit0 = tdata1_i[22];
             trigger_32_tdata1_d[tselect_q].mc6_type.select = tdata1_i[21];
             trigger_32_tdata1_d[tselect_q].mc6_type.zeroes = '0;
-            trigger_32_tdata1_d[tselect_q].mc6_type.size = tdata1_i[18:16];
+            trigger_32_tdata1_d[tselect_q].mc6_type.size = '0;  // size filtering is not implemented
             trigger_32_tdata1_d[tselect_q].mc6_type.action =
                 4'(legal_action(6'(tdata1_i[15:12]), debug_mode_i && tdata1_i[27]));
             trigger_32_tdata1_d[tselect_q].mc6_type.chain = tdata1_i[11];
@@ -967,7 +967,7 @@ CVA6Cfg.NrCommitPorts
           trigger_32_tdata1_d[tselect_q].mc6_type.hit0 = tdata1_w[22];
           trigger_32_tdata1_d[tselect_q].mc6_type.select = tdata1_w[21];
           trigger_32_tdata1_d[tselect_q].mc6_type.zeroes = '0;
-          trigger_32_tdata1_d[tselect_q].mc6_type.size = tdata1_w[18:16];
+          trigger_32_tdata1_d[tselect_q].mc6_type.size = '0;  // size filtering is not implemented
           trigger_32_tdata1_d[tselect_q].mc6_type.action =
               4'(legal_action(6'(tdata1_w[15:12]), debug_mode_i && tdata1_w[59]));
           trigger_32_tdata1_d[tselect_q].mc6_type.chain = tdata1_w[11];
