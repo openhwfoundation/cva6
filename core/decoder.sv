@@ -1156,7 +1156,7 @@ module decoder
                   instruction_o.op = ariane_pkg::BSETI;
                 else if (CVA6Cfg.ZKN && CVA6Cfg.IS_XLEN32 && instr.instr[31:20] == 12'b000010001111)
                   instruction_o.op = ariane_pkg::ZIP;
-                else if (CVA6Cfg.ZKN && instr.instr[31:24] == 8'b00110001) begin
+                else if (CVA6Cfg.ZKN && instr.instr[31:24] == 8'b00110001 && instr.instr[23:20] <= 4'b1010) begin
                   instruction_o.op = ariane_pkg::AES64KS1I;
                   instruction_o.fu = AES;
                 end else if (CVA6Cfg.ZKN && instr.instr[31:20] == 12'b001100000000) begin
