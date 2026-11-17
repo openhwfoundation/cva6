@@ -715,8 +715,10 @@ module load_store_unit
           end
         end
         STORE: begin
-
-          misaligned_exception.cause = riscv::ST_ADDR_MISALIGNED;
+          // LR is architecturally a load; a misaligned LR must raise
+          // load-address-misaligned, not store-address-misaligned.
+          misaligned_exception.cause = (lsu_ctrl.operation inside {AMO_LRW, AMO_LRD}) ?
+            riscv::LD_ADDR_MISALIGNED : riscv::ST_ADDR_MISALIGNED;
           misaligned_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
             misaligned_exception.tval = {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, lsu_ctrl.vaddr};
