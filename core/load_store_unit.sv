@@ -216,6 +216,7 @@ module load_store_unit
   logic                    ld_valid_i;
   logic                    ld_translation_req;
   logic                    st_translation_req;
+  logic                    mmu_is_store;
   logic [CVA6Cfg.VLEN-1:0] ld_vaddr;
   logic [            31:0] ld_tinst;
   logic                    ld_hs_ld_st_inst;
@@ -292,7 +293,7 @@ module load_store_unit
         .lsu_req_i(translation_req),
         .lsu_vaddr_i(mmu_vaddr),
         .lsu_tinst_i(mmu_tinst),
-        .lsu_is_store_i(st_translation_req),
+        .lsu_is_store_i(mmu_is_store),
         .csr_hs_ld_st_inst_o(csr_hs_ld_st_inst_o),
         .lsu_dtlb_hit_o(dtlb_hit),  // send in the same cycle as the request
         .lsu_dtlb_ppn_o(dtlb_ppn),  // send in the same cycle as the request
@@ -359,7 +360,7 @@ module load_store_unit
     assign pmp_translation_valid = translation_req;
     assign pmp_exception = misaligned_exception;
     assign pmp_vaddr_q = mmu_vaddr;
-    assign pmp_is_store_q = st_translation_req;
+    assign pmp_is_store_q = mmu_is_store;
     assign pmp_hlvx_inst_q = mmu_hlvx_inst;
     if (CVA6Cfg.VLEN > CVA6Cfg.PLEN) begin : gen_paddr_vlen_greater
       assign lsu_paddr = mmu_vaddr[CVA6Cfg.PLEN-1:0];
@@ -613,6 +614,11 @@ module load_store_unit
       default: ;
     endcase
   end
+
+  // LR goes through the store unit but only reads memory: the MMU and PMP
+  // check it with the permissions and the fault causes of a load.
+  assign mmu_is_store = st_translation_req &&
+      !(CVA6Cfg.RVA && (lsu_ctrl.operation inside {AMO_LRW, AMO_LRD}));
 
   // ------------------------
   // Hypervisor Load/Store
