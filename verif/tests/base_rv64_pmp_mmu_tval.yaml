@@ -10,7 +10,8 @@
 #
 #   PMP test that needs an MMU and checks mtval, for the cv64 targets with PMP
 #   entries, an MMU and TvalEn: the LSU hands PMP the metadata of the access
-#   that the MMU response answers, on DTLB-miss and DTLB-hit stores.
+#   that the MMU response answers, on DTLB-miss and DTLB-hit stores, and
+#   that PMP and the MMU check LR as a load (the targets have RVA).
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -23,3 +24,8 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_test.S
+
+  - test: pmp-lr-load-permission
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/pmp/lr_load_permission_test.S
