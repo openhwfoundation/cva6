@@ -102,11 +102,11 @@ CVA6Cfg.NrCommitPorts
 
       4'd2:
       if (CVA6Cfg.SdtrigSupportedMatch[2])  //greater or equal than
-        match = (tdata2_ref[CVA6Cfg.XLEN-1:0] >= comp_val);
+        match = (comp_val >= tdata2_ref);
 
       4'd3:
       if (CVA6Cfg.SdtrigSupportedMatch[3])  //lower than 
-        match = (tdata2_ref[CVA6Cfg.XLEN-1:0] < comp_val);
+        match = (comp_val < tdata2_ref);
 
       4'd4:
       if (CVA6Cfg.SdtrigSupportedMatch[4])  //mask low
