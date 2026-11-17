@@ -225,6 +225,12 @@ CVA6Cfg.NrCommitPorts
     endcase
   endfunction
 
+  // A write with dmode=0 must not set chain when the next trigger has dmode=1:
+  // chain would change the match of a trigger that belongs to the debugger.
+  logic next_dmode;
+  assign next_dmode = (32'(tselect_q) < CVA6Cfg.SdtrigNrTriggers - 1) &&
+      trigger_32_tdata1_q[$bits(tselect_q)'(tselect_q + 1)].tdata1_type[27];
+
   // A trigger with action=0 does not match or fire in M-mode while MIE=0, and in S-mode while
   // SIE=0 when the breakpoint exceptions go to S-mode (first solution of Native Triggers)
   logic native_allowed;
@@ -900,7 +906,8 @@ CVA6Cfg.NrCommitPorts
             trigger_32_tdata1_d[tselect_q].mc6_type.size = '0;  // size filtering is not implemented
             trigger_32_tdata1_d[tselect_q].mc6_type.action =
                 4'(legal_action(6'(tdata1_i[15:12]), debug_mode_i && tdata1_i[27]));
-            trigger_32_tdata1_d[tselect_q].mc6_type.chain = tdata1_i[11];
+            trigger_32_tdata1_d[tselect_q].mc6_type.chain =
+                tdata1_i[11] && (debug_mode_i && tdata1_i[27] || !next_dmode);
             trigger_32_tdata1_d[tselect_q].mc6_type.match = tdata1_i[10:7];
             trigger_32_tdata1_d[tselect_q].mc6_type.m = tdata1_i[6];
             trigger_32_tdata1_d[tselect_q].mc6_type.uncertainen = 0;
@@ -970,7 +977,8 @@ CVA6Cfg.NrCommitPorts
           trigger_32_tdata1_d[tselect_q].mc6_type.size = '0;  // size filtering is not implemented
           trigger_32_tdata1_d[tselect_q].mc6_type.action =
               4'(legal_action(6'(tdata1_w[15:12]), debug_mode_i && tdata1_w[59]));
-          trigger_32_tdata1_d[tselect_q].mc6_type.chain = tdata1_w[11];
+          trigger_32_tdata1_d[tselect_q].mc6_type.chain =
+              tdata1_w[11] && (debug_mode_i && tdata1_w[59] || !next_dmode);
           trigger_32_tdata1_d[tselect_q].mc6_type.match = tdata1_w[10:7];
           trigger_32_tdata1_d[tselect_q].mc6_type.m = tdata1_w[6];
           trigger_32_tdata1_d[tselect_q].mc6_type.uncertainen = 0;
