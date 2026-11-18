@@ -17,6 +17,8 @@
 #       being writable.
 #     - mprv-mpv-vsatp: with MPRV=1 and MPV=1, vsatp controls the VS stage
 #       of a load.
+#     - mprv-mpv-mpp-m: with MPRV=1 and MPP=M, a load or store is not
+#       translated, also when MPV=1.
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -77,3 +79,8 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/issues/mprv-mpv-vsatp-rv64.S
+
+  - test: mprv-mpv-mpp-m
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/issues/mprv-mpv-mpp-m-rv64.S
