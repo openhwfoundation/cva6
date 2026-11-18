@@ -92,9 +92,9 @@ includes followed and its placeholders expanded. Your script runs it
 | Variable | Value |
 |---|---|
 | `TOP` | `cva6`: prefix of the output file names |
-| `TOP_ELABORATE` | the design to elaborate: `cva6_example_axi` or `cva6_example_obi`, from `testbench_cfg.yml` |
+| `TOP_ELABORATE` | the design to elaborate: `cva6_example_axi`, `cva6_example_obi` or `cva6_example_l15`, from `testbench_cfg.yml` |
 | `TOP_SYNTHESIS` | `cva6_top__*` |
-| `CVA6_TYPE` | `HPDCACHE` on an AXI target (HPDcache subsystem), empty on an OBI target |
+| `CVA6_TYPE` | `HPDCACHE` on an AXI or L15 target (HPDcache subsystem), empty on an OBI target |
 | `TARGET`, `TARGET_CFG` | the target name |
 | `CVA6_REPO_DIR` | root of the checkout |
 | `HPDCACHE_DIR` | `$CVA6_REPO_DIR/core/cache_subsystem/hpdcache` |

@@ -499,7 +499,7 @@ def dc_shell_synth(
         "TERM": "vt100",
         "SCRIPTS_DIR": "",
         "SNPSLMD_QUEUE": "TRUE",
-        "CVA6_TYPE": "HPDCACHE" if cva6_hier == Cva6Hier.axi else "",
+        "CVA6_TYPE": "HPDCACHE" if cva6_hier != Cva6Hier.obi else "",
     }
 
     env_vars |= techno

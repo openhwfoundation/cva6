@@ -29,7 +29,7 @@ Common points:
 
 - The generic flows read `config/target/<t>/Flist.cva6_synth`, where the
   HPDcache SRAMs are blackbox models, and elaborate the example top of the
-  target (`cva6_example_axi` or `cva6_example_obi`).
+  target (`cva6_example_axi`, `cva6_example_obi` or `cva6_example_l15`).
 - The hierarchy is kept, so the counts are given per block and are higher
   than those of a flat synthesis.
 - Any inferred latch fails the generic syntheses.

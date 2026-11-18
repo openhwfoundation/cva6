@@ -20,7 +20,11 @@ from flows.utils.autocompletion import (
     TraceMode,
     autocompletion_target,
 )
-from flows.utils.target_config import read_config_or_exit_testbench_cfg, dut_hier
+from flows.utils.target_config import (
+    UVM_HIERS,
+    dut_hier,
+    read_config_or_exit_testbench_cfg,
+)
 
 app = typer.Typer()
 
@@ -97,7 +101,8 @@ def questa_uvm_comp(
     work_dir = elab_dir / "work"
 
     # Get testbench config
-    cva6_hier = read_config_or_exit_testbench_cfg(target, report)
+    # l15 (OpenPiton L1.5) has no UVM agent: refused here
+    cva6_hier = read_config_or_exit_testbench_cfg(target, report, supported=UVM_HIERS)
 
     # ==========================================================
     # CHECK PREREQUISITES
