@@ -55,6 +55,7 @@ class UvmVerbosity(str, Enum):
 class Cva6Hier(str, Enum):
     obi = "obi"
     axi = "axi"
+    l15 = "l15"
 
 
 class FpgaBoard(str, Enum):

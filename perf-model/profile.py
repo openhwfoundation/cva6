@@ -153,7 +153,7 @@ class CallStack:
 
     def find_fn(self, instr):
         i = bisect_right(self.fns, instr.address, key=lambda fn: fn.start_addr())
-        return self.fns[i-1]
+        return self.fns[i - 1]
 
 
 @dataclass

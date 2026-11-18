@@ -1,5 +1,8 @@
 # Quick start
 
+Tutorials by use (integration, simulation, software, synthesis, FPGA,
+development): see the [tutorials](../tutorials/README.md).
+
 Worked examples, from a fresh clone to a design running on a board. Each
 one is a sequence to copy, with what it produces and where. The reference
 of every option is in [README.md](README.md), writing a new flow is in
@@ -51,6 +54,10 @@ sudo apt-get install cmake help2man device-tree-compiler   # Debian based
 export NUM_JOBS=8
 ./verif/regress/install-spike.sh
 ```
+
+Verilator, for the TestHarness recipes, is installed (patched) by
+`./verif/regress/install-verilator.sh`, in `tools/verilator-<version>`:
+point `VERILATOR_INSTALL_DIR` of `setenv.sh` at it.
 
 **5. Clone the external test suites and patch the submodules**
 

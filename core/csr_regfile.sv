@@ -1561,7 +1561,9 @@ CVA6Cfg.NrCommitPorts
                (1 << riscv::ENV_CALL_UMODE) |
                (1 << riscv::INSTR_PAGE_FAULT) |
                (1 << riscv::LOAD_PAGE_FAULT) |
-               (1 << riscv::STORE_PAGE_FAULT);
+               (1 << riscv::STORE_PAGE_FAULT) |
+               (1 << riscv::SOFTWARE_CHECK) |
+               (1 << riscv::HARDWARE_ERROR);
             hedeleg_d = (hedeleg_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;

@@ -18,7 +18,7 @@ values are resolved: a field may refer to a `localparam` of the same file,
 itself referring to another one.
 
 Read-only. `util/user_config.py` *rewrites* those files, for
-`hwconfig-forge` and the legacy `verif/sim/cva6.py`, and is the module to
+`hwconfig-forge`, and is the module to
 reach for when a configuration has to be produced rather than inspected.
 
 Values are returned as Python objects, the same way `user_config` does so

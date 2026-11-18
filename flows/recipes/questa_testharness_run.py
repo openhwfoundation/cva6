@@ -216,7 +216,6 @@ def questa_testharness_run(
     # ==========================================================
     # BUILD VSIM COMMAND
     # ==========================================================
-    # The plusargs of `COMMON_RUN_ARGS` in verif/sim/Makefile.
     vsim_cmd = [
         "vsim",
         "-64",
