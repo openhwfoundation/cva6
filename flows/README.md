@@ -69,7 +69,7 @@ run a test of the other.
 | Top level | `uvmt_cva6_tb` | `ariane_tb` (event-driven simulators), `ariane_testharness` (Verilator) |
 | Sources | `verif/tb/uvmt/`, core-v-verif agents | `corev_apu/tb/`, `verif/tb/core/Flist.testharness*` |
 | Core interface | AXI or OBI, driven by the UVM agents of core-v-verif | AXI, through the SoC of `corev_apu` |
-| Targets | all | targets declaring `hier: axi` only, checked by the recipes |
+| Targets | `hier: obi` or `axi` (not `l15`), checked by the recipes | targets declaring `hier: axi` only, checked by the recipes |
 | Verdict | UVM scoreboard, optional tandem against SPIKE | `tohost` written by the program |
 | Recipes | `<simulator>-uvm-comp`, `<simulator>-uvm-run`, `uvm-run-testlist` | `<simulator>-testharness-comp`, `<simulator>-testharness-run`, `testharness-run-testlist` |
 | Outputs | `build/<target>/{elab,simulation}/sim_<comp_mode>/` | `build/<target>/{elab,simulation}/sim_<comp_mode>_<simulator>_testharness/` |
@@ -1043,7 +1043,8 @@ Hello world takes about 2.5M cycles: 2 minutes on Verilator, 4 on VCS.
 Common to all of them:
 
 - **AXI targets only**: those whose configuration declares `hier: axi`.
-  The recipes refuse the others before building anything.
+  The recipes refuse the others (`obi`, `l15`) before building anything,
+  with an environment error.
 - **`rtl` only**: `--comp-mode` accepts the other values for symmetry
   with the UVM recipes, and rejects them.
 - The program is compiled by `sw-compile` beforehand: the run reads the

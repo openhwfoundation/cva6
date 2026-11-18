@@ -15,6 +15,8 @@ core/cache_subsystem/cva6_hpdcache* @cfuguet
 # OpenPiton
 
 corev_apu/openpiton @Jbalkind
+core/cache_subsystem/cva6_hpdcache_subsystem_l15_adapter.sv @cfuguet @Jbalkind
+config/target/cv64a6_openpiton @Jbalkind
 
 ## Documentation
 
