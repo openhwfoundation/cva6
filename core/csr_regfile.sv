@@ -2423,7 +2423,8 @@ CVA6Cfg.NrCommitPorts
       if (mprv && (mstatus_q.mpv == 1'b0) && (config_pkg::vm_mode_t'(satp_q.mode) == CVA6Cfg.MODE_SV) && (mstatus_q.mpp != riscv::PRIV_LVL_M)) begin
         en_ld_st_translation_d = 1'b1;
       end else if (mprv && (mstatus_q.mpv == 1'b1)) begin
-        if (satp_mode_is_sv) begin
+        // MPV=1: vsatp controls the VS stage of the load or store
+        if (config_pkg::vm_mode_t'(vsatp_q.mode) == CVA6Cfg.MODE_SV) begin
           en_ld_st_translation_d = 1'b1;
         end else begin
           en_ld_st_translation_d = 1'b0;
