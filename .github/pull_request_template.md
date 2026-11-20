@@ -4,6 +4,7 @@
 
 - [ ] I have searched for similar pull requests
 - [ ] I am a human engaging in an interpersonal interaction. During this interaction, my words are my own and are not generated. If relevant, I provide links to my sources.
+- [ ] If I have changed the RTL, I have run at least one of the two regressions on every target: `./cook.py full-regression --open-source -j 16` (open-source tools only) or `./cook.py full-regression -j 16` (needs the commercial tools)
 
 
 <!-- Please indicate why this PR is needed for the project -->

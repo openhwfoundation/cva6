@@ -53,9 +53,7 @@ module cvxif_issue_register_commit_if_driver #(
     register_o.rs_valid = rs_valid_i;
   end
 
-  /* WARNING */
-  // Always commit since speculation in execute in not possible : TODO to be verified
-
+  // Always commit since speculation in execute in not possible
   // Always do commit transaction with issue
   // If instruction goes to execute then it is not speculative
   assign commit_valid_o       = issue_valid_o && issue_ready_i;

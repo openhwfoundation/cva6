@@ -33,15 +33,10 @@
 
 common_test_config: &common_test_config
   path_var: TESTS_PATH
-  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common"
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostartfiles -g <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/tests/custom/common "
 
 testlist:
   - test: custom_test_template
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/custom/hello_world/custom_test_template.S
-
-  - test: false_4k_alias
-    iterations: 1
-    <<: *common_test_config
-    asm_tests: <path_var>/custom/lsu/false_4k_alias.S

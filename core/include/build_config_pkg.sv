@@ -18,8 +18,7 @@ package build_config_pkg;
     bit XF16ALTVec = CVA6Cfg.XF16ALT & CVA6Cfg.XFVec & FLen>16; // FP16ALT vectors available if vectors and larger fmt enabled
     bit XF8Vec     = CVA6Cfg.XF8     & CVA6Cfg.XFVec & FLen>8;  // FP8 vectors available if vectors and larger fmt enabled
 
-    bit EnableAccelerator = CVA6Cfg.RVV;  // Currently only used by V extension (Ara)
-    int unsigned NrWbPorts = (CVA6Cfg.CvxifEn || EnableAccelerator) ? 5 : 4;
+    int unsigned NrWbPorts = CVA6Cfg.CvxifEn ? 5 : 4;
 
     int unsigned ICACHE_INDEX_WIDTH = $clog2(CVA6Cfg.IcacheByteSize / CVA6Cfg.IcacheSetAssoc);
     int unsigned DCACHE_INDEX_WIDTH = $clog2(CVA6Cfg.DcacheByteSize / CVA6Cfg.DcacheSetAssoc);
@@ -30,7 +29,6 @@ package build_config_pkg;
     int unsigned PtLevels = IS_XLEN64 ? 3 : 2;
 
     config_pkg::cva6_cfg_t cfg;
-
     cfg.XLEN = CVA6Cfg.XLEN;
     cfg.VLEN = CVA6Cfg.VLEN;
     cfg.PLEN = IS_XLEN32 ? 34 : 56;
@@ -45,13 +43,22 @@ package build_config_pkg;
     cfg.FpgaAlteraEn = CVA6Cfg.FpgaAlteraEn;
     cfg.TechnoCut = CVA6Cfg.TechnoCut;
 
-    cfg.SuperscalarEn = CVA6Cfg.SuperscalarEn;
-    cfg.NrCommitPorts = CVA6Cfg.SuperscalarEn ? unsigned'(2) : CVA6Cfg.NrCommitPorts;
-    cfg.NrIssuePorts = unsigned'(CVA6Cfg.SuperscalarEn ? 2 : 1);
-    cfg.SpeculativeSb = CVA6Cfg.SuperscalarEn;
+    //  A superscalar core fetches 64 bits, so that a fetch block can hold two
+    //  32-bit instructions, on OBI as on AXI.
+    cfg.FETCH_WIDTH = unsigned'(CVA6Cfg.SuperscalarEn ? 64 : 32);
+    cfg.FETCH_BE_WIDTH = cfg.FETCH_WIDTH / 8;
+    cfg.FETCH_ALIGN_BITS = $clog2(cfg.FETCH_BE_WIDTH);
+    cfg.INSTR_PER_FETCH = cfg.FETCH_WIDTH / (CVA6Cfg.RVC ? 16 : 32);
+    cfg.LOG2_INSTR_PER_FETCH = cfg.INSTR_PER_FETCH > 1 ? $clog2(cfg.INSTR_PER_FETCH) : 1;
 
-    cfg.NrALUs = CVA6Cfg.SuperscalarEn ? unsigned'(2) : unsigned'(1);
-    cfg.ALUBypass = CVA6Cfg.SuperscalarEn ? bit'(CVA6Cfg.ALUBypass) : bit'(0);
+    //  Dual issue needs the frontend to deliver two instructions per fetch.
+    cfg.SuperscalarEn = CVA6Cfg.SuperscalarEn && (cfg.INSTR_PER_FETCH > 1);
+    cfg.NrCommitPorts = cfg.SuperscalarEn ? unsigned'(2) : CVA6Cfg.NrCommitPorts;
+    cfg.NrIssuePorts = unsigned'(cfg.SuperscalarEn ? 2 : 1);
+    cfg.SpeculativeSb = cfg.SuperscalarEn;
+
+    cfg.NrALUs = cfg.SuperscalarEn ? unsigned'(2) : unsigned'(1);
+    cfg.ALUBypass = cfg.SuperscalarEn ? bit'(CVA6Cfg.ALUBypass) : bit'(0);
 
     cfg.NrLoadPipeRegs = CVA6Cfg.NrLoadPipeRegs;
     cfg.NrStorePipeRegs = CVA6Cfg.NrStorePipeRegs;
@@ -59,14 +66,15 @@ package build_config_pkg;
     cfg.AxiDataWidth = CVA6Cfg.AxiDataWidth;
     cfg.AxiIdWidth = CVA6Cfg.AxiIdWidth;
     cfg.AxiUserWidth = CVA6Cfg.AxiUserWidth;
-    cfg.MEM_TID_WIDTH = CVA6Cfg.MemTidWidth;
     cfg.NrLoadBufEntries = CVA6Cfg.NrLoadBufEntries;
+    cfg.NrFetchBufEntries = 1;
     cfg.RVF = CVA6Cfg.RVF;
     cfg.RVD = CVA6Cfg.RVD;
     cfg.XF16 = CVA6Cfg.XF16;
     cfg.XF16ALT = CVA6Cfg.XF16ALT;
     cfg.XF8 = CVA6Cfg.XF8;
     cfg.RVA = CVA6Cfg.RVA;
+    cfg.BigEndianEn = CVA6Cfg.BigEndianEn;
     cfg.RVB = CVA6Cfg.RVB || CVA6Cfg.ZKN;  // ZKN requires RVB
     cfg.ZKN = CVA6Cfg.ZKN;
     cfg.RVV = CVA6Cfg.RVV;
@@ -81,6 +89,7 @@ package build_config_pkg;
     cfg.RVZiCond = CVA6Cfg.RVZiCond;
     cfg.RVZiCbom = CVA6Cfg.RVZiCbom;
     cfg.RVZicntr = CVA6Cfg.RVZicntr;
+    cfg.RVZifencei = CVA6Cfg.RVZifencei;
     cfg.RVZihpm = CVA6Cfg.RVZihpm;
     cfg.NR_SB_ENTRIES = CVA6Cfg.NrScoreboardEntries;
     cfg.TRANS_ID_BITS = $clog2(CVA6Cfg.NrScoreboardEntries);
@@ -93,10 +102,9 @@ package build_config_pkg;
     cfg.XF16ALTVec = bit'(XF16ALTVec);
     cfg.XF8Vec = bit'(XF8Vec);
     // Can take 2 or 3 in single issue. 4 or 6 in dual issue.
-    cfg.NrRgprPorts = unsigned'(CVA6Cfg.SuperscalarEn ? 4 : 2);
+    cfg.NrRgprPorts = unsigned'(cfg.SuperscalarEn ? 4 : 2);
     // cfg.NrRgprPorts = unsigned'(CVA6Cfg.SuperscalarEn ? 6 : 3);
     cfg.NrWbPorts = unsigned'(NrWbPorts);
-    cfg.EnableAccelerator = bit'(EnableAccelerator);
     cfg.PerfCounterEn = CVA6Cfg.PerfCounterEn;
     cfg.MmuPresent = CVA6Cfg.MmuPresent;
     cfg.RVS = CVA6Cfg.RVS;
@@ -111,26 +119,6 @@ package build_config_pkg;
     cfg.BHTEntries = CVA6Cfg.BHTEntries;
     cfg.BHTHist = CVA6Cfg.BHTHist;
     cfg.DmBaseAddress = CVA6Cfg.DmBaseAddress;
-    cfg.TvalEn = CVA6Cfg.TvalEn;
-    cfg.DirectVecOnly = CVA6Cfg.DirectVecOnly;
-    cfg.NrPMPEntries = CVA6Cfg.NrPMPEntries;
-    cfg.PMPCfgRstVal = CVA6Cfg.PMPCfgRstVal;
-    cfg.PMPAddrRstVal = CVA6Cfg.PMPAddrRstVal;
-    cfg.PMPEntryReadOnly = CVA6Cfg.PMPEntryReadOnly;
-    cfg.PMPNapotEn = CVA6Cfg.PMPNapotEn;
-    cfg.NOCType = CVA6Cfg.NOCType;
-    cfg.NrNonIdempotentRules = CVA6Cfg.NrNonIdempotentRules;
-    cfg.NonIdempotentAddrBase = CVA6Cfg.NonIdempotentAddrBase;
-    cfg.NonIdempotentLength = CVA6Cfg.NonIdempotentLength;
-    cfg.NrExecuteRegionRules = CVA6Cfg.NrExecuteRegionRules;
-    cfg.ExecuteRegionAddrBase = CVA6Cfg.ExecuteRegionAddrBase;
-    cfg.ExecuteRegionLength = CVA6Cfg.ExecuteRegionLength;
-    cfg.NrCachedRegionRules = CVA6Cfg.NrCachedRegionRules;
-    cfg.CachedRegionAddrBase = CVA6Cfg.CachedRegionAddrBase;
-    cfg.CachedRegionLength = CVA6Cfg.CachedRegionLength;
-    cfg.MaxOutstandingStores = CVA6Cfg.MaxOutstandingStores;
-    cfg.DebugEn = CVA6Cfg.DebugEn;
-
     cfg.Sdtrig = CVA6Cfg.Sdtrig;
     cfg.SdtrigMcontrol6 = CVA6Cfg.Sdtrig ? CVA6Cfg.SdtrigMcontrol6 : 1'b0;
     cfg.SdtrigIcount = CVA6Cfg.Sdtrig ? CVA6Cfg.SdtrigIcount : 1'b0;
@@ -146,7 +134,27 @@ package build_config_pkg;
     cfg.SdtrigSupportedActions = CVA6Cfg.Sdtrig ? (CVA6Cfg.DebugEn ? CVA6Cfg.SdtrigSupportedActions : 2'b01) : 2'b00;
     cfg.SdtrigSupportedMatch = CVA6Cfg.Sdtrig ? CVA6Cfg.SdtrigSupportedMatch : 10'b00_0000_0000;
     cfg.SdtrigSupportTextra = 1'b0;  //Trigger Extra not supported : no use implemented yet
-
+    cfg.TvalEn = CVA6Cfg.TvalEn;
+    cfg.DirectVecOnly = CVA6Cfg.DirectVecOnly;
+    cfg.NrPMPEntries = CVA6Cfg.NrPMPEntries;
+    cfg.PMPCfgRstVal = CVA6Cfg.PMPCfgRstVal;
+    cfg.PMPAddrRstVal = CVA6Cfg.PMPAddrRstVal;
+    cfg.PMPEntryReadOnly = CVA6Cfg.PMPEntryReadOnly;
+    cfg.PMPNapotEn = CVA6Cfg.PMPNapotEn;
+    cfg.NrNonIdempotentRules = CVA6Cfg.NrNonIdempotentRules;
+    cfg.NonIdempotentAddrBase = CVA6Cfg.NonIdempotentAddrBase;
+    cfg.NonIdempotentLength = CVA6Cfg.NonIdempotentLength;
+    cfg.NrExecuteRegionRules = CVA6Cfg.NrExecuteRegionRules;
+    cfg.ExecuteRegionAddrBase = CVA6Cfg.ExecuteRegionAddrBase;
+    cfg.ExecuteRegionLength = CVA6Cfg.ExecuteRegionLength;
+    cfg.NrCachedRegionRules = CVA6Cfg.NrCachedRegionRules;
+    cfg.CachedRegionAddrBase = CVA6Cfg.CachedRegionAddrBase;
+    cfg.CachedRegionLength = CVA6Cfg.CachedRegionLength;
+    cfg.NrBufferableRegionRules = CVA6Cfg.NrBufferableRegionRules;
+    cfg.BufferableRegionAddrBase = CVA6Cfg.BufferableRegionAddrBase;
+    cfg.BufferableRegionLength = CVA6Cfg.BufferableRegionLength;
+    cfg.MaxOutstandingStores = CVA6Cfg.MaxOutstandingStores;
+    cfg.DebugEn = CVA6Cfg.DebugEn;
     cfg.NonIdemPotenceEn = (CVA6Cfg.NrNonIdempotentRules > 0) && (CVA6Cfg.NonIdempotentLength > 0);
     cfg.AxiBurstWriteEn = CVA6Cfg.AxiBurstWriteEn;
 
@@ -157,7 +165,7 @@ package build_config_pkg;
     cfg.ICACHE_TAG_WIDTH = cfg.PLEN - ICACHE_INDEX_WIDTH;
     cfg.ICACHE_LINE_WIDTH = CVA6Cfg.IcacheLineWidth;
     cfg.ICACHE_USER_LINE_WIDTH = (CVA6Cfg.AxiUserWidth == 1) ? 4 : CVA6Cfg.IcacheLineWidth;
-    cfg.DCacheType = CVA6Cfg.DCacheType;
+    cfg.CacheWritePolicy = CVA6Cfg.CacheWritePolicy;
     cfg.DcacheIdWidth = CVA6Cfg.DcacheIdWidth;
     cfg.DCACHE_SET_ASSOC = CVA6Cfg.DcacheSetAssoc;
     cfg.DCACHE_SET_ASSOC_WIDTH = CVA6Cfg.DcacheSetAssoc > 1 ? $clog2(CVA6Cfg.DcacheSetAssoc) :
@@ -170,12 +178,9 @@ package build_config_pkg;
     cfg.DCACHE_OFFSET_WIDTH = DCACHE_OFFSET_WIDTH;
     cfg.DCACHE_NUM_WORDS = 2 ** (DCACHE_INDEX_WIDTH - DCACHE_OFFSET_WIDTH);
 
-    cfg.DCACHE_MAX_TX = unsigned'(2 ** CVA6Cfg.MemTidWidth);
-
     cfg.DcacheFlushOnFence = CVA6Cfg.DcacheFlushOnFence;
     cfg.DcacheFlushOnFenceI = CVA6Cfg.DcacheFlushOnFenceI;
     cfg.DcacheInvalidateOnFlush = CVA6Cfg.DcacheInvalidateOnFlush;
-
     cfg.DcacheEccEnable = CVA6Cfg.DcacheEccEnable;
     cfg.DcacheEccScrubberEnable = CVA6Cfg.DcacheEccScrubberEnable;
 
@@ -184,11 +189,6 @@ package build_config_pkg;
     cfg.FETCH_USER_WIDTH = CVA6Cfg.FetchUserWidth;
     cfg.FETCH_USER_EN = CVA6Cfg.FetchUserEn;
     cfg.AXI_USER_EN = CVA6Cfg.DataUserEn | CVA6Cfg.FetchUserEn;
-
-    cfg.FETCH_WIDTH = unsigned'(CVA6Cfg.SuperscalarEn ? 64 : 32);
-    cfg.FETCH_ALIGN_BITS = $clog2(cfg.FETCH_WIDTH / 8);
-    cfg.INSTR_PER_FETCH = cfg.FETCH_WIDTH / (CVA6Cfg.RVC ? 16 : 32);
-    cfg.LOG2_INSTR_PER_FETCH = cfg.INSTR_PER_FETCH > 1 ? $clog2(cfg.INSTR_PER_FETCH) : 1;
 
     cfg.ModeW = IS_XLEN32 ? 1 : 4;
     cfg.ASIDW = IS_XLEN32 ? 9 : 16;
@@ -215,6 +215,129 @@ package build_config_pkg;
     cfg.X_DUALREAD = 0;
     cfg.X_DUALWRITE = 0;
     cfg.X_ISSUE_REGISTER_SPLIT = 0;
+
+    cfg.IdWidth = cfg.AxiIdWidth;  //to be changed
+
+    cfg.ObiFetchbusCfg.UseRReady = 1'b1;
+    cfg.ObiFetchbusCfg.CombGnt = 1'b0;
+    cfg.ObiFetchbusCfg.AddrWidth = cfg.PLEN;
+    cfg.ObiFetchbusCfg.DataWidth = cfg.FETCH_WIDTH;
+    cfg.ObiFetchbusCfg.IdWidth = CVA6Cfg.DcacheIdWidth;
+    cfg.ObiFetchbusCfg.Integrity = 1'b0;
+    cfg.ObiFetchbusCfg.BeFull = 1'b1;
+    cfg.ObiFetchbusCfg.OptionalCfg.UseAtop = 1'b1;
+    cfg.ObiFetchbusCfg.OptionalCfg.UseMemtype = 1'b1;
+    cfg.ObiFetchbusCfg.OptionalCfg.UseProt = 1'b1;
+    cfg.ObiFetchbusCfg.OptionalCfg.UseDbg = 1'b1;
+    cfg.ObiFetchbusCfg.OptionalCfg.AUserWidth = 1;
+    cfg.ObiFetchbusCfg.OptionalCfg.WUserWidth = cfg.FETCH_USER_WIDTH;
+    cfg.ObiFetchbusCfg.OptionalCfg.RUserWidth = cfg.FETCH_USER_WIDTH;
+    cfg.ObiFetchbusCfg.OptionalCfg.MidWidth = 1;
+    cfg.ObiFetchbusCfg.OptionalCfg.AChkWidth = 1;
+    cfg.ObiFetchbusCfg.OptionalCfg.RChkWidth = 1;
+
+    cfg.ObiStorebusCfg.UseRReady = 1'b1;
+    cfg.ObiStorebusCfg.CombGnt = 1'b0;
+    cfg.ObiStorebusCfg.AddrWidth = cfg.PLEN;
+    cfg.ObiStorebusCfg.DataWidth = cfg.XLEN;
+    cfg.ObiStorebusCfg.IdWidth = cfg.DcacheIdWidth;
+    cfg.ObiStorebusCfg.Integrity = 1'b0;
+    cfg.ObiStorebusCfg.BeFull = 1'b1;
+    cfg.ObiStorebusCfg.OptionalCfg.UseAtop = 1'b1;
+    cfg.ObiStorebusCfg.OptionalCfg.UseMemtype = 1'b1;
+    cfg.ObiStorebusCfg.OptionalCfg.UseProt = 1'b1;
+    cfg.ObiStorebusCfg.OptionalCfg.UseDbg = 1'b1;
+    cfg.ObiStorebusCfg.OptionalCfg.AUserWidth = 1;
+    cfg.ObiStorebusCfg.OptionalCfg.WUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiStorebusCfg.OptionalCfg.RUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiStorebusCfg.OptionalCfg.MidWidth = 1;
+    cfg.ObiStorebusCfg.OptionalCfg.AChkWidth = 1;
+    cfg.ObiStorebusCfg.OptionalCfg.RChkWidth = 1;
+
+    cfg.ObiAmobusCfg.UseRReady = 1'b1;
+    cfg.ObiAmobusCfg.CombGnt = 1'b0;
+    cfg.ObiAmobusCfg.AddrWidth = cfg.PLEN;
+    cfg.ObiAmobusCfg.DataWidth = cfg.XLEN;
+    cfg.ObiAmobusCfg.IdWidth = cfg.DcacheIdWidth;
+    cfg.ObiAmobusCfg.Integrity = 1'b0;
+    cfg.ObiAmobusCfg.BeFull = 1'b1;
+    cfg.ObiAmobusCfg.OptionalCfg.UseAtop = 1'b1;
+    cfg.ObiAmobusCfg.OptionalCfg.UseMemtype = 1'b1;
+    cfg.ObiAmobusCfg.OptionalCfg.UseProt = 1'b1;
+    cfg.ObiAmobusCfg.OptionalCfg.UseDbg = 1'b1;
+    cfg.ObiAmobusCfg.OptionalCfg.AUserWidth = 1;
+    cfg.ObiAmobusCfg.OptionalCfg.WUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiAmobusCfg.OptionalCfg.RUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiAmobusCfg.OptionalCfg.MidWidth = 1;
+    cfg.ObiAmobusCfg.OptionalCfg.AChkWidth = 1;
+    cfg.ObiAmobusCfg.OptionalCfg.RChkWidth = 1;
+
+    cfg.ObiLoadbusCfg.UseRReady = 1'b1;
+    cfg.ObiLoadbusCfg.CombGnt = 1'b0;
+    cfg.ObiLoadbusCfg.AddrWidth = cfg.PLEN;
+    cfg.ObiLoadbusCfg.DataWidth = cfg.XLEN;
+    cfg.ObiLoadbusCfg.IdWidth = cfg.DcacheIdWidth;
+    cfg.ObiLoadbusCfg.Integrity = 1'b0;
+    cfg.ObiLoadbusCfg.BeFull = 1'b1;
+    cfg.ObiLoadbusCfg.OptionalCfg.UseAtop = 1'b1;
+    cfg.ObiLoadbusCfg.OptionalCfg.UseMemtype = 1'b1;
+    cfg.ObiLoadbusCfg.OptionalCfg.UseProt = 1'b1;
+    cfg.ObiLoadbusCfg.OptionalCfg.UseDbg = 1'b1;
+    cfg.ObiLoadbusCfg.OptionalCfg.AUserWidth = 1;
+    cfg.ObiLoadbusCfg.OptionalCfg.WUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiLoadbusCfg.OptionalCfg.RUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiLoadbusCfg.OptionalCfg.MidWidth = 1;
+    cfg.ObiLoadbusCfg.OptionalCfg.AChkWidth = 1;
+    cfg.ObiLoadbusCfg.OptionalCfg.RChkWidth = 1;
+
+    cfg.ObiMmuPtwbusCfg.UseRReady = 1'b1;
+    cfg.ObiMmuPtwbusCfg.CombGnt = 1'b0;
+    cfg.ObiMmuPtwbusCfg.AddrWidth = cfg.PLEN;
+    cfg.ObiMmuPtwbusCfg.DataWidth = cfg.XLEN;
+    cfg.ObiMmuPtwbusCfg.IdWidth = cfg.DcacheIdWidth;
+    cfg.ObiMmuPtwbusCfg.Integrity = 1'b0;
+    cfg.ObiMmuPtwbusCfg.BeFull = 1'b1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.UseAtop = 1'b1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.UseMemtype = 1'b1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.UseProt = 1'b1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.UseDbg = 1'b1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.AUserWidth = 1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.WUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.RUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.MidWidth = 1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.AChkWidth = 1;
+    cfg.ObiMmuPtwbusCfg.OptionalCfg.RChkWidth = 1;
+
+    cfg.ObiZcmtbusCfg.UseRReady = 1'b1;
+    cfg.ObiZcmtbusCfg.CombGnt = 1'b0;
+    cfg.ObiZcmtbusCfg.AddrWidth = cfg.PLEN;
+    cfg.ObiZcmtbusCfg.DataWidth = cfg.XLEN;
+    cfg.ObiZcmtbusCfg.IdWidth = cfg.IdWidth;
+    cfg.ObiZcmtbusCfg.Integrity = 1'b0;
+    cfg.ObiZcmtbusCfg.BeFull = 1'b1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.UseAtop = 1'b1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.UseMemtype = 1'b1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.UseProt = 1'b1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.UseDbg = 1'b1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.AUserWidth = 1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.WUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiZcmtbusCfg.OptionalCfg.RUserWidth = cfg.DCACHE_USER_WIDTH;
+    cfg.ObiZcmtbusCfg.OptionalCfg.MidWidth = 1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.AChkWidth = 1;
+    cfg.ObiZcmtbusCfg.OptionalCfg.RChkWidth = 1;
+
+    cfg.MemSubsystem = CVA6Cfg.MemSubsystem;
+    cfg.StoreAckOnGrant = (CVA6Cfg.MemSubsystem == config_pkg::MEM_OBI);
+    // Loads take two phases when the MMU registers their address before the
+    // physical phase.
+    cfg.TwoPhaseReq = CVA6Cfg.MmuPresent;
+    cfg.NrStoreInFlight = CVA6Cfg.NrStoreInFlight;
+
+    cfg.DclsEn = CVA6Cfg.DclsEn;
+    cfg.DclsDelay = CVA6Cfg.DclsDelay;
+    cfg.DclsCommonRegfile = CVA6Cfg.DclsCommonRegfile;
+    cfg.DclsCommonBHT = CVA6Cfg.DclsCommonBHT;
+    cfg.DclsCommonModules = CVA6Cfg.DclsCommonBHT | CVA6Cfg.DclsCommonRegfile;
 
     return cfg;
   endfunction

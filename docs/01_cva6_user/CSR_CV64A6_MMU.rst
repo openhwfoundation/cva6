@@ -20,6 +20,6 @@
 
 
 CV64A6_MMU Control Status Registers
-==================================
+===================================
 
 *This chapter is not yet available.*

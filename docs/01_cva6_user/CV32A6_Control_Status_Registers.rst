@@ -1256,7 +1256,7 @@ Physical Memory Protection Address (``pmpaddr[16]``)
 
 
 Instruction Cache (``icache``)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 :Address Offset: 0x700
 :Width (bits): 32

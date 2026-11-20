@@ -56,6 +56,12 @@ Here are some guidelines to help the CVA6 team accept new contributions of major
         - When the contribution is disabled: the line and condition code coverage shall not be impacted.
         - When the contribution is enabled: in relevant cases.
         - You can issue a "do not merge" pull request to test your contribution.
+        - Before you open the pull request, run at least the open-source regression, on every target. It needs no licence and no FPGA board:
+          ```
+          ./cook.py full-regression --open-source -j 16
+          ```
+          It checks the formatting (Verible, Black, Pylint), the lint (slang and Verilator) and the Yosys synthesis of every target, runs hello-world on the Verilator TestHarness, and builds the documentation. The result is in `artifacts/reports/pipeline_report.html`.
+        - If you have the commercial tools (VCS, Spyglass, Design Compiler, Vivado), run the full regression instead: `./cook.py full-regression -j 16`. See [tutorials/developer/ci_checks.md](tutorials/developer/ci_checks.md).
         - RTL code located in `core` directory is formatted with `verible-verilog-format`. See [Verible command to be executed](#verible).
     * Your contribution shall come with its own regression test to integrate in the CI flow.
         - So that we can detect quickly if future updates break your contribution.
@@ -68,6 +74,45 @@ Here are some guidelines to help the CVA6 team accept new contributions of major
         - The reviewer(s) prefer to review several small pull requests rather one large pull request. Synchronize with the team to identify the right breakdown.
 
 If you encounter difficulties with these guidelines, get in touch with the team!
+
+### Copyright and license headers
+
+Although the repository includes a [LICENSE](https://github.com/openhwfoundation/cva6/blob/master/LICENSE) file,
+it is essential to include appropriate copyright and license headers in individual files, as they can be copied and used outside of the repository context.
+
+When contributing, please adhere to these rules:
+- **Add headers**: Include a copyright and license header in all new files, as well as in updated files that currently lack one.
+- **Do not alter licenses**: Never change an existing license (for instance, changing Solderpad 0.51 to another license).
+- **Preserve copyright history**: Do not remove or replace existing copyright owners. 
+- You may add additional copyright owners (typically your company or university) when you contribute significant changes, such as a major feature or a substantial performance increase.
+- In the copyright line, specify the year when the copyright was added with the `20xx` format. Do not update this year for subsequent modifications.
+
+Note: The copyright owner of your work is legally your employer or university in most contexts.
+
+Here is a Solderpad 0.51 file header, wrapped to 100 characters according to lowRISC SystemVerilog coding style:
+
+```
+// Copyright [year] [name of copyright owner]
+//
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// Copyright and related rights are licensed under the Solderpad Hardware License, Version 0.51
+// (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://solderpad.org/licenses/SHL-0.51.
+// Unless required by applicable law or agreed to in writing, software, hardware and materials
+// distributed under this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language
+// governing permissions and limitations under the License.
+//
+// Contributors:
+//   [name of the author], [their organisation] - Original Author
+```
+
+For files governed by other licenses, you should refer to the headers recommended by the respective license promoters. Ensure that an `SPDX-License-Identifier` is included for automated parsers.
+
+Detailed information about intellectual property and headers can be found in the [Eclipse Foundation Project Handbook](https://www.eclipse.org/projects/handbook/#ip-copyright-headers).
+
+If you have questions about licenses and headers, get in touch with the project team!
 
 ### Bug fixing
 
@@ -137,10 +182,16 @@ autocmd Filetype gitcommit setlocal spell textwidth=72s
 
 ## Verible
 
-To format RTL files checked by GitHub , use the following command:
+To format the RTL files of a target, use the following command:
 
 ```
-verible-verilog-format --inplace $(git ls-tree -r HEAD --name-only core |grep '\.sv$' |grep -v '^core/include/std_cache_pkg.sv$' |grep -v cvfpu)
+./cook.py verible-rtl-formating -t <target>
+```
+
+The GitHub CI checks all the SystemVerilog files under `core/` except the generated configuration packages:
+
+```
+verible-verilog-format --inplace $(git ls-tree -r HEAD --name-only core |grep '\.sv$' |grep -v '^core/include/.*_config_pkg\.sv$')
 ```
 
 The Verible version currently used in the GitHub CI worflow can be found in [`.github/workflows/verible.yml`](.github/workflows/verible.yml).

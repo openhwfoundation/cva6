@@ -1,0 +1,100 @@
+# Copyright 2026 OpenHW Foundation
+# SPDX-License-Identifier: Apache-2.0
+name: Cook Verilator TestHarness smoke
+on:
+  # Manual runs require this workflow to exist on the repository's default branch.
+  workflow_dispatch: {}
+  push:
+    branches: [master_candidate]
+  pull_request:
+    branches: [master_candidate]
+permissions:
+  contents: read
+concurrency:
+  group: cook-testharness-smoke-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  NUM_JOBS: '2'
+  NO_COLOR: '1'
+  TERM: dumb
+jobs:
+  hello:
+    name: profile_perf32_axi / two Hello tests / RTL-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Record source
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          mkdir -p ci-results
+          git rev-parse HEAD > ci-results/source-revision.txt
+          git submodule status --recursive > ci-results/submodules.txt
+          printf '%s\n' "$HEAD_SHA" > ci-results/event-head.txt
+          printf '%s\n' "$BASE_SHA" > ci-results/event-base.txt
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install Cook dependencies
+        run: |
+          python3 -m pip install -c .github/cook/constraints.txt -r flows/requirements.txt
+          python3 -m pip freeze > ci-results/python-packages.txt
+      - name: Prepare verification dependencies and submodule patches
+        id: dependencies
+        run: |
+          set -o pipefail
+          # Use the repository dependency configuration, not the generated
+          # compiler-only CONFIG_DIR used by the Hello tests below.
+          env -u CONFIG_DIR python3 cook.py git-dependencies 2>&1 | tee ci-results/prepare-dependencies.log
+      - name: Prepare tools
+        id: tools
+        uses: ./.github/cook/setup
+        with:
+          verilator-version: '5.050'
+      - name: Compile, run and validate both Hello tests
+        id: smoke
+        env:
+          CONFIG_DIR: ${{ github.workspace }}/ci-results/cook-config
+        run: |
+          python3 .github/cook/prepare_toolchains.py --output-dir "$CONFIG_DIR"
+          python3 .github/cook/run_smoke.py
+      - name: Job result
+        if: always()
+        env:
+          DEPENDENCY_RESULT: ${{ steps.dependencies.outcome }}
+          TOOL_RESULT: ${{ steps.tools.outcome }}
+          SMOKE_RESULT: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo '## Cook smoke stages'
+            echo '| Stage | Outcome |'
+            echo '| --- | --- |'
+            printf '| Verification dependencies and submodule patches | %s |\n' "$DEPENDENCY_RESULT"
+            printf '| Tool preparation | %s |\n' "$TOOL_RESULT"
+            printf '| Actual compilation, simulation and evidence checks | %s |\n' "$SMOKE_RESULT"
+            echo ''
+            echo 'Only a successful smoke stage establishes the two-Hello result. Skipped stages are not passes.'
+            echo 'RTL-only, profile_perf32_axi, notrace. No ISS/tandem or full ISA regression.'
+            echo 'Download cook-testharness-smoke-profile_perf32_axi from this run for commands and logs.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload available evidence, including on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cook-testharness-smoke-profile_perf32_axi
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ci-results/
+            build/git_dependencies/
+            build/profile_perf32_axi/compile/hello-original_0/
+            build/profile_perf32_axi/compile/hello-uart_0/
+            build/profile_perf32_axi/simulation/
+            build/profile_perf32_axi/elab/sim_rtl_verilator_testharness/compilation.*
+            build/profile_perf32_axi/elab/sim_rtl_verilator_testharness/cook_manifest.yml
+            build/profile_perf32_axi/elab/sim_rtl_verilator_testharness/verilator.version

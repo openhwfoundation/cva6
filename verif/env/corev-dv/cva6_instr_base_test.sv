@@ -50,21 +50,21 @@ class cva6_instr_base_test_c extends riscv_instr_base_test;
     `uvm_info("CVA6_DV", $sformatf("Overriding ..."), UVM_LOW)
     uvm_factory::get().set_type_override_by_type(riscv_instr_gen_config::get_type(),
                                                  cva6_instr_gen_config_c::get_type());
-    `uvm_info("CVA6_DV", $sformatf("Overrid done "), UVM_LOW)
+    `uvm_info("CVA6_DV", $sformatf("Override done "), UVM_LOW)
   endfunction
 
   virtual function void override_illegal_instr();
     `uvm_info("CVA6_DV", $sformatf("Overriding ..."), UVM_LOW)
     uvm_factory::get().set_type_override_by_type(riscv_illegal_instr::get_type(),
                                                  cva6_illegal_instr_c::get_type());
-    `uvm_info("CVA6_DV", $sformatf("Overrid done "), UVM_LOW)
+    `uvm_info("CVA6_DV", $sformatf("Override done "), UVM_LOW)
   endfunction
 
   virtual function void override_sequence_instr();
     `uvm_info("CVA6_DV", $sformatf("Overriding ..."), UVM_LOW)
     uvm_factory::get().set_type_override_by_type(riscv_instr_sequence::get_type(),
                                                  cva6_instr_sequence_c::get_type());
-    `uvm_info("CVA6_DV", $sformatf("Overrid done "), UVM_LOW)
+    `uvm_info("CVA6_DV", $sformatf("Override done "), UVM_LOW)
   endfunction
 
 endclass : cva6_instr_base_test_c

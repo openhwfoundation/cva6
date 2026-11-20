@@ -1,0 +1,22 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv64_svnapot.yaml
+#
+#   Svnapot tests, for the cv64 targets with SvnapotEn set.
+# ------------------------------------------------------------------------------
+
+sv39_test_config: &sv39_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/custom/env"
+
+testlist:
+  - test: vm_svnapot_64k
+    iterations: 1
+    <<: *sv39_test_config
+    asm_tests: <path_var>/custom/sv39/vm_svnapot_64k.S

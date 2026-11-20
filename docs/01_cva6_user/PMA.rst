@@ -39,6 +39,26 @@ supports three main access properties:
 - Cacheable regions (Main memory): Regions marked as cacheable will be
   considered as data and instruction regions. This will allow the core to fetch,
   load, and store data from that region.
+- Bufferable regions: the bufferable attribute of the memory interface (OBI
+  ``memtype[0]``, AXI ``AxCACHE[0]``). With the cacheable attribute, it gives
+  the memory type of an access:
+
+  ========= ========== ===================================================
+  cacheable bufferable memory type
+  ========= ========== ===================================================
+  no        no         non-cacheable, writes acknowledged by their destination
+  no        yes        non-cacheable, writes may be acknowledged before
+                       they reach their destination
+  yes       no         write-through
+  yes       yes        write-back
+  ========= ========== ===================================================
+
+  A data cache with both write policies (``CacheWritePolicy`` =
+  ``CACHE_WT_WB``) writes back in the cacheable bufferable regions and writes
+  through in the other cacheable regions. A data cache that only writes back
+  (``CACHE_WB``) requires every cacheable region to be bufferable; a data cache
+  that only writes through (``CACHE_WT``) writes through in every cacheable
+  region and reports the attribute of the region on the memory interface.
 
 The regions are instantiation-time parameters, they can not be changed during
 runtime. CVA6 uses the following fields in the ``cva6_cfg_t`` configuration
@@ -53,6 +73,9 @@ structure to describe the PMA regions statically:
 - ``CVA6Cfg.NrCachedRegionRules``: Number of active cacheable regions.
    - ``CVA6Cfg.CachedRegionAddrBase``: Base address of the cacheable region.
    - ``CVA6Cfg.CachedRegionLength``: Length of the cacheable region.
+- ``CVA6Cfg.NrBufferableRegionRules``: Number of active bufferable regions.
+   - ``CVA6Cfg.BufferableRegionAddrBase``: Base address of the bufferable region.
+   - ``CVA6Cfg.BufferableRegionLength``: Length of the bufferable region.
 
 Unsupported PMAs
 ----------------

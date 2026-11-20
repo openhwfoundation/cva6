@@ -1,5 +1,8 @@
-.globl _start
-_start:
+#include "riscv_test.h"
+
+RVTEST_RV32M
+RVTEST_CODE_BEGIN
+
 	la t0, trap_handler
 	csrw mtvec, t0
     la t0, __jvt_base$
@@ -8,44 +11,43 @@ _start:
     fence.i    
     csrr x7, jvt
 
-    j exit
+    j success
 
-exit:
-    j write_tohost
-
-write_tohost:
-   li   x1, 1
-   la   t0, tohost
-   sw   x1, 0(t0)
-   j    write_tohost
-
-
-
-# Jump Vector Table (JVT) Section
-# Create a separate section for the JVT
-.section .riscv.jvt, "ax" 
-.align 6                    # Align the JVT on a 64-byte boundary (6 = 2^6 = 64)
-__jvt_base$:
-     .word 0x80000054
-     .word 0x80000800
-     .word 0x80000802
-     .word 0x80000804
-
-# Target Addresses (Where cm.jt will jump)
-target0:
-    j write_tohost   
-target1:
-     addi x6,x0, 7
-     j write_tohost
-
-target2:
-    addi x2,x20, 5
-    j write_tohost                 
-                  
 
 trap_handler:
-	j exit
+    la     t0, failure             # Load address of 'failure' (PC-relative, RV32/RV64 safe)
+    jalr   x0, 0(t0)
+
+// jump to this label to signal that the test failed
+failure:
+    li x1, 1
+	slli x1, x1, 1
+	addi x1, x1, 1
+	sw x1, tohost, t5
+	self_loop_2: j self_loop_2
+
+// jump to this label to signal that the test passed
+success:
+    li x1, 0
+	slli x1, x1, 1
+	addi x1, x1, 1
+	sw x1, tohost, t5
+	self_loop: j self_loop
+
+RVTEST_CODE_END
+
+.data
+
+RVTEST_DATA_BEGIN
+
+// Jump Vector Table (JVT) Section
+.section .riscv.jvt, "ax"
+.align 6
+__jvt_base$:
+    .word 0x80000054
+    .word 0x80000800
+    .word 0x80000802
+    .word 0x80000804
 
 
-.align 6;   .global tohost;   tohost:   .dword 0;
-.align 6;   .global fromhost; fromhost: .dword 0;
+RVTEST_DATA_END

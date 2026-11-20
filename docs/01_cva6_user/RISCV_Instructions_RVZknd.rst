@@ -35,14 +35,14 @@
    "CV32A60AX", "Implemented extension"
    "CV64A6_MMU", "Implemented extension"
 
-=============================
+==================================
 RVZknd: NIST Suite: AES Decryption
-=============================
+==================================
 
 The following instructions comprise the Zknd extension:
 
 Decryption instructions
---------------------
+-----------------------
 The Decryption instructions (Zknd) provide support and acceleration for AES decryption and key expansion.
 
 +-----------+-----------+----------------------------+

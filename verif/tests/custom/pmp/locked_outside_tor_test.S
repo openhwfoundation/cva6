@@ -8,6 +8,15 @@
 #   locked_outside_tor_test.S (TST16-26, TST16-36)
 # ------------------------------------------------------------------------------
 
+# A 32 bit load sign extends on RV64, so reading back a word whose bit 31 is set
+# does not compare equal to the value stored by li. Use the zero extending form
+# there so the check tests the memory access, not the sign extension.
+#if __riscv_xlen == 64
+#define LW_UNSIGNED lwu
+#else
+#define LW_UNSIGNED lw
+#endif
+
     .text
     .globl main
 main:
@@ -33,6 +42,16 @@ main:
     csrw pmpaddr4, t0
 
     # Configure the TOR areas with LOCK ON.
+    # Entries 0-3 in cfg0, entry 4 next to them.
+    # A pmpcfg register holds 4 entries on RV32 and 8 on RV64, so entry 4 lands
+    # in pmpcfg1 there but in the upper half of pmpcfg0 here. The odd pmpcfg
+    # registers do not exist on RV64.
+#if __riscv_xlen == 64
+    li t0, 0x0000008f888c888c
+    csrw pmpcfg0, t0
+    csrr t1, pmpcfg0
+    bne t0, t1, fail
+#else
     li t0, 0x888c888c
     csrw pmpcfg0, t0
     csrr t1, pmpcfg0
@@ -41,12 +60,13 @@ main:
     csrw pmpcfg1, t0
     csrr t1, pmpcfg1
     bne t0, t1, fail
+#endif
 
     # Check a memory access succeeds when outside the LOCKED entry.
     li t1, 0xB8000000
     li t2, 0xC0D1F1ED
     sw t2, 0(t1)
-    lw t3, 0(t1)
+    LW_UNSIGNED t3, 0(t1)
     bne t2, t3, fail
 
 

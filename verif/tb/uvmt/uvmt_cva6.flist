@@ -33,6 +33,17 @@
 -f ${DV_UVMC_RVFI_SCOREBOARD_PATH}/uvmc_rvfi_scoreboard_pkg.flist
 -f ${CVA6_UVME_PATH}/uvma_interrupt/uvma_interrupt_pkg.flist
 
++define+UVMA_OBI_MEMORY_AUSER_DEFAULT_WIDTH=64 // Width of the auser signal.
++define+UVMA_OBI_MEMORY_WUSER_DEFAULT_WIDTH=64 // Width of the wuser signal.
++define+UVMA_OBI_MEMORY_RUSER_DEFAULT_WIDTH=64 // Width of the ruser signal.
++define+UVMA_OBI_MEMORY_ADDR_DEFAULT_WIDTH=32  // Width of the addr signal.
++define+UVMA_OBI_MEMORY_DATA_DEFAULT_WIDTH=64  // Width of the rdata and wdata signals. be width is DATA_WIDTH / 8. Valid DATA_WIDTH settings are 32 and 64.
++define+UVMA_OBI_MEMORY_ID_DEFAULT_WIDTH=10    // Width of the aid and rid signals.
++define+UVMA_OBI_MEMORY_ACHK_DEFAULT_WIDTH=10  // Width of the achk signal.
++define+UVMA_OBI_MEMORY_RCHK_DEFAULT_WIDTH=10  // Width of the rchk signal.
+
+-f ${DV_UVMA_OBI_MEMORY_PATH}/src/uvma_obi_memory_pkg.flist
+
 // Environments
 -f ${CVA6_UVME_PATH}/uvme_cva6_pkg.flist
 

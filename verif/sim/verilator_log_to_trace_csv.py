@@ -30,7 +30,7 @@ from lib import *
 
 RD_RE    = re.compile(r"(?P<pri>\d) 0x(?P<addr>[a-f0-9]+?) " \
                       "\((?P<bin>.*?)\) (?P<reg>[xf]\s*\d*?) 0x(?P<val>[a-f0-9]+)")
-CORE_RE  = re.compile(r"core.*0x(?P<addr>[a-f0-9]+?) \(0x(?P<bin>.*?)\) (?P<instr>.*?)$")
+CORE_RE  = re.compile(r"^\s*(?P<cycle>\d+)\s*\|\s*core.*0x(?P<addr>[a-f0-9]+?) \(0x(?P<bin>.*?)\) (?P<instr>.*?)$")
 ILLE_RE  = re.compile(r"trap_illegal_instruction")
 
 LOGGER = logging.getLogger()
@@ -114,9 +114,9 @@ def read_verilator_trace(path, full_trace):
   # true. Otherwise, we are in state EFFECT if instr is not None, otherwise we
   # are in state INSTR.
 
-  end_trampoline_re = re.compile(r'core.*: 0x0000000080000000 ')
-  start_debug_it_re = re.compile(r'core.*: 0x0000000000000800 ')
-  stop_debug_it_re  = re.compile(r'core.*: 0x0000000000000890 ')
+  end_trampoline_re = re.compile(r'^\s*(?P<cycle>\d+)\s*\|\s*core.*: 0x0000000080000000 ')
+  start_debug_it_re = re.compile(r'^\s*(?P<cycle>\d+)\s*\|\s*core.*: 0x0000000000000800 ')
+  stop_debug_it_re  = re.compile(r'^\s*(?P<cycle>\d+)\s*\|\s*core.*: 0x0000000000000890 ')
 
   in_trampoline = True
   in_debug = False

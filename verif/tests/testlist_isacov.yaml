@@ -28,7 +28,7 @@
 
 common_test_config: &common_test_config
   path_var: TESTS_PATH
-  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common -lgcc"
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
 
 testlist:
   - test: branch_test
@@ -43,7 +43,7 @@ testlist:
 
   - test: load_store_test
     <<: *common_test_config
-    iterations: 0
+    iterations: 1
     asm_tests: <path_var>/custom/isacov/load_store_test.S
 
   - test: seq_test

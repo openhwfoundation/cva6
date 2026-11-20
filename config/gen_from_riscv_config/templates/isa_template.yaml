@@ -32,7 +32,7 @@ RV32Zcb Code Size Reduction Instructions:
       Exception_Raised: NONE
      C.ZEXT.H:
       Format: c.zext.h rd'
-      Description: > 
+      Description: >
         This instruction takes a single source/destination operand. It
         zero-extends the least-significant halfword of the operand by inserting
         zeros into all of the bits more significant than 15. It also requires
@@ -90,7 +90,7 @@ RV32Zcb Code Size Reduction Instructions:
         (2-byte boundary).
      C.LBU:
       Format: c.lbu rd', uimm(rs1')
-      Description: > 
+      Description: >
         This instruction loads a byte from the memory address formed by
         adding rs1' to the zero extended immediate uimm. The resulting byte is
         zero extended and is written to rd'.
@@ -462,7 +462,7 @@ RV32C Compressed Instructions:
           (4-byte boundary).
 RV32M Multiplication and Division Instructions:
   Description: >
-    the standard integer multiplication and division instruction
+    The standard integer multiplication and division instruction
     extension, which is named “M” and contains instructions that multiply or
     divide values held in two integer registers.
   Subset_Name: M
@@ -530,7 +530,7 @@ RV32M Multiplication and Division Instructions:
         Exception_Raised: NONE
 RV32Zicond Integer Conditional Instructions:
   Description: >
-    The instructions follow the format for R-type instructions with 3 operands (i.e., 2 source operands and 1 destination operand). 
+    The instructions follow the format for R-type instructions with 3 operands (i.e., 2 source operands and 1 destination operand).
     Using these instructions, branchless sequences can be implemented (typically in two-instruction sequences) without the need for instruction fusion,
     special provisions during the decoding of architectural instructions, or other microarchitectural provisions
   Subset_Name: Zicond
@@ -548,7 +548,7 @@ RV32Zicond Integer Conditional Instructions:
         Exception_Raised: NONE
       CZERO.NEZ:
         Format: czero.nez rd, rs1, rs2
-        Description: > 
+        Description: >
           This instruction behaves as if there is a conditional branch
           dependent on rs2 being not equal to zero, wherein it branches to code
           that writes a 0 into rd when the equivalence is true, and otherwise
@@ -595,7 +595,7 @@ RV32Zicsr Control and Status Register Instructions:
           instruction exceptions on accesses to read-only CSRs.
         Pseudocode: t = CSRs[csr]; CSRs[csr] = t | x[rs1]; x[rd] = t
         Invalid_Values: NONE
-        Exception_Raised: > 
+        Exception_Raised: >
           Attempts to access a non-existent CSR raise an illegal
           instruction exception. Attempts to access a CSR without appropriate
           privilege level or to write a read-only register also raise illegal
@@ -908,7 +908,7 @@ RVZbs Single bit Instructions:
       Invalid_Values: NONE
       Exception_Raised: NONE
 RVZbc Carry-less multiplication:
-  Description : | 
+  Description : |
     Carry-less multiplication is the multiplication in the polynomial ring over GF(2).
     clmul produces the lower half of the carry-less product and clmulh produces the upper half of the 2✕XLEN carry-less product.
     clmulr produces bits 2✕XLEN−2:XLEN-1 of the 2✕XLEN carry-less product.
@@ -1011,8 +1011,8 @@ RVZba Address generation instructions:
         Exception_Raised: NONE
 RV32I Base Integer Instructions:
  Description : |
-   the base integer instruction set, also known as the 'RV32I' or 'RV64I' instruction set , depending on the address space size, provides the core functionality required for general-purpose computing .
-   it includes instructions for arithmetic, logical, and control operations, as well as memory access
+   The base integer instruction set, also known as the 'RV32I' or 'RV64I' instruction set, depending on the address space size, provides the core functionality required for general-purpose computing.
+   It includes instructions for arithmetic, logical, and control operations, as well as memory access
    and manipulation
  Subset_Name : I
  Instructions :
@@ -1262,18 +1262,13 @@ RV32I Base Integer Instructions:
       Description: "cause control to be transferred back to a debugging environment."
       Pseudocode: "RaiseException(Breakpoint)"
       Invalid_Values: "NONE"
-      Exception_Raised: "Raise a Breakpoint exception.rmat: c.sext.b rd"
-      Description: >
-        This instruction takes a single source/destination operand. It sign-extends the least-significant byte in the operand by copying the most-significant bit in the byte (i.e., bit 7) to all of the more-significant bits. It also requires Bit-Manipulation (Zbb) extension support.
-      Pseudocode: x[8 + rd'] = sext(x[8 + rd'][7:0])
-      Invalid_Values: NONE
-      Exception_Raised: NONE
+      Exception_Raised: Raise a Breakpoint exception.
 RVZbb Basic bit-manipulation:
  Description : |
-    The bit-manipulation (bitmanip) extension collection is comprised of several component extensions to the base RISC-V architecture that are intended to provide some combination of code size reduction, performance improvement, and energy reduction. 
+    The bit-manipulation (bitmanip) extension collection is comprised of several component extensions to the base RISC-V architecture that are intended to provide some combination of code size reduction, performance improvement, and energy reduction.
     While the instructions are intended to have general use, some instructions are more useful in some domains than others. Hence, several smaller bitmanip extensions are provided. Each of these smaller extensions is grouped by common function and use case, and each has its own Zb*-extension name.
- Subset_Name : Zbb 
- Instructions :  
+ Subset_Name : Zbb
+ Instructions :
   Logical_with_negate:
     ANDN:
         Format: andn rd, rs1, rs2
@@ -1287,7 +1282,7 @@ RVZbb Basic bit-manipulation:
         Pseudocode: X(rd) = X(rs1) | ~X(rs2)
         Invalid_Values: NONE
         Exception_Raised: NONE
-    XNOR: 
+    XNOR:
         Format: xnor rd, rs1, rs2
         Description: Performs bitwise XOR operation between rs1 and rs2, then complements the result.
         Pseudocode: X(rd) = ~(X(rs1) ^ X(rs2))
@@ -1306,13 +1301,13 @@ RVZbb Basic bit-manipulation:
         Pseudocode: if [x[i]] == 1 then return(i) else return xlen;
         Invalid_Values: NONE
         Exception_Raised: NONE
-    CLZW: 
+    CLZW:
         Format: clzw rd, rs
         Description: Counts leading zero bits in the least-significant word of rs.
         Pseudocode: if [x[i]] == 1 then return(i) else return -1
         Invalid_Values: NONE
         Exception_Raised: NONE
-    CTZW: 
+    CTZW:
         Format: ctzw rd, rs
         Description: Counts trailing zero bits in the least-significant word of rs.
         Pseudocode: if [x[i]] == 1 then return(i) else return 32;
@@ -1395,7 +1390,7 @@ RVZbb Basic bit-manipulation:
         Pseudocode: (X(rs1) >> log2(XLEN)) | (X(rs1) << (xlen - log2(XLEN)))
         Invalid_Values: NONE
         Exception_Raised: NONE
-        
+
     ROLW:
         Format: rolw rd, rs1, rs2
         Description: Performs a rotate left on the least-significant word of rs1 by the amount in least-significant 5 bits of rs2.

@@ -1,0 +1,16 @@
+#   Copyright (c) 2024 OpenHW Group
+#   Copyright (c) 2025 Thales DIS France SAS
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#   Author: Abdessamii Oukalrazqou
+
+
+ # Enable and disable extension
+Zicond : False
+
+Zcb : True
+
+Zcmp : False
+
+Zbb : False
+
+

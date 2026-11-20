@@ -25,8 +25,6 @@
  *  History      :
  */
 module cva6_hpdcache_subsystem_l15_adapter
-  import ariane_pkg::*;
-  import wt_cache_pkg::*;
   import hpdcache_pkg::*;
 //  Parameters
 //  {{{
@@ -42,12 +40,11 @@ module cva6_hpdcache_subsystem_l15_adapter
     // Cache parameters
     parameter int HPDcacheMemDataWidth = 128,  //L1D cacheline
     parameter int L15BusWidth = 128,
-
-    // L1 cache types
-    parameter type icache_req_t   = logic,
-    parameter type icache_rtrn_t  = logic,
-    parameter type dcache_req_i_t = logic,
-    parameter type dcache_req_o_t = logic,
+    //  Width of the memory interface of the HPICache (a refill takes
+    //  ICACHE_LINE_WIDTH / HPIcacheMemDataWidth beats)
+    parameter int HPIcacheMemDataWidth = 128,
+    //  Cache-line offset width of the HPICache (to build invalidation nlines)
+    parameter int HPIcacheClOffsetWidth = 4,
 
     //L1.5 cache types
     parameter type l15_req_t  = logic,
@@ -60,7 +57,8 @@ module cva6_hpdcache_subsystem_l15_adapter
     parameter type hpdcache_mem_id_t = logic,
     parameter type hpdcache_mem_addr_t = logic,
     parameter type req_portid_t = logic,
-    parameter type hpdcache_nline_t = logic
+    parameter type hpdcache_nline_t = logic,
+    parameter type hpicache_nline_t = logic
 )
 //  }}}
 
@@ -70,14 +68,18 @@ module cva6_hpdcache_subsystem_l15_adapter
     input logic clk_i,
     input logic rst_ni,
 
-    //  Interfaces from/to I$
+    //  Interfaces from/to I$ (memory interface of the HPICache)
     //  {{{
-    input  logic        icache_miss_valid_i,
-    output logic        icache_miss_ready_o,
-    input  icache_req_t icache_miss_i,
+    input  logic              icache_miss_valid_i,
+    output logic              icache_miss_ready_o,
+    input  hpdcache_mem_req_t icache_miss_i,
 
-    output logic         icache_miss_resp_valid_o,
-    output icache_rtrn_t icache_miss_resp_o,
+    input  logic                 icache_miss_resp_ready_i,
+    output logic                 icache_miss_resp_valid_o,
+    output hpdcache_mem_resp_r_t icache_miss_resp_o,
+
+    output logic            icache_inval_valid_o,
+    output hpicache_nline_t icache_inval_o,
     //  }}}
 
     //  Interfaces from/to D$
@@ -116,7 +118,6 @@ module cva6_hpdcache_subsystem_l15_adapter
 
   // Internal types of the adapter
   // {{{
-  typedef logic [CVA6Cfg.ICACHE_LINE_WIDTH-1:0] icache_resp_data_t;
   typedef logic [L15BusWidth-1:0] l15_resp_data_t;
 
   //Unified structure for r and w responses
@@ -133,30 +134,25 @@ module cva6_hpdcache_subsystem_l15_adapter
   } hpdcache_mem_resp_t;
   //  }}}
 
-  //  Adapt the I$ interface to the HPDcache memory interface
+  //  Adapt the I$ (HPICache) memory interface to the L1.5
   //  {{{
-  localparam int ICACHE_CL_WORDS = CVA6Cfg.ICACHE_LINE_WIDTH / 64;
-  localparam int ICACHE_CL_WORD_INDEX = $clog2(ICACHE_CL_WORDS);
-  localparam int ICACHE_CL_SIZE = $clog2(CVA6Cfg.ICACHE_LINE_WIDTH / 8);
-  localparam int ICACHE_WORD_SIZE = $clog2(CVA6Cfg.XLEN / 8);
-  localparam int ICACHE_MEM_REQ_CL_LEN  = (CVA6Cfg.ICACHE_LINE_WIDTH + HPDcacheMemDataWidth - 1)/HPDcacheMemDataWidth;
-  localparam int ICACHE_MEM_REQ_CL_SIZE = (HPDcacheMemDataWidth <= CVA6Cfg.ICACHE_LINE_WIDTH) ? $clog2(
-      HPDcacheMemDataWidth / 8
-  ) : ICACHE_CL_SIZE;
+  //  The L1.5 returns a whole I$ line in one response, the HPICache expects
+  //  ICACHE_LINE_WIDTH / HPIcacheMemDataWidth beats: the response is held in
+  //  a one-entry buffer and sent beat by beat. An uncached fetch (memory ID
+  //  all ones, as in the HPDcache) gets the single beat holding its word.
+  localparam int ICACHE_BEATS = CVA6Cfg.ICACHE_LINE_WIDTH / HPIcacheMemDataWidth;
+  localparam int ICACHE_BEAT_W = (ICACHE_BEATS > 1) ? $clog2(ICACHE_BEATS) : 1;
+  localparam int ICACHE_BEAT_OFFSET = $clog2(HPIcacheMemDataWidth / 8);
+
+  typedef logic [ICACHE_BEAT_W-1:0] icache_beat_t;
 
   //    I$ request
   //    {{{
-  hpdcache_mem_req_t icache_miss_req_wdata;
-  logic icache_miss_req_w, icache_miss_req_wok;
-
   hpdcache_mem_req_t icache_miss_req_rdata;
+  logic icache_miss_req_wok;
   logic icache_miss_req_r, icache_miss_req_rok;
 
-  //  This FIFO has two functionnalities:
-  //  -  Stabilize the ready-valid protocol. The ICACHE can abort a valid
-  //     transaction without receiving the corresponding ready signal. This
-  //     behavior is not supported by AXI.
-  //  -  Cut a possible long timing path.
+  //  This FIFO cuts a possible long timing path between the I$ and the L1.5
   hpdcache_fifo_reg #(
       .FIFO_DEPTH (1),
       .fifo_data_t(hpdcache_mem_req_t)
@@ -164,59 +160,91 @@ module cva6_hpdcache_subsystem_l15_adapter
       .clk_i,
       .rst_ni,
 
-      .w_i    (icache_miss_req_w),
+      .w_i    (icache_miss_valid_i),
       .wok_o  (icache_miss_req_wok),
-      .wdata_i(icache_miss_req_wdata),
+      .wdata_i(icache_miss_i),
 
       .r_i    (icache_miss_req_r),
       .rok_o  (icache_miss_req_rok),
       .rdata_o(icache_miss_req_rdata)
   );
 
-  assign icache_miss_req_w = icache_miss_valid_i, icache_miss_ready_o = icache_miss_req_wok;
+  assign icache_miss_ready_o = icache_miss_req_wok;
 
-  assign icache_miss_req_wdata.mem_req_addr = icache_miss_i.paddr,
-      icache_miss_req_wdata.mem_req_len = '0,
-      icache_miss_req_wdata.mem_req_size      = icache_miss_i.nc ? ICACHE_WORD_SIZE : ICACHE_MEM_REQ_CL_SIZE,
-      icache_miss_req_wdata.mem_req_id = icache_miss_i.tid,
-      icache_miss_req_wdata.mem_req_command = hpdcache_pkg::HPDCACHE_MEM_READ,
-      icache_miss_req_wdata.mem_req_atomic = hpdcache_pkg::hpdcache_mem_atomic_e'(0),
-      icache_miss_req_wdata.mem_req_cacheable = ~icache_miss_i.nc;
+  //  Beat of the line that holds the word of the pending uncached fetch (the
+  //  HPICache has at most one uncached fetch in flight)
+  icache_beat_t icache_uc_beat_q;
+
+  if (ICACHE_BEATS > 1) begin : gen_icache_uc_beat
+    always_ff @(posedge clk_i or negedge rst_ni) begin : icache_uc_beat_ff
+      if (!rst_ni) begin
+        icache_uc_beat_q <= '0;
+      end else if (icache_miss_valid_i && icache_miss_req_wok && !icache_miss_i.mem_req_cacheable) begin
+        icache_uc_beat_q <= icache_miss_i.mem_req_addr[ICACHE_BEAT_OFFSET+:ICACHE_BEAT_W];
+      end
+    end
+  end else begin : gen_no_icache_uc_beat
+    assign icache_uc_beat_q = '0;
+  end
   //    }}}
-
 
   //    I$ response
   //    {{{
   logic icache_miss_resp_w, icache_miss_resp_wok;
   hpdcache_mem_resp_t icache_miss_resp_wdata;
+  logic icache_miss_resp_is_inval;
 
-  logic icache_miss_resp_data_w, icache_miss_resp_data_wok;
-  logic              icache_miss_resp_data_r;
-  icache_resp_data_t icache_miss_resp_data_rdata;
+  //  Response buffer
+  logic [ICACHE_BEATS-1:0][HPIcacheMemDataWidth-1:0] icache_rsp_data_q;
+  hpdcache_mem_id_t icache_rsp_id_q;
+  hpdcache_mem_error_e icache_rsp_error_q;
+  logic icache_rsp_valid_q, icache_rsp_uc_q;
+  icache_beat_t icache_rsp_beat_q;
+  logic icache_rsp_last;
+  logic icache_rsp_w, icache_rsp_r;
 
-  logic icache_miss_resp_meta_w, icache_miss_resp_meta_wok;
-  logic icache_miss_resp_meta_r, icache_miss_resp_meta_rok;
-  hpdcache_mem_id_t                    icache_miss_resp_meta_id;
-  logic             [CVA6Cfg.PLEN-1:0] icache_miss_resp_inval_address;
+  assign icache_miss_resp_is_inval = icache_miss_resp_wdata.mem_inval_icache_valid;
 
-  //Translate the request from HPDC format to ariane's format
-  assign icache_miss_resp_valid_o = icache_miss_resp_meta_rok,
-      icache_miss_resp_o.rtype = (icache_miss_resp_wdata.mem_inval_icache_valid) ?  wt_cache_pkg::ICACHE_INV_REQ : wt_cache_pkg::ICACHE_IFILL_ACK,
-      icache_miss_resp_o.data = icache_miss_resp_data_rdata,
-      icache_miss_resp_o.user = '0,
-      icache_miss_resp_o.inv.idx = {
-        icache_miss_resp_inval_address[CVA6Cfg.ICACHE_INDEX_WIDTH-1:4], 4'b0000
-      },
-      icache_miss_resp_o.inv.all = icache_miss_resp_wdata.mem_inval_icache_valid,
-      icache_miss_resp_o.inv.way = '0,
-      icache_miss_resp_o.inv.vld = '0,
-      icache_miss_resp_o.tid = icache_miss_resp_meta_id;
+  //  A refill is buffered when the buffer is empty; an invalidation goes
+  //  straight to the I$, after the buffered refill if any
+  assign icache_rsp_w = icache_miss_resp_w & ~icache_miss_resp_is_inval & ~icache_rsp_valid_q;
+  assign icache_rsp_last = icache_rsp_uc_q | (icache_rsp_beat_q == icache_beat_t'(ICACHE_BEATS - 1));
+  assign icache_rsp_r = icache_rsp_valid_q & icache_miss_resp_ready_i;
 
-  assign icache_miss_resp_meta_rok = icache_miss_resp_w,
-      icache_miss_resp_wok = 1'b1,
-      icache_miss_resp_meta_id = icache_miss_resp_wdata.mem_resp_id,
-      icache_miss_resp_data_rdata = icache_miss_resp_wdata.mem_resp_r_data[CVA6Cfg.ICACHE_LINE_WIDTH-1:0],
-      icache_miss_resp_inval_address = icache_miss_resp_wdata.mem_inval;
+  assign icache_miss_resp_wok = ~icache_rsp_valid_q &
+      (~icache_miss_resp_is_inval | icache_miss_resp_ready_i);
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : icache_rsp_ff
+    if (!rst_ni) begin
+      icache_rsp_valid_q <= 1'b0;
+      icache_rsp_uc_q    <= 1'b0;
+      icache_rsp_beat_q  <= '0;
+      icache_rsp_id_q    <= '0;
+      icache_rsp_error_q <= hpdcache_mem_error_e'(0);
+      icache_rsp_data_q  <= '0;
+    end else begin
+      if (icache_rsp_w) begin
+        icache_rsp_valid_q <= 1'b1;
+        icache_rsp_uc_q    <= (icache_miss_resp_wdata.mem_resp_id == '1);
+        icache_rsp_beat_q  <= (icache_miss_resp_wdata.mem_resp_id == '1) ? icache_uc_beat_q : '0;
+        icache_rsp_id_q    <= icache_miss_resp_wdata.mem_resp_id;
+        icache_rsp_error_q <= icache_miss_resp_wdata.mem_resp_error;
+        icache_rsp_data_q  <= icache_miss_resp_wdata.mem_resp_r_data[CVA6Cfg.ICACHE_LINE_WIDTH-1:0];
+      end else if (icache_rsp_r) begin
+        icache_rsp_valid_q <= ~icache_rsp_last;
+        icache_rsp_beat_q  <= icache_rsp_beat_q + 1'b1;
+      end
+    end
+  end
+
+  assign icache_miss_resp_valid_o = icache_rsp_valid_q |
+      (icache_miss_resp_w & icache_miss_resp_is_inval),
+      icache_miss_resp_o.mem_resp_r_error = icache_rsp_error_q,
+      icache_miss_resp_o.mem_resp_r_id = icache_rsp_id_q,
+      icache_miss_resp_o.mem_resp_r_data = icache_rsp_data_q[icache_rsp_beat_q],
+      icache_miss_resp_o.mem_resp_r_last = icache_rsp_last,
+      icache_inval_valid_o = ~icache_rsp_valid_q & icache_miss_resp_w & icache_miss_resp_is_inval,
+      icache_inval_o = hpicache_nline_t'(icache_miss_resp_wdata.mem_inval >> HPIcacheClOffsetWidth);
   //    }}}
   //  }}}
 
@@ -382,11 +410,10 @@ module cva6_hpdcache_subsystem_l15_adapter
   // L1.5 Invalidation request to dcache 
   assign inval_ready = dcache_read_resp_ready_i, // Refill ready declares if hpdc is ready to receive an invalidation
       inval_valid = mem_resp.mem_inval_dcache_valid,
-      inval = mem_resp.mem_inval[$bits(
-          hpdcache_mem_addr_t
-      )-1:$clog2(
-          HPDcacheMemDataWidth/8
-      )];  // Convert address to cacheline number
+      // Convert address to cacheline number
+      inval = hpdcache_nline_t'(mem_resp.mem_inval >> $clog2(
+          HPDcacheMemDataWidth / 8
+      ));
 
   //  }}}
 
@@ -404,7 +431,7 @@ module cva6_hpdcache_subsystem_l15_adapter
       .DcacheWritePort(DcacheWritePort),
       .DcacheAmoPort(DcacheAmoPort),
       .WriteByteMaskEnabled(1'b0),  //TODO!!!!!
-      .SwapEndianness(CVA6Cfg.NOCType == config_pkg::NOC_TYPE_L15_BIG_ENDIAN),
+      .SwapEndianness(1'b1),  // the L1.5 of OpenPiton is big endian
       .HPDcacheMemDataWidth(HPDcacheMemDataWidth),
       .hpdcache_mem_req_t(hpdcache_mem_req_t),
       .hpdcache_mem_req_w_t(hpdcache_mem_req_w_t),

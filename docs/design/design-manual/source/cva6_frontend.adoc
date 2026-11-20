@@ -17,7 +17,7 @@ FRONTEND Module
 Description
 ^^^^^^^^^^^
 
-The FRONTEND module implements two first stages of the cva6 pipeline,
+The FRONTEND module implements two first stages of the CVA6 pipeline,
 PC gen and Fetch stages.
 
 PC gen stage is responsible for generating the next program counter.
@@ -142,14 +142,14 @@ Incomplete instruction is stored in instr_realign submodule until its second hal
 
 Below is a table that explains how the instr_realign works:
 
-* _C : compressed instruction_
-* _I : not compressed instruction_
+* _C: compressed instruction_
+* _I: not compressed instruction_
 * _UI: Incomplete instruction stored in the instr_realign_
 
 ifeval::[{Superscalar} == true]
 
 |==========================================================
-|*Address[2:1]*	|*Incomplete Access* |*64-48* |*48-32* |*32-16*	|*16-0*
+|*Address[2:1]* |*Incomplete Access* |*64-48* |*48-32* |*32-16* |*16-0*
 .13+^.^|0
 
 .5+^.^|1
@@ -217,7 +217,7 @@ endif::[]
 ifeval::[{Superscalar} == false]
 
 |==========================================================
-|*Address[2:1]*	|*Incomplete Access* |*32-16*	|*16-0*
+|*Address[2:1]* |*Incomplete Access* |*32-16*   |*16-0*
 .5+^.^|0
 
 .3+^.^|0
@@ -285,8 +285,8 @@ BHT (Branch History Table) submodule
 The BHT is implemented as a memory which is composed of {BHTEntries} entries.
 The BHT is a two-dimensional table:
 
-*	The first dimension represents the access address, with a length equal to `{BHTEntries} / {instr-per-fetch}`.
-*	The second dimension represents the row index, with a length equal to `{instr-per-fetch}`.
+*   The first dimension represents the access address, with a length equal to `{BHTEntries} / {instr-per-fetch}`.
+*   The second dimension represents the row index, with a length equal to `{instr-per-fetch}`.
 
 In the case of branch prediction, the BHT uses only part of the virtual address to get the value of the saturation counter.
 In the case of a valid misprediction, the BHT uses only part of the misprediction address to access the BHT table and update the saturation counter.

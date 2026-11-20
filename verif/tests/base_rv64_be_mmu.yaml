@@ -1,0 +1,31 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Page table walks of big endian page tables (BigEndianEn), Sv39 with
+# S-mode.
+#
+# ================================================================================
+#                  Regression test list format
+# --------------------------------------------------------------------------------
+# testlist        : Assembly test list
+# test            : Assembly test name
+# description     : Description of this test
+# iterations      : Number of iterations of this test
+# asm_tests       : Path to directed, hand-coded assembly test file or directory
+# gcc_opts        : gcc compile options
+# llvm_opts       : llvm compile options (used instead of gcc_opts with an LLVM toolchain)
+# --------------------------------------------------------------------------------
+
+sv39_test_config: &sv39_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/custom/env"
+
+testlist:
+  - test: rv64_vm_big_endian
+    iterations: 1
+    <<: *sv39_test_config
+    asm_tests: <path_var>/custom/sv39/vm_big_endian.S

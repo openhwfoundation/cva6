@@ -1,0 +1,52 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv64_zcmp.yaml
+#
+#   Zcmp tests on RV64, for the RV64 targets with RVZCMP set: the register list
+#   is saved in 8-byte slots with sd and ld.
+#
+#   The targets build with a march without zcmp, and the assembler rejects the
+#   Zcmp mnemonics without it, so every test here sets its own march.
+#
+#   cm_push_pop_all_rv64, cm_mv_all_rv64 and cm_popret_all_rv64 go through
+#   every encoding, as their RV32 counterparts in base_zcmp. The reserved
+#   rlist and the equal register cases do not depend on XLEN.
+# ------------------------------------------------------------------------------
+
+zcmp_config: &zcmp_config
+  path_var: TESTS_PATH
+  march: rv64imac_zicsr_zba_zbb_zbs_zbc_zcmp_zifencei
+  mabi: lp64
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/ -I<path_var>/custom/env"
+
+testlist:
+  - test: cm_push_pop_all_rv64
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_push_pop_all_rv64.S
+
+  - test: cm_mv_all_rv64
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_mv_all_rv64.S
+
+  - test: cm_popret_all_rv64
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_popret_all_rv64.S
+
+  - test: cm_reserved_rlist
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_reserved_rlist_test.S
+
+  - test: cm_mva01s_equal_regs
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_mva01s_equal_regs_test.S

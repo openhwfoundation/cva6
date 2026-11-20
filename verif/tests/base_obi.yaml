@@ -1,0 +1,32 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Tests that need the OBI testbench (MEM_OBI targets): its memory agents
+# can answer a request with an error.
+#
+# ================================================================================
+#                  Regression test list format
+# --------------------------------------------------------------------------------
+# testlist        : Assembly test list
+# test            : Assembly test name
+# description     : Description of this test
+# iterations      : Number of iterations of this test
+# asm_tests       : Path to directed, hand-coded assembly test file or directory
+# gcc_opts        : gcc compile options
+# llvm_opts       : llvm compile options (used instead of gcc_opts with an LLVM toolchain)
+# --------------------------------------------------------------------------------
+
+custom_test_config: &custom_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common -lgcc"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
+
+testlist:
+  - test: load_bus_error
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/lsu/load_bus_error.S

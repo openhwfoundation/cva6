@@ -83,13 +83,10 @@ module multiplier
 
   // control registers
   logic sign_a, sign_b;
-  logic mult_valid;
 
   // control signals
   assign mult_valid_o = mult_valid_q;
   assign mult_trans_id_o = trans_id_q;
-
-  assign mult_valid      = mult_valid_i && (operation_i inside {MUL, MULH, MULHU, MULHSU, MULW, CLMUL, CLMULH, CLMULR});
 
   // Sign Select MUX
   always_comb begin
@@ -161,7 +158,7 @@ module multiplier
       // Input silencing
       trans_id_q    <= trans_id_i;
       // Output Register
-      mult_valid_q  <= mult_valid;
+      mult_valid_q  <= mult_valid_i;
       operator_q    <= operator_d;
       mult_result_q <= mult_result_d;
     end

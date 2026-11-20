@@ -1,0 +1,77 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv64_zcmt.yaml
+#
+#   Zcmt tests on RV64, for the RV64 targets with RVZCMT set: the jump table
+#   entries are 8 bytes, cm.jt and cm.jalt read the entry at jvt.base + index * 8.
+#   The tests of base_zcmt with 64-bit entries, run in M-mode, and a target
+#   more than 2 GiB from the code, that only a full 64-bit entry and offset reach.
+# ------------------------------------------------------------------------------
+
+# ================================================================================
+#                  Regression test list format
+# --------------------------------------------------------------------------------
+# testlist        : Assembly test list
+# test            : Assembly test name
+# description     : Description of this test
+# gen_opts        : Instruction generator options
+# iterations      : Number of iterations of this test
+# no_iss          : Enable/disable ISS simulator (Optional)
+# gen_test        : Test name used by the instruction generator
+# asm_tests       : Path to directed, hand-coded assembly test file or directory
+# rtl_test        : RTL simulation test name
+# cmp_opts        : Compile options passed to the instruction generator
+# sim_opts        : Simulation options passed to the instruction generator
+# no_post_compare : Enable/disable comparison of trace log and ISS log (Optional)
+# compare_opts    : Options for the RTL & ISS trace comparison
+# gcc_opts        : gcc compile options
+# llvm_opts       : llvm compile options (used instead of gcc_opts with an LLVM toolchain)
+# --------------------------------------------------------------------------------
+## C
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<path_var>/custom/zcmt/link.ld"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<path_var>/custom/zcmt/link.ld"
+
+testlist:
+  - test: cm_jalt_long_ret_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jalt_long_ret_rv64.S
+
+  - test: cm_jalt_long_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jalt_long_rv64.S
+
+  - test: cm_jt_long_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jt_long_rv64.S
+
+  - test: jvt_csr_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/jvt_csr_rv64.S
+
+  - test: cm_jt_target_lsb_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jt_target_lsb_rv64.S
+
+  - test: cm_jalt_target_lsb_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jalt_target_lsb_rv64.S
+
+  - test: cm_jt_upper_target_rv64
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jt_upper_target_rv64.S

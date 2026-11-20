@@ -146,7 +146,7 @@ Atomic Memory Operations
 
     **Format**: amominu.d rd, rs2, (rs1)
 
-    **Description**: AMOMINU.W atomically loads a data value from the address in rs1, places the value into register rd, then choses the minimum (the values treated as unsigned) between the loaded value and the original value in rs2, then stores the result back to the address in rs1.
+    **Description**: AMOMINU.W atomically loads a data value from the address in rs1, places the value into register rd, then chooses the minimum (the values treated as unsigned) between the loaded value and the original value in rs2, then stores the result back to the address in rs1.
 
     **Pseudocode**: x[rd] = AMO32(M[x[rs1]] MINU x[rs2])
 
@@ -158,7 +158,7 @@ Atomic Memory Operations
 
     **Format**: amomax.d rd, rs2, (rs1)
 
-    **Description**: AMOMAX.W atomically loads a data value from the address in rs1, places the value into register rd, then choses the maximum between the loaded value and the original value in rs2, then stores the result back to the address in rs1.
+    **Description**: AMOMAX.W atomically loads a data value from the address in rs1, places the value into register rd, then chooses the maximum between the loaded value and the original value in rs2, then stores the result back to the address in rs1.
 
     **Pseudocode**: x[rd] = AMO32(M[x[rs1]] MAX x[rs2])
 
@@ -170,7 +170,7 @@ Atomic Memory Operations
 
     **Format**: amomaxu.d rd, rs2, (rs1)
 
-    **Description**: AMOMAXU.W atomically loads a data value from the address in rs1, places the value into register rd, then choses the maximum (the values treated as unsigned) between the loaded value and the original value in rs2, then stores the result back to the address in rs1.
+    **Description**: AMOMAXU.W atomically loads a data value from the address in rs1, places the value into register rd, then chooses the maximum (the values treated as unsigned) between the loaded value and the original value in rs2, then stores the result back to the address in rs1.
 
     **Pseudocode**: x[rd] = AMO32(M[x[rs1]] MAXU x[rs2])
 

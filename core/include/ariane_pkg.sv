@@ -28,18 +28,13 @@
 /// moved out to favour a fully parameterizable core.
 package ariane_pkg;
 
-  // TODO: Slowly move those parameters to the new system.
+  // IMPROVEMENT: Slowly move those parameters to the new system.
   localparam BITS_SATURATION_COUNTER = 2;
 
   // depth of store-buffers, this needs to be a power of two
   localparam logic [2:0] DEPTH_SPEC = 'd4;
 
-  // if CVA6Cfg.DCacheType = cva6_config_pkg::WT
-  // we can use a small commit queue since we have a write buffer in the dcache
-  // we could in principle do without the commit queue in this case, but the timing degrades if we do that due
-  // to longer paths into the commit stage
-  // if CVA6Cfg.DCacheType = cva6_config_pkg::WB
-  // allocate more space for the commit buffer to be on the safe side, this needs to be a power of two
+  // depth of the commit queue of the store buffer, this needs to be a power of two
   localparam logic [2:0] DEPTH_COMMIT = 'd4;
 
   // Transprecision float unit
@@ -198,8 +193,7 @@ package ariane_pkg;
     FPU,        // 7
     FPU_VEC,    // 8
     CVXIF,      // 9
-    ACCEL,      // 10
-    AES         // 11
+    AES         // 10
   } fu_t;
 
   // Index of writeback ports
@@ -488,12 +482,6 @@ package ariane_pkg;
     ANDN,
     ORN,
     XNOR,
-    // Accelerator operations
-    ACCEL_OP,
-    ACCEL_OP_FS1,
-    ACCEL_OP_FD,
-    ACCEL_OP_LOAD,
-    ACCEL_OP_STORE,
     // Zicond instruction
     CZERO_EQZ,
     CZERO_NEZ,
@@ -566,9 +554,8 @@ package ariane_pkg;
       FMV_F2X,  // FPR-GPR Moves
       FCMP,  // Comparisons
       FCLASS,  // Classifications
-      [VFMIN : VFCPKCD_D],  // Additional Vectorial FP ops
-      ACCEL_OP_FS1:
-      return 1'b1;  // Accelerator instructions
+      [VFMIN : VFCPKCD_D]:
+      return 1'b1;  // Additional Vectorial FP ops
       default: return 1'b0;  // all other ops
     endcase
   endfunction
@@ -613,9 +600,8 @@ package ariane_pkg;
       FSGNJ,  // Sign Injections
       FMV_X2F,  // GPR-FPR Moves
       [VFMIN : VFSGNJX],  // Vectorial MIN/MAX and SGNJ
-      [VFCPKAB_S : VFCPKCD_D],  // Vectorial FP cast and pack ops
-      ACCEL_OP_FD:
-      return 1'b1;  // Accelerator instructions
+      [VFCPKAB_S : VFCPKCD_D]:
+      return 1'b1;  // Vectorial FP cast and pack ops
       default: return 1'b0;  // all other ops
     endcase
   endfunction
@@ -782,6 +768,43 @@ package ariane_pkg;
       default: return 4'b0;
     endcase
     return 4'b0;
+  endfunction
+
+  // generate size of transaction from byte ena
+  function automatic logic [1:0] size_gen(logic [7:0] be);
+    case (be)
+      8'b1111_1111: begin
+        return 2'b11;
+      end
+      8'b0000_1111, 8'b0001_1110, 8'b0011_1100, 8'b0111_1000, 8'b1111_0000: begin
+        return 2'b10;
+      end
+      8'b0000_0011,
+      8'b0000_0110,
+      8'b0000_1100,
+      8'b0001_1000,
+      8'b0011_0000,
+      8'b0110_0000,
+      8'b1100_0000 : begin
+        return 2'b01;
+      end
+      default: return 2'b00;
+    endcase
+    return 2'b0;
+  endfunction
+
+  // generate size of transaction from byte ena
+  function automatic logic [1:0] size_gen_32(logic [3:0] be);
+    case (be)
+      4'b1111: begin
+        return 2'b10;
+      end
+      4'b0011, 4'b0110, 4'b1100: begin
+        return 2'b01;
+      end
+      default: return 2'b00;
+    endcase
+    return 2'b0;
   endfunction
 
   // ----------------------

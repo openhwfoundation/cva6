@@ -13,12 +13,15 @@
 // Description: Commits to the architectural state resulting from the scoreboard.
 
 
+`include "utils_macros.svh"
+
 module commit_stage
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type exception_t = logic,
-    parameter type scoreboard_entry_t = logic
+    parameter type scoreboard_entry_t = logic,
+    parameter type ypb_amo_rsp_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -28,12 +31,19 @@ module commit_stage
     input logic halt_i,
     // request to flush dcache, also flush the pipeline - CACHE
     input logic flush_dcache_i,
-    // TO_BE_COMPLETED - EX_STAGE
+    // Exception raised by all sources - EX_STAGE
     output exception_t exception_o,
     // Mark the F state as dirty - CSR_REGFILE
     output logic dirty_fp_state_o,
     // TO_BE_COMPLETED - CSR_REGFILE
     input logic single_step_i,
+    // Trigger module
+    input logic sdtrig_commit_icount_valid_i,
+    input logic [(CVA6Cfg.NrCommitPorts > 1 ? $clog2(
+CVA6Cfg.NrCommitPorts
+) : 1)-1:0] sdtrig_commit_icount_nr_instr_i,
+    input logic [CVA6Cfg.XLEN-1:0] sdtrig_commit_action_i,
+    input logic sdtrig_commit_std_exception_valid_i,
     // The instruction we want to commit - ISSUE_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_i,
     // The instruction is cancelled - ISSUE_STAGE
@@ -51,8 +61,8 @@ module commit_stage
     // Floating point register enable - ISSUE_STAGE
     output logic [CVA6Cfg.NrCommitPorts-1:0] we_fpr_o,
     // Result of AMO operation - CACHE
-    input amo_resp_t amo_resp_i,
-    // TO_BE_COMPLETED - FRONTEND_CSR_REGFILE
+    input ypb_amo_rsp_t ypb_amo_rsp_i,
+    // Program counter - FRONTEND_CSR_REGFILE
     output logic [CVA6Cfg.VLEN-1:0] pc_o,
     // Decoded CSR operation - CSR_REGFILE
     output fu_op csr_op_o,
@@ -74,6 +84,8 @@ module commit_stage
     output logic amo_valid_commit_o,
     // No store is pending - EX_STAGE
     input logic no_st_pending_i,
+    // Shared TLB is still processing a multi-cycle flush
+    input logic shared_tlb_flush_busy_i,
     // Commit the pending CSR instruction - EX_STAGE
     output logic commit_csr_o,
     // Flush I$ and pipeline - CONTROLLER
@@ -87,14 +99,7 @@ module commit_stage
     // TO_BE_COMPLETED - CONTROLLER
     output logic hfence_vvma_o,
     // TO_BE_COMPLETED - CONTROLLER
-    output logic hfence_gvma_o,
-    // Shared TLB is still processing a multi-cycle flush
-    input logic shared_tlb_flush_busy_i,
-    // Trigger module
-    input logic sdtrig_commit_icount_valid_i,
-    input logic [$clog2(CVA6Cfg.NrCommitPorts)-1:0] sdtrig_commit_icount_nr_instr_i,
-    input logic [CVA6Cfg.XLEN-1:0] sdtrig_commit_action_i,
-    input logic sdtrig_commit_std_exception_valid_i
+    output logic hfence_gvma_o
 );
 
   // ila_0 i_ila_commit (
@@ -121,21 +126,29 @@ module commit_stage
     dirty_fp_state_o = 1'b0;
     for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
       dirty_fp_state_o |= commit_ack_o[i] & ((commit_instr_i[i].fu inside {FPU, FPU_VEC} & CVA6Cfg.FpPresent & ariane_pkg::fd_changes_rd_state(
-          commit_instr_i[i].op
-      )) || (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-          commit_instr_i[i].op
-          // Check if we issued a vector floating-point instruction to the accelerator
-      ))) | (commit_instr_i[i].fu == ACCEL && commit_instr_i[i].vfp);
+          commit_instr_i[i].op)) ||
+          (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_i[i].op)));
     end
   end
 
   assign commit_tran_id_o = commit_instr_i[0].trans_id;
 
-  exception_t ex_next_instr_d, ex_next_instr_q;
-
   logic instr_0_is_amo;
+  // Exception of a load data trigger, held back one cycle so it lands on the
+  // instruction after the load whose value it matched.
+  exception_t ex_next_instr_d, ex_next_instr_q;
+  // A deferred load data break is taken on the next valid instruction of port
+  // 0: the scoreboard may still be empty the cycle after the load commits.
+  logic sdtrig_load_data_break;
+  assign sdtrig_load_data_break = CVA6Cfg.SdtrigMcontrol6LoadData && ex_next_instr_q.timing &&
+      commit_instr_i[0].valid && !commit_instr_i[0].ex.timing;
   logic [CVA6Cfg.NrCommitPorts-1:0] commit_macro_ack;
   assign instr_0_is_amo = is_amo(commit_instr_i[0].op);
+
+  logic amo_resp_ack;
+  assign amo_resp_ack = ypb_amo_rsp_i.rvalid;  // && amo_ypb_req_o.rready;
+
+
   // -------------------
   // Commit Instruction
   // -------------------
@@ -154,7 +167,7 @@ module commit_stage
     commit_lsu_o = 1'b0;
     commit_csr_o = 1'b0;
     // amos will commit on port 0
-    wdata_o[0] = (CVA6Cfg.RVA && amo_resp_i.ack) ? amo_resp_i.result[CVA6Cfg.XLEN-1:0] : commit_instr_i[0].result;
+    wdata_o[0] = (CVA6Cfg.RVA && amo_resp_ack) ? ypb_amo_rsp_i.rdata : commit_instr_i[0].result;
     csr_op_o = ADD;  // this corresponds to a CSR NOP
     csr_wdata_o = {CVA6Cfg.XLEN{1'b0}};
     fence_i_o = 1'b0;
@@ -169,9 +182,10 @@ module commit_stage
     if (commit_instr_i[0].valid && !halt_i) begin
       // we will not commit the instruction if we took an exception
       if (commit_instr_i[0].ex.valid
-      || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i || (CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == 0))) begin
+      || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i
+          || (CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == 0))) begin
         // However we can drop it (with its exception)
-        if (commit_drop_i[0]) begin
+        if (CVA6Cfg.SpeculativeSb && commit_drop_i[0]) begin
           commit_ack_o[0] = 1'b1;
         end
       end else begin
@@ -241,7 +255,7 @@ module commit_stage
         if (CVA6Cfg.RVS && commit_instr_i[0].op == SFENCE_VMA) begin
           if (!commit_drop_i[0]) begin
             // no store pending so we can flush the TLBs and pipeline
-            sfence_vma_o = tlb_flush_can_commit; //Only retire the fence when stores are drained and the shared TLB
+            sfence_vma_o = tlb_flush_can_commit;  //Only retire the fence when stores are drained and the shared TLB is idle
             // wait for the store buffer to drain until flushing the pipeline
             commit_ack_o[0] = tlb_flush_can_commit;
           end
@@ -281,7 +295,7 @@ module commit_stage
         // from interrupt service routine
         // Fence synchronizes data and instruction streams. That means that we need to flush the private icache
         // and the private dcache. This is the most expensive instruction.
-        if (commit_instr_i[0].op == FENCE_I || (flush_dcache_i && CVA6Cfg.DCacheType == config_pkg::WB && commit_instr_i[0].fu != STORE)) begin
+        if (commit_instr_i[0].op == FENCE_I && CVA6Cfg.RVZifencei) begin
           if (!commit_drop_i[0]) begin
             commit_ack_o[0] = no_st_pending_i;
             // tell the controller to flush the I$
@@ -305,11 +319,11 @@ module commit_stage
         // ------------------
         if (CVA6Cfg.RVA && instr_0_is_amo) begin
           // AMO finished
-          commit_ack_o[0] = amo_resp_i.ack;
+          commit_ack_o[0] = amo_resp_ack;
           // flush the pipeline
-          flush_commit_o = amo_resp_i.ack;
+          flush_commit_o = amo_resp_ack;
           amo_valid_commit_o = 1'b1;
-          we_gpr_o[0] = amo_resp_i.ack;
+          we_gpr_o[0] = amo_resp_ack;
         end
       end
     end
@@ -331,8 +345,8 @@ module commit_stage
                                 && !flush_dcache_i
                                 && !(CVA6Cfg.RVA && instr_0_is_amo)
                                 && !single_step_i
-                                && !(CVA6Cfg.Sdtrig && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i < CVA6Cfg.NrCommitPorts)
-                                && (CVA6Cfg.SdtrigMcontrol6LoadData ? !commit_instr_i[0].ex.timing : !CVA6Cfg.SdtrigMcontrol6LoadData)) begin
+                                && !(CVA6Cfg.Sdtrig && sdtrig_commit_icount_valid_i && 32'(sdtrig_commit_icount_nr_instr_i) < CVA6Cfg.NrCommitPorts)
+                                && (CVA6Cfg.SdtrigMcontrol6LoadData ? !commit_instr_i[0].ex.timing : 1'b1)) begin
         // only if the first instruction didn't throw an exception and this instruction won't throw an exception
         // and the functional unit is of type ALU, LOAD, CTRL_FLOW, MULT, FPU or FPU_VEC
         if (!commit_instr_i[1].ex.valid && (commit_instr_i[1].fu inside {ALU, LOAD, CTRL_FLOW, MULT, FPU, FPU_VEC})) begin
@@ -387,23 +401,25 @@ module commit_stage
     exception_o.tinst = '0;
     exception_o.gva = 1'b0;
     exception_o.timing = 1'b0;
+    ex_next_instr_d = ex_next_instr_q;
 
+    // Latch a deferred load data exception when the instruction carrying it
+    // commits, port 0 taking precedence.
     if (CVA6Cfg.SdtrigMcontrol6LoadData) begin
       if (commit_ack_o[0]) begin
-        if(commit_instr_i[0].ex.timing && commit_ack_o[0]) begin //save exception if timing is set, with priority to port 0
+        if (commit_instr_i[0].ex.timing) begin
           ex_next_instr_d = commit_instr_i[0].ex;
         end else if (CVA6Cfg.NrCommitPorts > 1 && commit_instr_i[1].ex.timing && commit_ack_o[1]) begin
           ex_next_instr_d = commit_instr_i[1].ex;
-        end else begin
-          ex_next_instr_d = ex_next_instr_q;
         end
       end
-    end else begin
-      ex_next_instr_d = '0;
+      if (sdtrig_load_data_break) begin
+        ex_next_instr_d = '0;
+      end
     end
 
     // we need a valid instruction in the commit stage
-    if (commit_instr_i[0].valid && !commit_drop_i[0]) begin
+    if (commit_instr_i[0].valid && !(CVA6Cfg.SpeculativeSb && commit_drop_i[0])) begin
       // ------------------------
       // check for CSR exception
       // ------------------------
@@ -434,37 +450,45 @@ module commit_stage
       exception_o.valid = 1'b0;
     end
 
-    if ((CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == 'd0)
+    // A commit-time trigger raises its own exception: icount once its counter
+    // has run out, or an exception/interrupt trigger having swallowed the trap
+    // it matched on.
+    if ((CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == '0)
     || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i && commit_instr_i[0].valid)) begin
       exception_o.valid = 1'b1;
       exception_o.cause = sdtrig_commit_action_i;
       exception_o.tval  = (CVA6Cfg.TvalEn) ? commit_instr_i[0].pc : '0;
     end
 
-    if(CVA6Cfg.SdtrigMcontrol6LoadData && ex_next_instr_q.timing && !commit_instr_i[0].ex.timing) begin
-      //there should never be 2 timing bits set one after the other (port 1 and 2) because LSU can only make one mem access at a time
-      exception_o = ex_next_instr_q;
+    // A load data trigger fires once the loaded value is known, after the load:
+    // its exception is held until the next instruction commits, and raised on
+    // that one, whose pc is the epc.
+    if (sdtrig_load_data_break) begin
+      exception_o        = ex_next_instr_q;
       exception_o.timing = 1'b0;
-      exception_o.valid = 1'b1;
-      ex_next_instr_d = '0;
+      exception_o.valid  = 1'b1;
     end
   end
 
-  if (CVA6Cfg.SdtrigMcontrol6LoadData) begin
+  //pragma translate_off
+  // A deferred load data break is raised with the pc of a valid instruction.
+  sdtrig_load_data_break_on_valid_instr :
+  assert property (@(posedge clk_i) disable iff (!rst_ni)
+        (CVA6Cfg.SdtrigMcontrol6LoadData && exception_o.valid && ex_next_instr_q.timing
+         && !commit_instr_i[0].ex.timing && !halt_i)
+        |-> commit_instr_i[0].valid)
+  else `ASSERT_ERROR("[commit_stage] load data trigger break raised without a valid instruction");
+  //pragma translate_on
+
+  if (CVA6Cfg.SdtrigMcontrol6LoadData) begin : gen_sdtrig_ex_next_instr
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (!rst_ni) begin
-        ex_next_instr_q.valid  <= 1'b0;
-        ex_next_instr_q.cause  <= '0;
-        ex_next_instr_q.tval   <= '0;
-        ex_next_instr_q.tval2  <= '0;
-        ex_next_instr_q.tinst  <= '0;
-        ex_next_instr_q.gva    <= 1'b0;
-        ex_next_instr_q.timing <= 1'b0;
+        ex_next_instr_q <= '0;
       end else begin
         ex_next_instr_q <= ex_next_instr_d;
       end
     end
-  end else begin
+  end else begin : gen_no_sdtrig_ex_next_instr
     assign ex_next_instr_q = '0;
   end
 endmodule

@@ -113,6 +113,32 @@ module instr_realign
         end
       end
     end
+  end else if (CVA6Cfg.FETCH_WIDTH == 64 && !CVA6Cfg.RVC) begin : realign_bp_64_without_c
+    // Without the C extension every instruction is 32 bits wide and 4-byte
+    // aligned: it never straddles the 64-bit fetch block, so nothing is realigned.
+    always_comb begin : re_align
+      unaligned_d         = 1'b0;
+      unaligned_address_d = unaligned_address_q;
+      unaligned_instr_d   = unaligned_instr_q;
+
+      //  the fetch address is 4-byte aligned, so bit 2 selects which of the
+      //  two words of the block holds the first instruction
+      if (address_i[2]) begin
+        //  second half of the block: a single instruction is available
+        valid_o    = {{CVA6Cfg.INSTR_PER_FETCH - 1{1'b0}}, valid_i};
+        instr_o[0] = data_i[63:32];
+        addr_o[0]  = address_i;
+        instr_o[1] = '0;
+        addr_o[1]  = address_i;
+      end else begin
+        //  whole block: both words hold an instruction
+        valid_o    = {CVA6Cfg.INSTR_PER_FETCH{valid_i}};
+        instr_o[0] = data_i[31:0];
+        addr_o[0]  = address_i;
+        instr_o[1] = data_i[63:32];
+        addr_o[1]  = {address_i[CVA6Cfg.VLEN-1:3], 3'b100};
+      end
+    end
   end else if (CVA6Cfg.FETCH_WIDTH == 64) begin : realign_bp_64
     always_comb begin : re_align
       unaligned_d         = 1'b0;

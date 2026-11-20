@@ -355,7 +355,7 @@ testlist:
 
   - test: rv32mi-ma_addr
     <<: *common_test_config
-    iterations: 0 # spike needs to be configured with tval_en=1; cv32a60x has TvalEn=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32mi/src/ma_addr.S
 
   - test: rv32mi-mcsr
@@ -410,7 +410,7 @@ testlist:
 
   - test: rv32i-I-MISALIGN_LDST-01
     <<: *common_test_config
-    iterations: 0 # spike needs to be configured with tval_en=1; cv32a60x has TvalEn=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32i/src/I-MISALIGN_LDST-01.S
 
   - test: rv32i-I-ECALL-01
@@ -625,22 +625,22 @@ testlist:
 
   - test: rv32si-sbreak
     <<: *common_test_config
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32si/src/sbreak.S
 
   - test: rv32si-scall
     <<: *common_test_config
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32si/src/scall.S
 
   - test: rv32si-ma_fetch
     <<: *common_test_config
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32si/src/ma_fetch.S
 
   - test: rv32si-wfi
     <<: *common_test_config
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32si/src/wfi.S
 
   - test: rv32si-dirty
@@ -650,7 +650,7 @@ testlist:
 
   - test: rv32si-csr
     <<: *common_test_config
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0
+    iterations: 1
     asm_tests: <path_var>/riscv-compliance/riscv-test-suite/rv32si/src/csr.S
 
   - test: rv32imc-C-LW

@@ -7,7 +7,7 @@
 //
 // Original Author: Alae Eddine EZ ZEJJARI (alae-eddine.ez-zejjari@external.thalesgroup.com) – sub-contractor MU-Electronics for Thales group
 
-module  uvmt_axi_assert#(int HPDCache=2)
+module  uvmt_axi_assert#(config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty)
   (uvma_axi_intf axi_assert_if);
 
    import uvm_pkg::*;
@@ -26,7 +26,7 @@ module  uvmt_axi_assert#(int HPDCache=2)
 
    uvma_axi_amo_assert        axi_amo_assert(.axi_assert(axi_assert_if));
 
-   uvmt_cva6_axi_assert#(HPDCache)       cva6_axi_assert(.axi_assert_if(axi_assert_if));
+   uvmt_cva6_axi_assert#(CVA6Cfg)        cva6_axi_assert(.axi_assert_if(axi_assert_if));
 
 
 endmodule : uvmt_axi_assert

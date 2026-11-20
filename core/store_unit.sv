@@ -17,11 +17,12 @@ module store_unit
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter type dcache_req_i_t = logic,
-    parameter type dcache_req_o_t = logic,
+    parameter type ypb_store_req_t = logic,
+    parameter type ypb_store_rsp_t = logic,
+    parameter type ypb_amo_req_t = logic,
+    parameter type ypb_amo_rsp_t = logic,
     parameter type exception_t = logic,
-    parameter type lsu_ctrl_t = logic,
-    parameter type cbo_t = logic
+    parameter type lsu_ctrl_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -29,21 +30,19 @@ module store_unit
     input logic rst_ni,
     // Flush - CONTROLLER
     input logic flush_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input logic stall_st_pending_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // No store pending - COMMIT_STAGE
     output logic no_st_pending_o,
-    // Store buffer is empty - TO_BE_COMPLETED
+    // Store buffer is empty - LOAD_UNIT
     output logic store_buffer_empty_o,
     // Store instruction is valid - ISSUE_STAGE
     input logic valid_i,
     // Data input - ISSUE_STAGE
     input lsu_ctrl_t lsu_ctrl_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Pop store - LSU_BYPASS
     output logic pop_st_o,
-    // Instruction commit - TO_BE_COMPLETED
+    // Instruction commit - COMMIT_STAGE
     input logic commit_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Commit queue is ready to accept another commit request - COMMIT_STAGE
     output logic commit_ready_o,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input logic amo_valid_commit_i,
@@ -55,23 +54,21 @@ module store_unit
     output logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id_o,
     // Store result - ISSUE_STAGE
     output logic [CVA6Cfg.XLEN-1:0] result_o,
-    // Store exception output - TO_BE_COMPLETED
+    // Store exception output - ISSUE_STAGE
     output exception_t ex_o,
-    // Address translation request - TO_BE_COMPLETED
+    // Address translation request - MMU/PMP
     output logic translation_req_o,
-    // Virtual address - TO_BE_COMPLETED
+    // Virtual address - MMU/PMP
     output logic [CVA6Cfg.VLEN-1:0] vaddr_o,
-    // RVFI information - RVFI
-    output logic [CVA6Cfg.PLEN-1:0] rvfi_mem_paddr_o,
     // Transformed trap instruction out - TO_BE_COMPLETED
     output logic [31:0] tinst_o,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     output logic hs_ld_st_inst_o,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     output logic hlvx_inst_o,
-    // Physical address - TO_BE_COMPLETED
+    // Physical address - MMU/PMP
     input logic [CVA6Cfg.PLEN-1:0] paddr_i,
-    // Exception raised before store - TO_BE_COMPLETED
+    // Exception raised before store - MMU/PMP
     input exception_t ex_i,
     // Data TLB hit - lsu
     input logic dtlb_hit_i,
@@ -79,14 +76,14 @@ module store_unit
     input logic [11:0] page_offset_i,
     // Address check result - load_unit
     output logic page_offset_matches_o,
-    // AMO request - CACHES
-    output amo_req_t amo_req_o,
-    // AMO response - CACHES
-    input amo_resp_t amo_resp_i,
-    // Data cache request - CACHES
-    input dcache_req_o_t req_port_i,
-    // Data cache response - CACHES
-    output dcache_req_i_t req_port_o,
+    // Store cache response - DCACHE
+    output ypb_store_req_t ypb_store_req_o,
+    // Store cache request - DCACHE
+    input ypb_store_rsp_t ypb_store_rsp_i,
+    // AMO request - DCACHE
+    output ypb_amo_req_t ypb_amo_req_o,
+    // AMO response - DCACHE
+    input ypb_amo_rsp_t ypb_amo_rsp_i,
     //Trigger module
     input logic sdtrig_store_stall_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_store_action_i
@@ -122,167 +119,137 @@ module store_unit
   // it doesn't matter what we are writing back as stores don't return anything
   assign result_o = lsu_ctrl_i.data;
 
-  enum logic [1:0] {
-    IDLE,
-    VALID_STORE,
-    WAIT_TRANSLATION,
-    WAIT_STORE_READY
-  }
-      state_d, state_q;
+  // directly forward exception fields (valid bit is set below)
+  // A store trigger reports its own cause and the faulting address; otherwise
+  // the exception carried in from the MMU passes through unchanged.
+  assign ex_o.cause = (CVA6Cfg.SdtrigMcontrol6Store && sdtrig_store_stall_i && valid_i) ? sdtrig_store_action_i : ex_i.cause;
+  assign ex_o.tval  = (CVA6Cfg.SdtrigMcontrol6Store && sdtrig_store_stall_i && valid_i) ? {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, lsu_ctrl_i.vaddr} : ex_i.tval;
+  assign ex_o.tval2 = CVA6Cfg.RVH ? ex_i.tval2 : '0;
+  assign ex_o.tinst = CVA6Cfg.RVH ? ex_i.tinst : '0;
+  assign ex_o.gva = CVA6Cfg.RVH ? ex_i.gva : 1'b0;
+  // Store triggers are precise: they break on the instruction itself, never
+  // after it, so the deferred-exception bit stays clear here.
+  assign ex_o.timing = 1'b0;
 
   // store buffer control signals
-  logic st_ready;
-  logic st_valid;
-  logic st_valid_without_flush;
   logic instr_is_amo;
+
+  // -------------
+  // Byte-Swapper
+  // -------------
+  // The byte order of what is about to be stored is reversed when the
+  // processor is in big endian data mode.
+  logic [CVA6Cfg.XLEN-1:0] endian_data;
+  always_comb begin
+    endian_data = lsu_ctrl_i.data;
+    if (CVA6Cfg.BigEndianEn && mbe_i) begin
+      case (lsu_ctrl_i.operation)
+        ariane_pkg::SB, ariane_pkg::HSV_B, ariane_pkg::FSB:
+        endian_data[7:0] = {lsu_ctrl_i.data[7:0]};
+        ariane_pkg::SH, ariane_pkg::HSV_H, ariane_pkg::FSH:
+        endian_data[15:0] = {<<8{lsu_ctrl_i.data[15:0]}};
+        ariane_pkg::SW, ariane_pkg::HSV_W, ariane_pkg::FSW, ariane_pkg::AMO_LRW, ariane_pkg::AMO_SCW,
+        ariane_pkg::AMO_SWAPW, ariane_pkg::AMO_ADDW, ariane_pkg::AMO_ANDW, ariane_pkg::AMO_ORW,
+        ariane_pkg::AMO_XORW, ariane_pkg::AMO_MAXW, ariane_pkg::AMO_MINW, ariane_pkg::AMO_MAXWU,
+        ariane_pkg::AMO_MINWU:
+        endian_data[31:0] = {<<8{lsu_ctrl_i.data[31:0]}};
+        default: endian_data[CVA6Cfg.XLEN-1:0] = {<<8{lsu_ctrl_i.data[CVA6Cfg.XLEN-1:0]}};
+      endcase
+    end
+  end
   assign instr_is_amo = is_amo(lsu_ctrl_i.operation);
   // keep the data and the byte enable for the second cycle (after address translation)
-  logic [CVA6Cfg.XLEN-1:0] st_data_n, st_data_q;
-  logic [(CVA6Cfg.XLEN/8)-1:0] st_be_n, st_be_q;
-  logic [1:0] st_data_size_n, st_data_size_q;
-  amo_t amo_op_d, amo_op_q;
-  cbo_t cbo_op_d, cbo_op_q;
+  logic [CVA6Cfg.XLEN-1:0] st_data, st_data_n, st_data_q;
+  logic [(CVA6Cfg.XLEN/8)-1:0] st_be, st_be_n, st_be_q;
+  logic [1:0] st_data_size, st_data_size_n, st_data_size_q;
+  amo_t amo_op, amo_op_d, amo_op_q;
+  fu_op cbo_op, cbo_op_d, cbo_op_q;
+
+  logic store_buffer_valid, store_buffer_valid_d, store_buffer_valid_q;
+  logic store_buffer_valid_no_flush, store_buffer_valid_no_flush_d, store_buffer_valid_no_flush_q;
+
+  logic amo_buffer_valid, amo_buffer_valid_d, amo_buffer_valid_q;
+
+  logic store_buffer_ready, amo_buffer_ready;
 
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id_n, trans_id_q;
+
+  logic ex_s0, ex_s1;
+  logic stall_translation;
 
   // output assignments
   assign vaddr_o = lsu_ctrl_i.vaddr;  // virtual address
   assign hs_ld_st_inst_o = CVA6Cfg.RVH ? lsu_ctrl_i.hs_ld_st_inst : 1'b0;
   assign hlvx_inst_o = CVA6Cfg.RVH ? lsu_ctrl_i.hlvx_inst : 1'b0;
   assign tinst_o = CVA6Cfg.RVH ? lsu_ctrl_i.tinst : '0;  // transformed instruction
-  assign trans_id_o      = (sdtrig_store_stall_i && valid_i) ? lsu_ctrl_i.trans_id : trans_id_q; // transaction id from previous cycle
+
+  assign stall_translation = CVA6Cfg.MmuPresent ? translation_req_o && !dtlb_hit_i : 1'b0;
+
+  assign ex_s0 = CVA6Cfg.MmuPresent && stall_translation && ex_i.valid;
+  assign ex_s1 = CVA6Cfg.MmuPresent ? (store_buffer_valid_q || (CVA6Cfg.RVA && amo_buffer_valid_q)) && ex_i.valid : valid_i && ex_i.valid;
 
   always_comb begin : store_control
-    translation_req_o      = 1'b0;
-    valid_o                = 1'b0;
-    st_valid               = 1'b0;
-    st_valid_without_flush = 1'b0;
-    pop_st_o               = 1'b0;
-    ex_o                   = ex_i;
-    trans_id_n             = lsu_ctrl_i.trans_id;
-    state_d                = state_q;
+    // default assignment
+    translation_req_o             = 1'b0;
+    valid_o                       = 1'b0;
+    amo_buffer_valid_d            = 1'b0;
+    store_buffer_valid_d          = 1'b0;
+    store_buffer_valid_no_flush_d = 1'b0;
+    pop_st_o                      = 1'b0;
+    ex_o.valid                    = 1'b0;
+    trans_id_n                    = lsu_ctrl_i.trans_id;
+    trans_id_o                    = lsu_ctrl_i.trans_id;
 
-    if (sdtrig_store_stall_i && valid_i) begin
-      //validation of the store architecturally but do not store any result nor commit it
-      pop_st_o = 1'b0;
-      valid_o = 1'b1;
-      st_valid = 1'b0;
+    // A store trigger matched: retire the instruction as an exception without
+    // letting it reach the store buffer, so the write never happens.
+    if (CVA6Cfg.SdtrigMcontrol6Store && sdtrig_store_stall_i && valid_i) begin
+      pop_st_o          = 1'b0;
+      valid_o           = 1'b1;
       translation_req_o = 1'b0;
-      //generate exception    
-      ex_o.valid = 1'b1;
-      ex_o.cause = sdtrig_store_action_i;
-      ex_o.tval = lsu_ctrl_i.vaddr;
-
-      //stall store unit
-      state_d = IDLE;
-    end else begin
-      case (state_q)
-        // we got a valid store
-        IDLE: begin
-          if (valid_i) begin
-            state_d = VALID_STORE;
-            translation_req_o = 1'b1;
+      ex_o.valid        = 1'b1;
+      trans_id_o        = lsu_ctrl_i.trans_id;
+    end  // REQUEST
+    else if (valid_i) begin
+      translation_req_o = 1'b1;
+      if (!CVA6Cfg.MmuPresent || !stall_translation) begin
+        if (CVA6Cfg.RVA && instr_is_amo) begin
+          if (amo_buffer_ready) begin
             pop_st_o = 1'b1;
-            // check if translation was valid and we have space in the store buffer
-            // otherwise simply stall
-            if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
-              state_d  = WAIT_TRANSLATION;
-              pop_st_o = 1'b0;
-            end
-
-            if (!st_ready) begin
-              state_d  = WAIT_STORE_READY;
-              pop_st_o = 1'b0;
+            amo_buffer_valid_d = !flush_i;
+            // RETIRE STORE NO MMU
+            if (!CVA6Cfg.MmuPresent) begin
+              trans_id_o = lsu_ctrl_i.trans_id;
+              valid_o    = 1'b1;
+              ex_o.valid = ex_s1;
             end
           end
-        end
-
-        VALID_STORE: begin
-          valid_o = 1'b1;
-          // post this store to the store buffer if we are not flushing
-          if (!flush_i && !sdtrig_store_stall_i) st_valid = 1'b1;
-
-          st_valid_without_flush = 1'b1;
-
-          // we have another request and its not an AMO (the AMO buffer only has depth 1)
-          if ((valid_i && CVA6Cfg.RVA && !instr_is_amo) || (valid_i && !CVA6Cfg.RVA)) begin
-
-            translation_req_o = 1'b1;
-            state_d = VALID_STORE;
+        end else begin
+          if (store_buffer_ready) begin
             pop_st_o = 1'b1;
-
-            if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
-              state_d  = WAIT_TRANSLATION;
-              pop_st_o = 1'b0;
-            end
-
-            if (!st_ready) begin
-              state_d  = WAIT_STORE_READY;
-              pop_st_o = 1'b0;
-            end
-            // if we do not have another request go back to idle
-          end else begin
-            state_d = IDLE;
-          end
-        end
-
-        // the store queue is currently full
-        WAIT_STORE_READY: begin
-          // keep the translation request high
-          translation_req_o = 1'b1;
-
-          if (st_ready && dtlb_hit_i) begin
-            state_d = IDLE;
-          end
-        end
-
-        default: begin
-          // we didn't receive a valid translation, wait for one
-          // but we know that the store queue is not full as we could only have landed here if
-          // it wasn't full
-          if (state_q == WAIT_TRANSLATION && CVA6Cfg.MmuPresent) begin
-            translation_req_o = 1'b1;
-
-            if (dtlb_hit_i) begin
-              state_d = IDLE;
+            store_buffer_valid_d = !flush_i;
+            store_buffer_valid_no_flush_d = 1'b1;
+            // RETIRE STORE NO MMU
+            if (!CVA6Cfg.MmuPresent) begin
+              trans_id_o = lsu_ctrl_i.trans_id;
+              valid_o    = 1'b1;
+              ex_o.valid = ex_s1;
             end
           end
         end
-      endcase
-
-      // -----------------
-      // Access Exception
-      // -----------------
-      // we got an address translation exception (access rights, misaligned or page fault)
-      if (ex_i.valid && (state_q != IDLE)) begin
-        // the only difference is that we do not want to store this request
-        pop_st_o = 1'b1;
-        st_valid = 1'b0;
-        state_d  = IDLE;
-        valid_o  = 1'b1;
       end
-
-      if (flush_i) state_d = IDLE;
     end
-  end
-
-  // -------------
-  // Byte-Swapper
-  // -------------
-  // We need to reverse the byte order of what we intend to Store in Data Memory if we are in Big Endian Mode (mbe defines endianness and comes from CSRregfile).
-  logic [CVA6Cfg.XLEN-1:0] endian_data;
-
-  always_comb begin
-    endian_data = lsu_ctrl_i.data;
-    if (mbe_i) begin
-      case (lsu_ctrl_i.operation)
-        SB, HSV_B, FSB: endian_data[7:0] = {lsu_ctrl_i.data[7:0]};
-        SH, HSV_H, FSH: endian_data[15:0] = {<<8{lsu_ctrl_i.data[15:0]}};
-        SW, HSV_W, FSW, AMO_LRW, AMO_SCW, AMO_SWAPW, AMO_ADDW, AMO_ANDW, AMO_ORW, AMO_XORW, AMO_MAXW,
-        AMO_MINW, AMO_MAXWU, AMO_MINWU:
-        endian_data[31:0] = {<<8{lsu_ctrl_i.data[31:0]}};
-        default: endian_data[CVA6Cfg.XLEN-1:0] = {<<8{lsu_ctrl_i.data[CVA6Cfg.XLEN-1:0]}};
-      endcase
+    // RETIRE STORE WITH MMU
+    if (CVA6Cfg.MmuPresent) begin
+      if (store_buffer_valid_q || (CVA6Cfg.RVA && amo_buffer_valid_q)) begin
+        trans_id_o = trans_id_q;
+        valid_o    = 1'b1;
+        ex_o.valid = ex_s1;
+      end else if (ex_s0) begin
+        trans_id_o = lsu_ctrl_i.trans_id;
+        valid_o    = 1'b1;
+        ex_o.valid = 1'b1;
+        pop_st_o = dtlb_hit_i;
+      end
     end
   end
 
@@ -328,28 +295,26 @@ module store_unit
     end
   end
 
-  logic store_buffer_valid, amo_buffer_valid;
-  logic store_buffer_ready, amo_buffer_ready;
-
-  // multiplex between store unit and amo buffer
-  assign store_buffer_valid = st_valid & (!CVA6Cfg.RVA || (amo_op_q == AMO_NONE));
-  assign amo_buffer_valid = st_valid & (CVA6Cfg.RVA && (amo_op_q != AMO_NONE));
-
-  assign st_ready = store_buffer_ready & amo_buffer_ready;
+  assign st_be = CVA6Cfg.MmuPresent ? st_be_q : st_be_n;
+  assign st_data = CVA6Cfg.MmuPresent ? st_data_q : st_data_n;
+  assign st_data_size = CVA6Cfg.MmuPresent ? st_data_size_q : st_data_size_n;
+  assign amo_op = CVA6Cfg.MmuPresent ? amo_op_q : amo_op_d;
+  assign cbo_op = CVA6Cfg.MmuPresent ? cbo_op_q : cbo_op_d;
+  assign store_buffer_valid = CVA6Cfg.MmuPresent ? store_buffer_valid_q && !ex_s1 : store_buffer_valid_d;
+  assign store_buffer_valid_no_flush = CVA6Cfg.MmuPresent ? store_buffer_valid_no_flush_q && !ex_s1 : store_buffer_valid_no_flush_d;
+  assign amo_buffer_valid = CVA6Cfg.MmuPresent ? amo_buffer_valid_q && !ex_s1 : amo_buffer_valid_d;
 
   // ---------------
   // Store Queue
   // ---------------
   store_buffer #(
-      .CVA6Cfg       (CVA6Cfg),
-      .dcache_req_i_t(dcache_req_i_t),
-      .dcache_req_o_t(dcache_req_o_t),
-      .cbo_t         (cbo_t)
+      .CVA6Cfg(CVA6Cfg),
+      .ypb_store_req_t(ypb_store_req_t),
+      .ypb_store_rsp_t(ypb_store_rsp_t)
   ) store_buffer_i (
       .clk_i,
       .rst_ni,
       .flush_i,
-      .stall_st_pending_i,
       .no_st_pending_o,
       .store_buffer_empty_o,
       .page_offset_i,
@@ -363,20 +328,21 @@ module store_unit
       // functionally it doesn't make a difference whether we use
       // the correct valid signal or not as we are flushing
       // the whole pipeline anyway
-      .valid_without_flush_i(st_valid_without_flush),
-      .paddr_i,
-      .rvfi_mem_paddr_o     (rvfi_mem_paddr_o),
-      .data_i               (st_data_q),
-      .cbo_op_i             (cbo_op_q),
-      .be_i                 (st_be_q),
-      .data_size_i          (st_data_size_q),
-      .req_port_i           (req_port_i),
-      .req_port_o           (req_port_o)
+      .valid_without_flush_i(store_buffer_valid_no_flush),
+      .paddr_i              (paddr_i),
+      .data_i               (st_data),
+      .cbo_op_i             (cbo_op),
+      .be_i                 (st_be),
+      .data_size_i          (st_data_size),
+      .ypb_store_req_o      (ypb_store_req_o),
+      .ypb_store_rsp_i      (ypb_store_rsp_i)
   );
 
   if (CVA6Cfg.RVA) begin
     amo_buffer #(
-        .CVA6Cfg(CVA6Cfg)
+        .CVA6Cfg(CVA6Cfg),
+        .ypb_amo_req_t(ypb_amo_req_t),
+        .ypb_amo_rsp_t(ypb_amo_rsp_t)
     ) i_amo_buffer (
         .clk_i,
         .rst_ni,
@@ -384,17 +350,17 @@ module store_unit
         .valid_i           (amo_buffer_valid),
         .ready_o           (amo_buffer_ready),
         .paddr_i           (paddr_i),
-        .amo_op_i          (amo_op_q),
-        .data_i            (st_data_q),
-        .data_size_i       (st_data_size_q),
-        .amo_req_o         (amo_req_o),
-        .amo_resp_i        (amo_resp_i),
+        .amo_op_i          (amo_op),
+        .data_i            (st_data),
+        .data_size_i       (st_data_size),
+        .ypb_amo_req_o     (ypb_amo_req_o),
+        .ypb_amo_rsp_i     (ypb_amo_rsp_i),
         .amo_valid_commit_i(amo_valid_commit_i),
         .no_st_pending_i   (no_st_pending_o)
     );
   end else begin
     assign amo_buffer_ready = '1;
-    assign amo_req_o        = '0;
+    assign ypb_amo_req_o    = '0;
   end
 
   // ---------------
@@ -402,21 +368,25 @@ module store_unit
   // ---------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      state_q        <= IDLE;
-      st_be_q        <= '0;
-      st_data_q      <= '0;
-      st_data_size_q <= '0;
-      trans_id_q     <= '0;
-      amo_op_q       <= AMO_NONE;
-      cbo_op_q       <= ariane_pkg::CBO_NONE;
+      st_be_q                       <= '0;
+      st_data_q                     <= '0;
+      st_data_size_q                <= '0;
+      trans_id_q                    <= '0;
+      amo_op_q                      <= AMO_NONE;
+      cbo_op_q                      <= ariane_pkg::CBO_NONE;
+      amo_buffer_valid_q            <= '0;
+      store_buffer_valid_q          <= '0;
+      store_buffer_valid_no_flush_q <= '0;
     end else begin
-      state_q        <= state_d;
-      st_be_q        <= st_be_n;
-      st_data_q      <= st_data_n;
-      trans_id_q     <= trans_id_n;
-      st_data_size_q <= st_data_size_n;
-      amo_op_q       <= amo_op_d;
-      cbo_op_q       <= cbo_op_d;
+      st_be_q                       <= st_be_n;
+      st_data_q                     <= st_data_n;
+      trans_id_q                    <= trans_id_n;
+      st_data_size_q                <= st_data_size_n;
+      amo_op_q                      <= amo_op_d;
+      cbo_op_q                      <= cbo_op_d;
+      amo_buffer_valid_q            <= amo_buffer_valid_d;
+      store_buffer_valid_q          <= store_buffer_valid_d;
+      store_buffer_valid_no_flush_q <= store_buffer_valid_no_flush_d;
     end
   end
 

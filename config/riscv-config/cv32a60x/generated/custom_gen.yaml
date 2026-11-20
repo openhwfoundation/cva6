@@ -1,0 +1,67 @@
+# Copyright 2024 Thales DIS France SAS
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Original Author: Zbigniew CHAMSKI - Thales
+
+hart_ids: [0]
+hart0:
+    icache:
+        reset-val: 0x1
+        rv64:
+            accessible: false
+        rv32:
+            accessible: true
+            icache:
+                implemented: true
+                type:
+                    rw: true
+                description: bit for cache-enable of instruction cache
+                msb: 0
+                lsb: 0
+                shadow:
+                shadow_type:
+            fields:
+              - icache
+              -
+                  -
+                      - 1
+                      - 31
+        description: the register controls the operation of the i-cache unit.
+        address: 0x7c0
+        priv_mode: M
+    dcache:
+        reset-val: 0x1
+        rv64:
+            accessible: false
+        rv32:
+            accessible: true
+            dcache:
+                implemented: true
+                type:
+                    rw: true
+                description: bit for cache-enable of data cache
+                shadow:
+                shadow_type:
+                msb: 0
+                lsb: 0
+            fields:
+              - dcache
+              -
+                  -
+                      - 1
+                      - 31
+        description: the register controls the operation of the d-cache unit.
+        address: 0x7c1
+        priv_mode: M
+

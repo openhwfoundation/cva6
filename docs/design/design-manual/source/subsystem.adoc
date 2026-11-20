@@ -16,8 +16,8 @@ Subsystem
 Global functionality
 ~~~~~~~~~~~~~~~~~~~~
 
-The CVA6 is a subsystem composed of the modules and protocol interfaces
-as illustrated The processor is a Harvard-based modern architecture.
+The {ohg-config} is a subsystem composed of the modules and protocol interfaces
+as illustrated. The processor is a Harvard-based modern architecture.
 Instructions are issued in-order through the DECODE stage and executed
 out-of-order but committed in-order. The processor is Single issue, that
 means that at maximum one instruction per cycle can be issued to the
@@ -31,11 +31,10 @@ Commit stage. At least 6 cycles are needed to execute one instruction.
 Connection with other sub-systems
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The submodule is connected to :
+The submodule is connected to:
 
-* NOC interconnect provides memory content
+* OBI interconnect gives access to memory content
 * COPROCESSOR connects through CV-X-IF coprocessor interface protocol
-* TRACER provides support for verification
 * TRAP provides traps inputs
 
 [[parameter-configuration]]
@@ -48,4 +47,4 @@ include::parameters.adoc[]
 IO ports
 ~~~~~~~~
 
-include::port_cva6.adoc[]
+include::port_cva6_pipeline.adoc[]

@@ -47,6 +47,7 @@ package uvme_cva6_pkg;
    import uvml_trn_pkg    ::*;
    import uvma_clknrst_pkg::*;
    import uvma_axi_pkg::*;
+   import uvma_obi_memory_pkg::*;
    import uvml_mem_pkg  ::*;
    import uvma_core_cntrl_pkg::*;
    import uvma_rvfi_pkg::*;
@@ -119,6 +120,8 @@ package uvme_cva6_pkg;
    `include "uvme_cva6_base_vseq.sv"
    `include "uvme_cva6_reset_vseq.sv"
    `include "uvme_axi_fw_preload_seq.sv"
+   `include "uvme_obi_fw_preload_seq.sv"
+   `include "uvme_obi_slv_seq.sv"
 //   `include "uvme_cva6_interrupt_noise_vseq.sv"
    `include "uvme_cva6_vseq_lib.sv"
 

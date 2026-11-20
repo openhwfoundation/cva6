@@ -18,7 +18,11 @@
 ** Author: Cesar Fuguet - Inria, Univ. Grenoble-Alpes
 **/
 #include <stdint.h>
-#include <stdio.h>
+
+/*
+** No printf: syscall() waits for fromhost, which this testbench never writes.
+** The verdict is the return code, which crt.S places in tohost.
+*/
 
 static const unsigned int TEST_TIMEOUT = 10000;
 
@@ -85,34 +89,31 @@ static int testScrubPeriod(int period, int max_cycles)
 
 int main(int argc, char* arg[])
 {
-    int scrubPeriod; // Power of two value (2**N) -> 32 if period=5
+    const int scrubPeriod = 5; // Power of two value (2**N) -> 32 if period=5
     const int xlen = sizeof(uintptr_t) * 8;
     uintptr_t tmp;
     int ret = 0;
 
-    printf("[BEG] Test DCACHE CSR\n");
     tmp = csr_dcache_read_set(0);
 
-    //  check that eccPresent bit is set
+    //  check that eccPresent bit is set: the test only runs on targets with
+    //  ECC, so a cleared bit is a failure.
     if (((tmp >> (xlen - 1)) & 0x1) == 0) {
-        printf("[WARNING] DCACHE ECC not supported\n");
+        ret = 1;
         goto exitTest;
     }
 
     //  check that eccScrubberPresent bit is set
     if (((tmp >> (xlen - 2)) & 0x1) == 0) {
-        printf("[WARNING] DCACHE Scrubbing mechanism not supported\n");
+        ret = 1;
         goto exitTest;
     }
 
     //  start tests
-    printf("Enabling scrubbing (period=%d)\n", scrubPeriod);
     ret = testScrubPeriod(5/*32*/, 3);
     if (ret > 0) goto exitTest;
     ret = testScrubPeriod(4/*16*/, 5);
 
 exitTest:
-    if (ret > 0) printf("[FAILURE] Test DCACHE CSR\n");
-    else         printf("[SUCCESS] Test DCACHE CSR\n");
     return ret;
 }

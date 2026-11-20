@@ -17,6 +17,10 @@ void debug_printf(const char* str, ...);
 
 #include <alloca.h>
 
+// Symbols to measure cycles
+#define GLOBAL_PATTERN(name) asm volatile ("GLOBAL_PATTERN_" name ": .global GLOBAL_PATTERN_" name :)
+
+
 /* Global Variables: */
 
 Rec_Pointer     Ptr_Glob,
@@ -113,6 +117,7 @@ int main (int argc, char** argv)
 
     setStats(1);
     Start_Timer();
+    GLOBAL_PATTERN("start");
 
     for (Run_Index = 1; Run_Index <= Number_Of_Runs; ++Run_Index)
     {
@@ -164,6 +169,7 @@ int main (int argc, char** argv)
     /* Stop timer */
     /**************/
 
+    GLOBAL_PATTERN("end");
     Stop_Timer();
     setStats(0);
 

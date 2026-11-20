@@ -1,0 +1,66 @@
+
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Authors: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+#
+# ================================================================================
+#                  Regression test list format
+# --------------------------------------------------------------------------------
+# testlist        : Assembly test list
+# test            : Assembly test name
+# description     : Description of this test
+# gen_opts        : Instruction generator options
+# iterations      : Number of iterations of this test
+# no_iss          : Enable/disable ISS simulator (Optional)
+# gen_test        : Test name used by the instruction generator
+# asm_tests       : Path to directed, hand-coded assembly test file or directory
+# rtl_test        : RTL simulation test name
+# cmp_opts        : Compile options passed to the instruction generator
+# sim_opts        : Simulation options passed to the instruction generator
+# no_post_compare : Enable/disable comparison of trace log and ISS log (Optional)
+# compare_opts    : Options for the RTL & ISS trace comparison
+# gcc_opts        : gcc compile options
+# llvm_opts       : llvm compile options (used instead of gcc_opts with an LLVM toolchain)
+# --------------------------------------------------------------------------------
+## C
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<path_var>/custom/zcmt/link.ld"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<path_var>/custom/zcmt/link.ld"
+
+testlist:
+  - test: cm_jalt_long_ret
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jalt_long_ret.S
+
+  - test: cm_jalt_long
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jalt_long.S
+
+  - test: cm_jt_long
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jt_long.S
+
+  - test: jvt_csr
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/jvt_csr.S
+
+  - test: cm_jt_target_lsb
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jt_target_lsb.S
+
+  - test: cm_jalt_target_lsb
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/zcmt/cm_jalt_target_lsb.S

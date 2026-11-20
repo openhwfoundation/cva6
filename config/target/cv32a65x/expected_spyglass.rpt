@@ -1,0 +1,45 @@
+################################################################################
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+SUMMARY REPORT:
+
+
+############### BuiltIn -> RuleGroup=Command-line read ###############
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Severity   Rule Name            Count Short Help                               
+===============================================================================
+INFO       HdlLibDuCheck_03     1     Reports that 'hdllibdu' is not required 
+                                      if no precompiled design unit is   used 
+                                      in current run. 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+############### BuiltIn -> RuleGroup=Design Read ###############
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Severity   Rule Name            Count Short Help                               
+===============================================================================
+WARNING    SYNTH_5064           10    Non-synthesizable statements are 
+                                      ignored for synthesis. 
+INFO       DetectTopDesignUnits 1     Identify the top-level design units in 
+                                      user design. 
+INFO       ElabSummary          1     Generates Elaborated design units 
+                                      Summary data 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+############### Non-BuiltIn -> Goal=lint/lint_rtl ###############
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Severity   Rule Name            Count Short Help                               
+===============================================================================
+WARNING    FlopEConst           2     Flip-flop enable pin is permanently 
+                                      disabled or enabled 
+WARNING    STARC05-2.2.3.3      1     Do not assign over the same signal in 
+                                      an always construct for sequential 
+                                      circuits 
+WARNING    W287b                18    Output port of an instance is not 
+                                      connected 
+WARNING    W415a                5     Signal may be multiply assigned (beside 
+                                      initialization) in the same scope. 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

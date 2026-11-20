@@ -149,9 +149,11 @@ task uvmt_cva6_firmware_test_c::run_phase(uvm_phase phase);
    // Let all pending AXI requests settle.
    // FIXME TODO: Insert this delay in AXI agent rather than here,
    // based on AXI state and latency setting.
-   `uvm_info("TEST", "Running a 100-cycle delay to settle AXI requests...", UVM_NONE);
-   repeat (100) @(posedge env_cntxt.clknrst_cntxt.vif.clk);
-   `uvm_info("TEST", "Running a 100-cycle delay to settle AXI requests... DONE", UVM_NONE);
+   if (RTLCVA6Cfg.MemSubsystem != config_pkg::MEM_OBI) begin
+      `uvm_info("TEST", "Running a 100-cycle delay to settle AXI requests...", UVM_NONE);
+      repeat (100) @(posedge env_cntxt.clknrst_cntxt.vif.clk);
+      `uvm_info("TEST", "Running a 100-cycle delay to settle AXI requests... DONE", UVM_NONE);
+   end
    // Allow termination from now on.
    phase.drop_objection(this);
 

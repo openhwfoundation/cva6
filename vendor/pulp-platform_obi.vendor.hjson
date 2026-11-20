@@ -1,0 +1,32 @@
+// -*- coding: utf-8 -*-
+// Copyright (C) 2024 Thales DIS France SAS
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0.
+// Original Author: Yannick Casamatta
+
+
+{
+    // Name of the project
+    name: "pulp_obi",
+
+    // Target directory: relative to the location of this script.
+    target_dir: "pulp-platform/obi",
+
+    // Upstream repository
+    upstream: {
+        // URL
+        url: "https://github.com/pulp-platform/obi.git",
+        // revision
+        rev: "v0.1.3",
+    }
+
+    // Patch dir for local changes
+    patch_dir: "patches/pulp-platform/obi",
+
+    // Exclusions from upstream content
+    exclude_from_upstream: [
+    ".ci",
+    ".github",
+    ".gitlab-ci.d",
+    ".gitlab-ci.yml",
+    ]
+}

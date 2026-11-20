@@ -7,10 +7,13 @@
 //
 // Original Author: Zineb EL KACIMI (zineb.el-kacimi@external.thalesgroup.com)
 
-
--tree uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.i_cva6.instr_tracer_i
--tree uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.i_cva6.tracer_if
--tree uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.i_cva6.genblk6.i_cva6_rvfi_combi
--tree uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.i_cva6.i_cva6_rvfi_probes
--tree uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.i_cva6.i_frontend.i_instr_queue.i_unread_*
--tree uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.i_cva6.gen_cache_hpd.i_cache_subsystem
++moduletree cva6_pipeline
+-tree *.instr_tracer_i
+-tree *.tracer_if
+-tree *.i_cva6_rvfi_probes
+-tree *.i_frontend.i_instr_queue.i_unread_*
+-tree *.ex_stage_i.lsu_i.i_pmp_data_if*
+-tree *.issue_stage_i.i_issue_read_operands.gen_sel_clobbers[*].i_sel_gpr_clobbers
+-tree *.i_frontend.gen_instr_scan[1].i_instr_scan*
+-tree *.i_frontend.i_instr_queue.gen_instr_fifo[1].i_fifo_instr_data*
+-tree *.i_frontend.i_instr_queue.i_fifo_address*

@@ -1,0 +1,117 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common -lgcc"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
+
+testlist:
+  - test: sdtrig_csr_access
+    <<: *common_test_config
+    description: >
+      Trigger module CSR interface: tselect bounds itself to the number of
+      implemented triggers, tinfo reports the documented trigger types, and
+      tdata1/tdata2 are per-trigger state.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_csr_access.S
+
+  - test: sdtrig_mcontrol6_exec_match
+    <<: *common_test_config
+    description: >
+      mcontrol6 execute trigger on the instruction address, equal match, with
+      the breakpoint action: it fires once, on the matched instruction (mepc),
+      and a disarmed trigger does not fire. NAPOT is in sdtrig_napot_match_test;
+      not-equal needs a debug-mode action and is not tested.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_mcontrol6_exec_match.S
+
+  - test: sdtrig_napot_match_test
+    <<: *common_test_config
+    description: >
+      NAPOT range match of an mcontrol6 execute trigger, on an 8-byte range at
+      a real code address: both words of the range fire, on the right
+      instruction (mepc), and the word below and the word past the end do not.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_napot_match_test.S
+
+  - test: sdtrig_mcontrol6_store
+    <<: *common_test_config
+    description: >
+      mcontrol6 store triggers on the store address and on the stored value:
+      the watched store fires, on that instruction (mepc), before the write
+      reaches memory, and a store to another address, or of another value,
+      does not fire.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_mcontrol6_store.S
+
+  - test: sdtrig_etrigger
+    <<: *common_test_config
+    description: >
+      etrigger firing on an exception cause and replacing it with a breakpoint,
+      then a second exception with the mask emptied keeping its own cause.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_etrigger.S
+
+  - test: sdtrig_icount
+    <<: *common_test_config
+    description: >
+      icount trigger: a countdown on committed instructions raising a breakpoint
+      at zero, then spent once hit is set so it does not fire again.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_icount.S
+
+  - test: sdtrig_mcontrol6_load
+    <<: *common_test_config
+    description: >
+      mcontrol6 load trigger on the load address: precise, so the destination
+      register keeps its old value, plus a negative case on another address.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_mcontrol6_load.S
+
+  - test: sdtrig_mcontrol6_exec_data
+    <<: *common_test_config
+    description: >
+      mcontrol6 execute trigger with select set, comparing the instruction word:
+      the same encoding at two addresses both fire, a different one does not.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_mcontrol6_exec_data.S
+
+  - test: sdtrig_mcontrol6_load_data
+    <<: *common_test_config
+    description: >
+      mcontrol6 load trigger with select set, comparing the loaded value: the
+      break is deferred to the next instruction (mepc), tdata1 reports it as
+      "after" (hit1:hit0 = 0b11), the load completes, and a load of another
+      value does not fire.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_mcontrol6_load_data.S
+
+  - test: sdtrig_chain
+    <<: *common_test_config
+    description: >
+      Trigger chaining: an execute link and a load link on consecutive indexes,
+      firing only when both match.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_chain.S
+  - test: sdtrig_itrigger
+    <<: *common_test_config
+    description: >
+      itrigger firing on a machine external interrupt and replacing it with a
+      breakpoint, using the deterministic interrupt hook irq_mei_hook.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_itrigger.S
+
+  - test: sdtrig_loadaddr_two_triggers
+    <<: *common_test_config
+    description: >
+      Two load-address triggers armed at once: a load matching one of them
+      takes the action of that trigger and sets hit0 in it only.
+    iterations: 1
+    asm_tests: <path_var>/custom/sdtrig/sdtrig_loadaddr_two_triggers.S

@@ -122,7 +122,7 @@ localparam type rvfi_probes_t = struct packed {
 localparam NBSlave = 2; // debug, ariane
 localparam AxiAddrWidth = 64;
 localparam AxiDataWidth = 64;
-localparam AxiIdWidthMaster = 4;
+localparam AxiIdWidthMaster = 5;
 localparam AxiIdWidthSlaves = AxiIdWidthMaster + $clog2(NBSlave); // 5
 localparam AxiUserWidth = CVA6Cfg.AxiUserWidth;
 
@@ -694,8 +694,6 @@ ariane_axi::resp_t   axi_ariane_resp;
 
 ariane #(
     .CVA6Cfg ( CVA6Cfg ),
-    .rvfi_probes_instr_t ( rvfi_probes_instr_t ),
-    .rvfi_probes_csr_t ( rvfi_probes_csr_t ),
     .rvfi_probes_t ( rvfi_probes_t )
 ) i_ariane (
     .clk_i        ( clk                 ),

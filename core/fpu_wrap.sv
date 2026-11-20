@@ -74,6 +74,15 @@ module fpu_wrap
         }
     };
 
+    // Division and square root unit. The C910 one (THMULTI) works on 64-bit
+    // operands and checks the NaN-boxing of a single-precision operand in their
+    // upper half, which fpnew fills with zeros when FLEN is 32: it would take
+    // every operand for a NaN. An FPU with single precision only uses the E906
+    // unit (TH32), which supports exactly that.
+    localparam fpnew_pkg::divsqrt_unit_t DIVSQRT_SEL =
+        (CVA6Cfg.RVF && !CVA6Cfg.RVD && !CVA6Cfg.XF16 && !CVA6Cfg.XF16ALT && !CVA6Cfg.XF8) ?
+        fpnew_pkg::TH32 : fpnew_pkg::THMULTI;
+
     // Implementation (number of registers etc)
     localparam fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = '{
         PipeRegs: '{  // FP32, FP64, FP16, FP8, FP16alt
@@ -404,20 +413,26 @@ module fpu_wrap
       if (fpu_vec_op_d && vec_replication) begin
         if (replicate_c) begin
           unique case (fpu_dstfmt_d)
-            fpnew_pkg::FP32: operand_c_d = CVA6Cfg.RVD ? {2{operand_c_i[31:0]}} : operand_c_i;
+            fpnew_pkg::FP32:
+            operand_c_d = CVA6Cfg.RVD ? CVA6Cfg.FLen'({2{operand_c_i[31:0]}}) : operand_c_i;
             fpnew_pkg::FP16, fpnew_pkg::FP16ALT:
-            operand_c_d = CVA6Cfg.RVD ? {4{operand_c_i[15:0]}} : {2{operand_c_i[15:0]}};
+            operand_c_d = CVA6Cfg.RVD ? CVA6Cfg.FLen'({4{operand_c_i[15:0]}}) :
+                                          CVA6Cfg.FLen'({2{operand_c_i[15:0]}});
             fpnew_pkg::FP8:
-            operand_c_d = CVA6Cfg.RVD ? {8{operand_c_i[7:0]}} : {4{operand_c_i[7:0]}};
+            operand_c_d = CVA6Cfg.RVD ? CVA6Cfg.FLen'({8{operand_c_i[7:0]}}) :
+                                          CVA6Cfg.FLen'({4{operand_c_i[7:0]}});
             default: ;  // Do nothing
           endcase  // fpu_dstfmt_d
         end else begin
           unique case (fpu_dstfmt_d)
-            fpnew_pkg::FP32: operand_b_d = CVA6Cfg.RVD ? {2{operand_b_i[31:0]}} : operand_b_i;
+            fpnew_pkg::FP32:
+            operand_b_d = CVA6Cfg.RVD ? CVA6Cfg.FLen'({2{operand_b_i[31:0]}}) : operand_b_i;
             fpnew_pkg::FP16, fpnew_pkg::FP16ALT:
-            operand_b_d = CVA6Cfg.RVD ? {4{operand_b_i[15:0]}} : {2{operand_b_i[15:0]}};
+            operand_b_d = CVA6Cfg.RVD ? CVA6Cfg.FLen'({4{operand_b_i[15:0]}}) :
+                                          CVA6Cfg.FLen'({2{operand_b_i[15:0]}});
             fpnew_pkg::FP8:
-            operand_b_d = CVA6Cfg.RVD ? {8{operand_b_i[7:0]}} : {4{operand_b_i[7:0]}};
+            operand_b_d = CVA6Cfg.RVD ? CVA6Cfg.FLen'({8{operand_b_i[7:0]}}) :
+                                          CVA6Cfg.FLen'({4{operand_b_i[7:0]}});
             default: ;  // Do nothing
           endcase  // fpu_dstfmt_d
         end
@@ -532,6 +547,7 @@ module fpu_wrap
     fpnew_top #(
         .Features      (FPU_FEATURES),
         .Implementation(FPU_IMPLEMENTATION),
+        .DivSqrtSel    (DIVSQRT_SEL),
         .TagType       (logic [CVA6Cfg.TRANS_ID_BITS-1:0])
     ) i_fpnew_bulk (
         .clk_i,
@@ -559,12 +575,13 @@ module fpu_wrap
     );
 
     // Pack status flag into exception cause, tval ignored in wb, exception is always invalid
-    assign fpu_exception_o.cause = {59'h0, fpu_status};
+    assign fpu_exception_o.cause = CVA6Cfg.XLEN'(fpu_status);
     assign fpu_exception_o.valid = 1'b0;
     assign fpu_exception_o.tval = '0;
     assign fpu_exception_o.tval2 = '0;
     assign fpu_exception_o.tinst = '0;
     assign fpu_exception_o.gva = '0;
+    assign fpu_exception_o.timing = '0;
 
     // Downstream write port is dedicated to FPU and always ready
     assign fpu_out_ready = 1'b1;

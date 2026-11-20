@@ -26,8 +26,9 @@ def csr_formatter(srcfile, customfile, debugfile, modifile):
     # Read original dictionary from YAML source file
     with open(srcfile, "r", encoding="utf-8") as file:
         original_dict = yaml.safe_load(file)
-    with open(customfile, "r", encoding="utf-8") as file:
-        custom_dict = yaml.safe_load(file)
+    if customfile:
+        with open(customfile, "r", encoding="utf-8") as file:
+            custom_dict = yaml.safe_load(file)
     debug_dict = {}
     riscv_config_data = original_dict.copy()
     if debugfile is not None:
@@ -35,7 +36,8 @@ def csr_formatter(srcfile, customfile, debugfile, modifile):
             debug_dict = yaml.safe_load(file)
         if debug_dict["hart0"]["debug_mode"]:
             riscv_config_data["hart0"].update(debug_dict["hart0"])
-    riscv_config_data["hart0"].update(custom_dict["hart0"])
+    if customfile:
+        riscv_config_data["hart0"].update(custom_dict["hart0"])
     update_dict = {}
     if modifile is not None:
         with open(modifile, "r", encoding="utf-8") as file:

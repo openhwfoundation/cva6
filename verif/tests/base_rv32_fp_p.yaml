@@ -1,0 +1,73 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv32_fp_p.yaml
+#
+#   The rv32uf tests of riscv-tests, in physical mode, for the RV32 targets
+#   with single-precision floating point.
+# ------------------------------------------------------------------------------
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
+
+testlist:
+  - test: rv32uf-p-fadd
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fadd.S
+
+  - test: rv32uf-p-fclass
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fclass.S
+
+  - test: rv32uf-p-fcmp
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fcmp.S
+
+  - test: rv32uf-p-fcvt
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fcvt.S
+
+  - test: rv32uf-p-fcvt_w
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fcvt_w.S
+
+  - test: rv32uf-p-fdiv
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fdiv.S
+
+  - test: rv32uf-p-fmadd
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fmadd.S
+
+  - test: rv32uf-p-fmin
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/fmin.S
+
+  - test: rv32uf-p-ldst
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/ldst.S
+
+  - test: rv32uf-p-move
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/move.S
+
+  - test: rv32uf-p-recoding
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32uf/recoding.S

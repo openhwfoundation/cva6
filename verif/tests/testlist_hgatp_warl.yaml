@@ -1,8 +1,0 @@
-# Regression for unsupported hgatp.MODE WARL handling.
-
-testlist:
-  - test: rv64h-p-hgatp-mode-warl
-    iterations: 1
-    path_var: TESTS_PATH
-    gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
-    asm_tests: <path_var>/custom/hgatp_warl/hgatp_mode_warl.S

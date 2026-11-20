@@ -39,9 +39,11 @@
 // The instruction front-end will stop issuing instructions as soon as the
 // fifo is full. This will gate the logic if the processor is e.g.: halted
 //
-// TODO(zarubaf): The instruction queues can be reduced to 16 bit. Potentially
+// IMPROVEMENT: The instruction queues can be reduced to 16 bit. Potentially
 // the replay mechanism gets more complicated as it can be that a 32 bit instruction
 // can not be pushed at once.
+
+`include "utils_macros.svh"
 
 module instr_queue
   import ariane_pkg::*;
@@ -78,7 +80,7 @@ module instr_queue
     input ariane_pkg::cf_t [CVA6Cfg.INSTR_PER_FETCH-1:0] cf_type_i,
     // Instruction control-flow prediction valid - FRONTEND
     input logic [CVA6Cfg.INSTR_PER_FETCH-1:0] cf_valid_i,
-    // Replay instruction because one of the FIFO was full - FRONTEND
+    // Replay instruction because one of the FIFO was  full - FRONTEND
     output logic replay_o,
     // Address at which to replay the fetch - FRONTEND
     output logic [CVA6Cfg.VLEN-1:0] replay_addr_o,
@@ -152,7 +154,10 @@ module instr_queue
 
   assign ready_o = ~(|instr_queue_full) & ~full_address;
 
-  if (CVA6Cfg.RVC) begin : gen_multiple_instr_per_fetch_with_C
+  //  This branch handles fetch blocks that hold several instructions
+  //  (INSTR_PER_FETCH > 1). That is the case with C, and also without C on a
+  //  superscalar core, where a 64-bit block holds two 32-bit instructions.
+  if (CVA6Cfg.INSTR_PER_FETCH > 1) begin : gen_multiple_instr_per_fetch_with_C
 
     for (genvar i = 0; i < CVA6Cfg.INSTR_PER_FETCH; i++) begin : gen_unpack_taken
       assign taken[i] = cf_valid_i[i];
@@ -259,6 +264,7 @@ module instr_queue
     /* verilator lint_off WIDTH */
     assign instr_data_in[0].instr = instr_i[0];
     assign instr_data_in[0].cf = cf_type_i[0];
+    assign instr_data_in[0].cf_valid = cf_valid_i[0];
     assign instr_data_in[0].ex = exception_i;  // exceptions hold for the whole fetch packet
     assign instr_data_in[0].ex_vaddr = exception_addr_i;
     if (CVA6Cfg.RVH) begin : gen_hyp_ex_without_C
@@ -281,7 +287,7 @@ module instr_queue
   // (e.g.: we pushed and it was full)
   // 2. The address/branch predict FIFO was full
   // if one of the FIFOs was full we need to replay the faulting instruction
-  if (CVA6Cfg.RVC == 1'b1) begin : gen_instr_overflow_fifo_with_C
+  if (CVA6Cfg.INSTR_PER_FETCH > 1) begin : gen_instr_overflow_fifo_with_C
     assign instr_overflow_fifo = instr_queue_full & fifo_pos;
   end else begin : gen_instr_overflow_fifo_without_C
     assign instr_overflow_fifo = instr_queue_full & valid_i;
@@ -290,7 +296,7 @@ module instr_queue
   assign address_overflow = full_address & push_address;
   assign replay_o = instr_overflow | address_overflow;
 
-  if (CVA6Cfg.RVC) begin : gen_replay_addr_o_with_c
+  if (CVA6Cfg.INSTR_PER_FETCH > 1) begin : gen_replay_addr_o_with_c
     // select the address, in the case of an address fifo overflow just
     // use the base of this package
     // if we successfully pushed some instructions we can output the next instruction
@@ -321,7 +327,7 @@ module instr_queue
     end
   end
 
-  if (CVA6Cfg.RVC) begin : gen_downstream_itf_with_c
+  if (CVA6Cfg.INSTR_PER_FETCH > 1) begin : gen_downstream_itf_with_c
     always_comb begin
       idx_ds_d  = idx_ds_q;
 
@@ -345,9 +351,8 @@ module instr_queue
 
       // output mux select
       for (int unsigned i = 0; i < CVA6Cfg.INSTR_PER_FETCH; i++) begin
-        // TODO handle fetch_entry_o[1] if superscalar
         if (idx_ds[0][i]) begin
-          if (instr_data_out[i].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
+          if (CVA6Cfg.NrPMPEntries != 0 && instr_data_out[i].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
             fetch_entry_o[0].ex.cause = riscv::INSTR_ACCESS_FAULT;
           end else if (CVA6Cfg.RVH && instr_data_out[i].ex == ariane_pkg::FE_INSTR_GUEST_PAGE_FAULT) begin
             fetch_entry_o[0].ex.cause = riscv::INSTR_GUEST_PAGE_FAULT;
@@ -355,7 +360,7 @@ module instr_queue
             fetch_entry_o[0].ex.cause = riscv::INSTR_PAGE_FAULT;
           end
           fetch_entry_o[0].instruction = instr_data_out[i].instr;
-          fetch_entry_o[0].ex.valid = instr_data_out[i].ex != ariane_pkg::FE_NONE;
+          fetch_entry_o[0].ex.valid = ((CVA6Cfg.MmuPresent || CVA6Cfg.NrPMPEntries !=0) && instr_data_out[i].ex != ariane_pkg::FE_NONE);
           if (CVA6Cfg.TvalEn)
             fetch_entry_o[0].ex.tval = {
               {(CVA6Cfg.XLEN - CVA6Cfg.VLEN) {1'b0}}, instr_data_out[i].ex_vaddr
@@ -404,6 +409,7 @@ module instr_queue
       fetch_entry_o[0].address = pc_q;
 
       fetch_entry_o[0].ex.valid = instr_data_out[0].ex != ariane_pkg::FE_NONE;
+      fetch_entry_o[0].ex.timing = 1'b0;
       if (instr_data_out[0].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
         fetch_entry_o[0].ex.cause = riscv::INSTR_ACCESS_FAULT;
       end else begin
@@ -520,10 +526,8 @@ module instr_queue
       .pop_i     (pop_address)
   );
 
-  unread i_unread_branch_mask (.d_i(|branch_mask_extended));
-  unread i_unread_fifo_pos (.d_i(|fifo_pos_extended));  // we don't care about the lower signals
 
-  if (CVA6Cfg.RVC) begin : gen_pc_q_with_c
+  if (CVA6Cfg.INSTR_PER_FETCH > 1) begin : gen_pc_q_with_c
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (!rst_ni) begin
         idx_ds_q        <= 'b1;
@@ -565,13 +569,23 @@ module instr_queue
   // pragma translate_off
   replay_address_fifo :
   assert property (@(posedge clk_i) disable iff (!rst_ni) replay_o |-> !i_fifo_address.push_i)
-  else $fatal(1, "[instr_queue] Pushing address although replay asserted");
+  else `ASSERT_FATAL("[instr_queue] Pushing address although replay asserted");
 
   output_select_onehot :
   assert property (@(posedge clk_i) $onehot0(idx_ds_q))
   else begin
-    $error("Output select should be one-hot encoded");
+    `ASSERT_ERROR("Output select should be one-hot encoded");
     $stop();
+  end
+
+  // The exception of a valid fetch entry has no unknown bit, whichever path
+  // (single-slot or multi-slot) built the entry.
+  for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin : gen_fetch_entry_known
+    fetch_entry_known :
+    assert property (@(posedge clk_i) disable iff (!rst_ni) fetch_entry_valid_o[i] |-> !$isunknown(
+        fetch_entry_o[i].ex
+    ))
+    else `ASSERT_ERROR("[instr_queue] fetch entry exception has unknown bits");
   end
   // pragma translate_on
 endmodule

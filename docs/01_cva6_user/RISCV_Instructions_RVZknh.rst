@@ -35,14 +35,14 @@
    "CV32A60AX", "Implemented extension"
    "CV64A6_MMU", "Implemented extension"
 
-=============================
+==============================================
 RVZknh: NIST Suite: Hash Function Instructions
-=============================
+==============================================
 
 The following instructions comprise the Zknh extension:
 
 Hash Function instructions
---------------------
+--------------------------
 The Hash Function instructions (Zknh) provide acceleration for the SHA2 family of cryptographic hash functions.
 
 +-----------+-----------+----------------------------+

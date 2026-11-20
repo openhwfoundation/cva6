@@ -65,7 +65,9 @@ module bht2lvl #(
   if (CVA6Cfg.RVC) begin : gen_update_row_index
     assign update_row_index = bht_update_i.pc[ROW_ADDR_BITS+OFFSET-1:OFFSET];
   end else begin
-    assign update_row_index = '0;
+    // Without C, bit 2 of the pc selects the slot of a 4-byte instruction when
+    // a fetch holds two of them.
+    assign update_row_index = (CVA6Cfg.INSTR_PER_FETCH > 1) ? bht_update_i.pc[2] : '0;
   end
 
 

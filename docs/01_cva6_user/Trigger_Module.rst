@@ -62,16 +62,20 @@ Trigger Match Logic
 - Countdown continues only outside trap handlers to avoid miscounts during exceptions.
 
 - Matching occurs when:
+
   - ``count == 0``
   - Current privilege level matches the trigger config (``m/s/u``)
 
 - On match:
+
   - ``pending`` is set
   - The specified ``action`` is triggered:
+
     - ``0`` → raise a breakpoint exception
     - ``1`` → enter debug mode
 
 - Once in debug mode:
+
   - ``pending`` is cleared
   - ``hit`` is set and remains latched
 
@@ -90,12 +94,16 @@ Key Fields (in ``tdata1``)
 Action Taken on Match
 ~~~~~~~~~~~~~~~~~~~~~
 - Breakpoint (``fire_req_Icount.action == 0``):
+
   - Sets ``fire_req_Icount.valid = 1``, which results in a trap request that, if taken, results in:
+
     - Trap entry
     - Updates to ``mstatus``, ``mepc``, ``mcause``
 
 - Debug Entry (``fire_req_Icount.action == 1``):
+
   - Sets ``debug_from_trigger_d = 1``, resulting in:
+
     - Trap into debug mode
     - Updates ``dpc``, ``dcsr``
 
@@ -132,27 +140,36 @@ Trigger Match Logic
 A match occurs if:
 
 1. Privilege Mode Match:
+
    - One of the flags ``m``, ``s``, ``u`` in ``tdata1`` must match current mode.
 
 2. Condition Match:
+
    - Based on operation type and mode:
+
      - Instruction Execute:
+
        - Match against PC (`fetch_sdtrig_pc_i`) or instruction (`fetch_sdtrig_instr_i`).
      - Store Operation:
+
        - Match against store data (`sdtrig_lsu_inputs_data_i`) or address (`sdtrig_lsu_inputs_vaddr_i`).
      - Load Operation:
+
        - Match against load result (`sdtrig_load_data_i`) or load address (`sdtrig_lsu_inputs_vaddr_i`).
 
 3. Selection Mode:
+
    - If ``select == 1`` → compare data/instruction value.
    - If ``select == 0`` → compare address.
 
 4. Match Type (`match` field):
+
    - ``0`` → exact match (``==``)
    - ``1`` → NAPOT (Naturally Aligned Power-of-Two) range match
    - ``8`` → not equal (``!=``)
 
 5. Action (only one supported here):
+
    - ``0`` → breakpoint exception generation
    - ``1`` → enter debug mode
 
@@ -167,12 +184,14 @@ Since priorities are taken into account, multiple trigger timings exist within `
 On match:
 - The configured ``action`` is executed.
 - In debug mode, internal state is reset:
+
   - ``hit0`` is cleared
   - ``hit1`` is latched
 
 Key Fields
 ~~~~~~~~~~
 - ``tdata1``:
+
   - ``execute`` / ``load`` / ``store``: Operation type
   - ``select``: Controls address vs. value comparison
   - ``match``: Match type (exact, NAPOT, not-equal)
@@ -222,9 +241,11 @@ Trigger Match Logic
   - The current privilege mode (`m`, `s`, `u`) matches what is enabled in ``tdata1``.
 
 - On a match:
+
   - The normal exception is suppressed.
   - The ``hit`` bit in ``tdata1`` is latched.
   - The specified ``action`` is triggered:
+
     - ``0`` → raise a breakpoint exception
     - ``1`` → enter debug mode
 
@@ -233,13 +254,16 @@ Trigger Match Logic
 Key Fields
 ~~~~~~~~~~
 - ``tdata1``:
+
   - ``action``: Determines the response:
+
     - ``0``: Raise a breakpoint exception
     - ``1``: Enter debug mode
   - ``m``, ``s``, ``u``: Privilege level flags.
   - ``hit``: Latched on trigger match.
 
 - ``tdata2``: Bitmask for exception causes where each bit corresponds to a cause number. For example:
+
   - Bit 2 → Illegal instruction
   - Bit 3 → Breakpoint
   - Bit 11 → Environment call from M-mode
@@ -247,10 +271,12 @@ Key Fields
 Action Taken on Match
 ~~~~~~~~~~~~~~~~~~~~~
 - Breakpoint (``action == 0``):
+
   - Raises exception
   - Updates ``mstatus``, ``mepc``, ``mcause``
 
 - Debug Entry (``action == 1``):
+
   - Requests debug mode entry
   - Updates ``dpc``, ``dcsr``
 
@@ -287,19 +313,24 @@ Trigger Match Logic
   - Privilege mode matches enabled flags in ``tdata1`` (``m``, ``s``, ``u``).
 
 - On a match:
+
   - The normal exception is suppressed.
   - The ``hit`` bit is latched.
   - The configured ``action`` is taken:
+
     - ``0`` → raise a breakpoint exception
     - ``1`` → enter debug mode
 
 - When in debug mode:
+
   - The ``hit`` bit and trigger state are cleared
 
 Key Fields
 ~~~~~~~~~~
 - ``tdata1``:
+
   - ``action``: Determines what to do when the interrupt matches:
+
     - ``0``: Breakpoint
     - ``1``: Debug mode
   - ``m``, ``s``, ``u``: Privilege level match
@@ -310,10 +341,12 @@ Key Fields
 Action Taken on Match
 ~~~~~~~~~~~~~~~~~~~~~
 - Breakpoint (``action == 0``):
+
   - Raises exception
   - Updates ``mstatus``, ``mepc``, ``mcause``
 
 - Debug Entry (``action == 1``):
+
   - Requests debug mode entry
   - Updates ``dpc``, ``dcsr``
 

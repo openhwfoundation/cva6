@@ -232,7 +232,7 @@ localparam NumWords = (24 * 1024 * 1024) / 8;
 localparam NBSlave = 2; // debug, ariane
 localparam AxiAddrWidth = 64;
 localparam AxiDataWidth = 64;
-localparam AxiIdWidthMaster = 4;
+localparam AxiIdWidthMaster = 5;
 localparam AxiIdWidthSlaves = AxiIdWidthMaster + $clog2(NBSlave); // 5
 localparam AxiUserWidth = CVA6Cfg.AxiUserWidth;
 

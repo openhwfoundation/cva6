@@ -135,7 +135,7 @@ def build_param(line, value):
     return param_re.sub(r"\g<1>\g<2>\g<3>" + value + r"\g<5>", line)
 
 
-cfg_re = re.compile(r"^(\s*)(?P<name>\w+)(\s*:\s*)(?P<value>.*?)(,?\s*)(//.*)?$")
+cfg_re = re.compile(r"^(\s*)(?P<name>\w+)(\s*:\s*)(?P<value>.*?)(,?\s*)$")
 
 
 def parse_cfg(line):

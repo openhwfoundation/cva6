@@ -16,95 +16,173 @@ dependencies:
 
 export_include_dirs:
   - core/include
-  - core/cache_subsystem/hpdcache/rtl/include
-  - core/cache_subsystem/hpdcache/rtl/src/utils/ecc
 
 sources:
   - include_dirs:
       - core/include
     files:
       - core/include/config_pkg.sv
-      # Pick the right configuration by passing the right bender flag.
-      - target: cv64a6_imafdcv_sv39
-        files:
-          - core/include/cv64a6_imafdcv_sv39_config_pkg.sv
-
-      - target: cv64a6_imafdc_sv39
-        files:
-          - core/include/cv64a6_imafdc_sv39_config_pkg.sv
-
-      - target: cv64a6_imafdc_sv39_wb
-        files:
-          - core/include/cv64a6_imafdc_sv39_wb_config_pkg.sv
-
-      - target: cv64a6_imafdc_sv39_hpdcache
-        files:
-          - core/include/cv64a6_imafdc_sv39_hpdcache_config_pkg.sv
-
-      - target: cv64a6_imafdc_sv39_hpdcache_wb
-        files:
-          - core/include/cv64a6_imafdc_sv39_hpdcache_wb_config_pkg.sv
-
-      - target: cv64a6_imafdch_sv39
-        files:
-          - core/include/cv64a6_imafdch_sv39_config_pkg.sv
-
-      - target: cv64a6_imafdch_sv39_wb
-        files:
-          - core/include/cv64a6_imafdch_sv39_wb_config_pkg.sv
-
-      - target: cv32a6_imac_sv0
-        files:
-          - core/include/cv32a6_imac_sv0_config_pkg.sv
-
-      - target: cv32a6_imac_sv32
-        files:
-          - core/include/cv32a6_imac_sv32_config_pkg.sv
-
-      - target: cv32a6_imafc_sv32
-        files:
-          - core/include/cv32a6_imafc_sv32_config_pkg.sv
-
+      # Pick the right configuration by passing the right bender flag. The
+      # per-target packages live under config/target, which core/Flist.cva6
+      # uses as the single source of truth for the flow.
       - target: cv32a60x
         files:
-          - core/include/cv32a60x_config_pkg.sv
+          - config/target/cv32a60x/rtl_cfg_pkg.sv
 
       - target: cv32a65x
         files:
-          - core/include/cv32a65x_config_pkg.sv
+          - config/target/cv32a65x/rtl_cfg_pkg.sv
 
-      - target: cv64a60ax_cvfpu_uvm
+      - target: fpga_linux_cv64a6
         files:
-          - core/include/cv64a60ax_config_pkg_cvfpu-uvm.sv
+          - config/target/fpga_linux_cv64a6/rtl_cfg_pkg.sv
+
+      - target: fpga_linux_cv32a6
+        files:
+          - config/target/fpga_linux_cv32a6/rtl_cfg_pkg.sv
+
+      - target: profile_rvi20u32
+        files:
+          - config/target/profile_rvi20u32/rtl_cfg_pkg.sv
+
+      - target: profile_rvi20u64
+        files:
+          - config/target/profile_rvi20u64/rtl_cfg_pkg.sv
+
+      - target: profile_tinyc32
+        files:
+          - config/target/profile_tinyc32/rtl_cfg_pkg.sv
+
+      - target: profile_rvm23u32
+        files:
+          - config/target/profile_rvm23u32/rtl_cfg_pkg.sv
+
+      - target: profile_perf32_axi
+        files:
+          - config/target/profile_perf32_axi/rtl_cfg_pkg.sv
+
+      - target: profile_perf32_obi
+        files:
+          - config/target/profile_perf32_obi/rtl_cfg_pkg.sv
+
+      - target: profile_rva20s64
+        files:
+          - config/target/profile_rva20s64/rtl_cfg_pkg.sv
+
+      - target: profile_rva22s64
+        files:
+          - config/target/profile_rva22s64/rtl_cfg_pkg.sv
+
+      - target: profile_rva23s64
+        files:
+          - config/target/profile_rva23s64/rtl_cfg_pkg.sv
+
+      - target: profile_perf64_axi
+        files:
+          - config/target/profile_perf64_axi/rtl_cfg_pkg.sv
+
+      - target: summit_titlis
+        files:
+          - config/target/summit_titlis/rtl_cfg_pkg.sv
+
+      - target: summit_pilatus
+        files:
+          - config/target/summit_pilatus/rtl_cfg_pkg.sv
+
+      - target: summit_saentis
+        files:
+          - config/target/summit_saentis/rtl_cfg_pkg.sv
+
+      - target: summit_eiger
+        files:
+          - config/target/summit_eiger/rtl_cfg_pkg.sv
+
+      - target: summit_pizpalue
+        files:
+          - config/target/summit_pizpalue/rtl_cfg_pkg.sv
+
+      - target: summit_toedi
+        files:
+          - config/target/summit_toedi/rtl_cfg_pkg.sv
+
+      - target: summit_galenstock
+        files:
+          - config/target/summit_galenstock/rtl_cfg_pkg.sv
+
+      - target: summit_dammastock
+        files:
+          - config/target/summit_dammastock/rtl_cfg_pkg.sv
+
+      - target: summit_oldenhorn
+        files:
+          - config/target/summit_oldenhorn/rtl_cfg_pkg.sv
+
+      - target: summit_dom
+        files:
+          - config/target/summit_dom/rtl_cfg_pkg.sv
+
+      - target: summit_weisshorn
+        files:
+          - config/target/summit_weisshorn/rtl_cfg_pkg.sv
+
+      - target: summit_matterhorn
+        files:
+          - config/target/summit_matterhorn/rtl_cfg_pkg.sv
+
+      - target: summit_grandcombin
+        files:
+          - config/target/summit_grandcombin/rtl_cfg_pkg.sv
+
+      - target: summit_dentblanche
+        files:
+          - config/target/summit_dentblanche/rtl_cfg_pkg.sv
+
+      - target: summit_nadelhorn
+        files:
+          - config/target/summit_nadelhorn/rtl_cfg_pkg.sv
+
+      - target: summit_grandesjorasses
+        files:
+          - config/target/summit_grandesjorasses/rtl_cfg_pkg.sv
+
+      - target: summit_finsteraarhorn
+        files:
+          - config/target/summit_finsteraarhorn/rtl_cfg_pkg.sv
+
+      - target: summit_monterosa
+        files:
+          - config/target/summit_monterosa/rtl_cfg_pkg.sv
+
+      - target: summit_lyskamm
+        files:
+          - config/target/summit_lyskamm/rtl_cfg_pkg.sv
+
+      - target: summit_barredesecrins
+        files:
+          - config/target/summit_barredesecrins/rtl_cfg_pkg.sv
+
+      - target: summit_grandparadis
+        files:
+          - config/target/summit_grandparadis/rtl_cfg_pkg.sv
 
       # General config infrastructure
       - core/include/riscv_pkg.sv
       - core/include/ariane_pkg.sv
       - core/include/build_config_pkg.sv
 
-      - target: not(exclude_first_pass_decoder)
-        files:
-          - core/cva6_accel_first_pass_decoder_stub.sv
-
-      # MMU
-      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdc_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdch_sv39_wb, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32)
-        files:
-          - core/cva6_mmu/cva6_tlb.sv
-          - core/cva6_mmu/cva6_shared_tlb.sv
-          - core/cva6_mmu/cva6_mmu.sv
-          - core/cva6_mmu/cva6_ptw.sv
+      # MMU: instantiated only when MmuPresent, compiled for every target
+      # like core/Flist.cva6
+      - core/cva6_mmu/cva6_tlb.sv
+      - core/cva6_mmu/cva6_shared_tlb.sv
+      - core/cva6_mmu/cva6_mmu.sv
+      - core/cva6_mmu/cva6_ptw.sv
 
       # Packages
-      - core/include/dummy_l15_pkg.sv
       - core/include/wt_cache_pkg.sv
-      - core/include/std_cache_pkg.sv
-      - core/include/aes_pkg.sv
 
       # Extension Interface
       - core/cvxif_example/include/cvxif_instr_pkg.sv
       - core/cvxif_fu.sv
-      - core/cvxif_issue_register_commit_if_driver.sv
-      - core/cvxif_compressed_if_driver.sv
       - core/cvxif_example/cvxif_example_coprocessor.sv
       - core/cvxif_example/instr_decoder.sv
 
@@ -113,7 +191,6 @@ sources:
       - core/cva6_fifo_v3.sv
       # Top-level source files (not necessarily instantiated at the top of the cva6).
       - core/cva6.sv
-      - core/aes.sv
       - core/alu.sv
       - core/alu_wrapper.sv
       - core/fpu_wrap.sv # depends on fpnew_pkg, above
@@ -124,7 +201,6 @@ sources:
       - core/csr_regfile.sv
       - core/decoder.sv
       - core/ex_stage.sv
-      - core/acc_dispatcher.sv
       - core/instr_realign.sv
       - core/id_stage.sv
       - core/issue_read_operands.sv
@@ -155,96 +231,11 @@ sources:
       - core/frontend/instr_queue.sv
       - core/frontend/frontend.sv
       # Cache subsystem(s)
-      - core/cache_subsystem/wt_dcache_ctrl.sv
-      - core/cache_subsystem/wt_dcache_mem.sv
-      - core/cache_subsystem/wt_dcache_missunit.sv
-      - core/cache_subsystem/wt_dcache_wbuffer.sv
-      - core/cache_subsystem/wt_dcache.sv
-      - core/cache_subsystem/wt_cache_subsystem.sv
-      - core/cache_subsystem/wt_axi_adapter.sv
-      - core/cache_subsystem/cva6_icache.sv
-      - core/cache_subsystem/tag_cmp.sv
-      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
       - core/cache_subsystem/axi_adapter.sv
-      - core/cache_subsystem/miss_handler.sv
-      - core/cache_subsystem/cache_ctrl.sv
-      - core/cache_subsystem/std_nbdcache.sv
-      - core/cache_subsystem/std_cache_subsystem.sv
-      # HPDCache sources
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_pkg.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_resp_demux.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_to_axi_read.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_to_axi_write.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_req_read_arbiter.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_req_write_arbiter.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_demux.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_lfsr.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sync_buffer.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_fifo_reg.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_fifo_reg_initialized.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_fxarb.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_rrarb.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_mux.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_decoder.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_1hot_to_binary.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_1hot_encoder.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_bin_encoder.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wmask.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_regbank_wbyteenable_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_regbank_wmask_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_data_downsize.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_data_upsize.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_data_resize.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_pkg.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_arb.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_wrapper.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_amo.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cmo.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_core_arbiter.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_ctrl.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_ctrl_pe.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_memctrl.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_miss_handler.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_mshr.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_rtab.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_uncached.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_plru.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_random.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_sel.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_wbuf.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_flush.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cbuf.sv
-      # HPDCache integration
-      - core/cache_subsystem/cva6_hpdcache_if_adapter.sv
-      - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
-      - core/cache_subsystem/cva6_hpdcache_subsystem.sv
-      - core/cache_subsystem/cva6_hpdcache_wrapper.sv
-      # HPDCache ECC
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_pkg.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_36_29_dec.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_36_29_enc.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_39_32_dec.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_39_32_enc.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_55_48_dec.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_55_48_enc.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_72_64_dec.sv
-      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_72_64_enc.sv
-      # HPDCache SRAM models
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_ecc_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_ecc_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_ecc_1rw.sv
 
       # Physical Memory Protection
       - core/pmp/src/pmp.sv
       - core/pmp/src/pmp_entry.sv
-      - core/pmp/src/pmp_data_if.sv
 
       - include_dirs:
         - common/local/util
@@ -256,16 +247,12 @@ sources:
           - common/local/util
         files:
           - common/local/util/tc_sram_wrapper.sv
-          - common/local/util/sram_cache.sv
-          - common/local/util/tc_sram_wrapper_cache_techno.sv
 
       - target: all(fpga, xilinx)
         include_dirs:
           - common/local/util
         files:
-          - common/local/util/sram_cache.sv
           - common/local/util/tc_sram_fpga_wrapper.sv
-          - vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
 
       - target: not(synthesis)
         include_dirs:

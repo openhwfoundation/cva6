@@ -33,9 +33,24 @@ Parameters
 
 - ``SuperscalarEn``:
 
-   - Not compatible with floating point (``RVF``, ``RVD``, ``XF16``, ``XF16ALT``, ``XF8``, ``XFVec``) yet.
-   - Not compatible with macro instructions (``RVZCMP``) yet.
    - Recommended to set ``NrScoreboardEntries`` to at least 8 for performance.
+
+- Floating point (``RVF``, ``RVD``):
+
+   - ``RVD`` needs ``RVF``.
+   - The FPU takes its operands from and returns its result on the
+     ``XLEN``-wide execution datapath: FLEN, the width of the widest enabled
+     format, must equal ``XLEN``. Supported: ``RVF`` on RV32, ``RVF`` and
+     ``RVD`` on RV64.
+   - Not supported: ``RVD`` on RV32 (FLEN 64), which would need an FP datapath
+     wider than ``XLEN`` and 64-bit FP loads and stores on a 32-bit core;
+     ``RVF`` without ``RVD`` on RV64 (FLEN 32).
+
+- ``RVH``:
+
+   - Only supported on RV64 (Sv39x4).
+
+An unsupported combination stops the elaboration with a ``$fatal`` message.
 
 
 Configurations
@@ -72,6 +87,9 @@ A configuration is a fixed set of parameters.
    "``NrCachedRegionRules``",       "1"
    "``CachedRegionAddrBase``",      "{64’h8000_0000}"
    "``CachedRegionLength``",        "{64’h4000_0000}"
+   "``NrBufferableRegionRules``",   "0"
+   "``BufferableRegionAddrBase``",  "{64’b0}"
+   "``BufferableRegionLength``",    "{64’b0}"
    "``NrPMPEntries``",              "4"
    "``DmBaseAddress``",             "0"
    "``CvxifEn``",                   "1"

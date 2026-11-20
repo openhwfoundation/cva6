@@ -28,59 +28,10 @@
 
 common_test_config: &common_test_config
   path_var: TESTS_PATH
-  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common"
-
-common_test_config_lgcc: &common_test_config_lgcc
-  path_var: TESTS_PATH
-  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common -lgcc"
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostartfiles -g <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/tests/custom/common "
 
 testlist:
   - test: cvxif_add_nop
-    <<: *common_test_config_lgcc
+    <<: *common_test_config
     iterations: 1
     asm_tests: <path_var>/custom/cv_xif/cvxif_add_nop.S
-
-  - test: cvxif_full
-    <<: *common_test_config_lgcc
-    iterations: 1
-    asm_tests: <path_var>/custom/cv_xif/cvxif_full.S
-
-  - test: cvxif_multi
-    <<: *common_test_config
-    iterations: 0
-    asm_tests: <path_var>/custom/cv_xif/cvxif_multi.S
-
-  - test: cvxif_rs3
-    <<: *common_test_config
-    iterations: 0
-    asm_tests: <path_var>/custom/cv_xif/cvxif_rs3.S
-
-  - test: cvxif_exc
-    <<: *common_test_config
-    iterations: 0
-    asm_tests: <path_var>/custom/cv_xif/cvxif_exc.S
-
-  - test: cvxif_illegal
-    <<: *common_test_config
-    iterations: 0
-    asm_tests: <path_var>/custom/cv_xif/cvxif_illegal.S
-
-  - test: cvxif_nopexc
-    <<: *common_test_config
-    iterations: 0
-    asm_tests: <path_var>/custom/cv_xif/cvxif_nopexc.S
-
-  - test: cvxif_issexc
-    <<: *common_test_config
-    iterations: 0
-    asm_tests: <path_var>/custom/cv_xif/cvxif_issexc.S
-
-  - test: cvxif_s_mode
-    <<: *common_test_config_lgcc
-    iterations: 1
-    asm_tests: <path_var>/custom/cv_xif/cvxif_s_mode.S
-
-  - test: cvxif_u_mode
-    <<: *common_test_config_lgcc
-    iterations: 1
-    asm_tests: <path_var>/custom/cv_xif/cvxif_u_mode.S

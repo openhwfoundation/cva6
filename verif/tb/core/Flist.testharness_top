@@ -1,0 +1,38 @@
+// Copyright 2026 Thales France
+//
+// Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+// You may obtain a copy of the License at https://solderpad.org/licenses/
+//
+// Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+// Top of the TestHarness testbench for the event-driven simulators, read
+// after Flist.testharness.
+//
+// Verilator does not use this: it compiles `ariane_testharness` directly
+// and drives it from `corev_apu/tb/ariane_tb.cpp`, where this file holds
+// the same sequence in SystemVerilog `initial` blocks.
+//
+// The UART is the difference that shows: without `VERILATOR` defined the
+// harness instantiates the real controller, so its sources are here and
+// Verilator takes the mock of Flist.testharness instead.
+
+// UART of the SoC, the SystemVerilog rewrite of the VHDL model. Questa
+// and Xcelium can compile the VHDL original of ../vhdl_orig/ instead.
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_clock_div.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_counter.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_edge_detect.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_fifo.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_input_filter.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_input_sync.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/slib_mv_filter.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/uart_baudgen.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/uart_interrupt.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/uart_receiver.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/uart_transmitter.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/apb_uart.sv
+${CVA6_REPO_DIR}/corev_apu/fpga/src/apb_uart/src/apb_uart_wrap.sv
+
+// The top itself, last: it instantiates everything above.
+${CVA6_REPO_DIR}/corev_apu/tb/ariane_tb.sv

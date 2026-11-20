@@ -13,6 +13,7 @@
 // Description: Issues instruction from the scoreboard and fetches the operands
 //              This also includes all the forwarding logic
 
+`include "utils_macros.svh"
 
 module issue_read_operands
   import ariane_pkg::*;
@@ -27,7 +28,8 @@ module issue_read_operands
     parameter type x_issue_req_t = logic,
     parameter type x_issue_resp_t = logic,
     parameter type x_register_t = logic,
-    parameter type x_commit_t = logic
+    parameter type x_commit_t = logic,
+    parameter type regfile_inputs_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -35,8 +37,6 @@ module issue_read_operands
     input logic rst_ni,
     // Prevent from issuing - CONTROLLER
     input logic flush_i,
-    // Stall inserted by Acc dispatcher - ACC_DISPATCHER
-    input logic stall_i,
     // Entry about the instruction to issue - SCOREBOARD
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] issue_instr_i_prev,
@@ -134,13 +134,16 @@ module issue_read_operands
     // Information dedicated to RVFI - RVFI
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs2_o,
     // Original instruction bits for AES
-    output logic [5:0] orig_instr_aes_bits
+    output logic [5:0] orig_instr_aes_bits,
+    // DCLS
+    input logic [CVA6Cfg.NrRgprPorts-1:0][CVA6Cfg.XLEN-1:0] dcls_common_regfile_data_i,
+    output regfile_inputs_t dcls_common_regfile_ctrl_o
 );
 
   localparam OPERANDS_PER_INSTR = CVA6Cfg.NrRgprPorts / CVA6Cfg.NrIssuePorts;
 
   typedef struct packed {
-    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, accel, aes;
+    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, aes;
   } fus_busy_t;
 
   logic [CVA6Cfg.NrIssuePorts-1:0] stall_raw, stall_rs1, stall_rs2, stall_rs3;
@@ -211,21 +214,22 @@ module issue_read_operands
   logic [ CVA6Cfg.NrIssuePorts-1:0][             CVA6Cfg.XLEN-1:0] rs2_res;
   logic [ CVA6Cfg.NrIssuePorts-1:0][             CVA6Cfg.XLEN-1:0] rs3_res;
 
+
   logic [CVA6Cfg.NrIssuePorts-1:0][31:0] tinst_n, tinst_q;  // transformed instruction
 
   // forwarding signals
   logic [CVA6Cfg.NrIssuePorts-1:0] forward_rs1, forward_rs2, forward_rs3;
 
   // original instruction
-  riscv::instruction_t [CVA6Cfg.NrIssuePorts-1:0] orig_instr;
-  for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
-    assign orig_instr[i] = riscv::instruction_t'(orig_instr_i[i]);
-  end
-
   // ALU-ALU bypass signals
   alu_bypass_t alu_bypass, alu_bypass_n, alu_bypass_q;
   logic is_alu_bypass;
   logic [1:0] use_alu2;
+
+  riscv::instruction_t [CVA6Cfg.NrIssuePorts-1:0] orig_instr;
+  for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
+    assign orig_instr[i] = riscv::instruction_t'(orig_instr_i[i]);
+  end
 
   // CVXIF Signals
   logic cvxif_req_allowed;
@@ -267,7 +271,6 @@ module issue_read_operands
     assign rs = {fu_data_n[0].operand_b, fu_data_n[0].operand_a};
   end
 
-  // TODO check only for 1st instruction ??
   // Allow a cvxif transaction if we WaW condition are ok.
   assign cvxif_req_allowed = (issue_instr_i[0].fu == CVXIF);
   assign cvxif_instruction_valid = !issue_instr_i[0].ex.valid && issue_instr_valid_i[0] && cvxif_req_allowed;
@@ -285,7 +288,6 @@ module issue_read_operands
     assign rvfi_rs2_o[i] = fu_data_n[i].operand_b;
   end
 
-  assign alu_bypass_o = alu_bypass_q;
   assign fu_data_o = fu_data_q;
   assign alu_valid_o = alu_valid_q;
   assign aes_valid_o = aes_valid_q;
@@ -300,7 +302,8 @@ module issue_read_operands
   assign cvxif_valid_o = CVA6Cfg.CvxifEn ? cvxif_valid_q : '0;
   assign cvxif_off_instr_o = CVA6Cfg.CvxifEn ? cvxif_off_instr_q : '0;
   assign stall_issue_o = stall_raw[0];
-  assign tinst_o = CVA6Cfg.RVH ? tinst_q : '0;
+
+  assign alu_bypass_o = alu_bypass_q;
 
   // ALU bypass signals
   if (CVA6Cfg.ALUBypass) begin
@@ -313,16 +316,15 @@ module issue_read_operands
   end
 
   if (CVA6Cfg.SuperscalarEn) begin
-    // When a bypass is possible or an FPU instruction is present on the second issue port,
-    // an instruction uses `alu2` only when `alu` is already busy
-    // In all other scenarios `alu2` is preferred over `alu`, unless it is busy
+    // When a bypass is possible, an instruction uses `alu2` only when `alu` is already busy,
+    // in all other scenarios `alu2` is preferred over `alu`, unless it is busy
     for (genvar i = 0; i < 2; i++) begin
       assign use_alu2[i] = is_alu_bypass || (issue_instr_i[1].fu inside {FPU, FPU_VEC}) ? fus_busy[i].alu : !fus_busy[i].alu2;
     end
   end else begin
     assign use_alu2 = '0;
   end
-
+  assign tinst_o = CVA6Cfg.RVH ? tinst_q : '0;
   // ---------------
   // Issue Stage
   // ---------------
@@ -572,11 +574,10 @@ module issue_read_operands
   // forward corresponding register
   always_comb begin : operands_available
     alu_bypass  = '0;
-
-    stall_raw   = '{default: stall_i};
-    stall_rs1   = '{default: stall_i};
-    stall_rs2   = '{default: stall_i};
-    stall_rs3   = '{default: stall_i};
+    stall_raw   = '0;
+    stall_rs1   = '0;
+    stall_rs2   = '0;
+    stall_rs3   = '0;
     // operand forwarding signals
     forward_rs1 = '0;
     forward_rs2 = '0;
@@ -609,25 +610,10 @@ module issue_read_operands
           stall_rs3[i] = 1'b1;
         end
       end
-    end
 
-    if (CVA6Cfg.CvxifEn) begin
-      // Remove unnecessary forward and stall in case source register is not needed by coprocessor.
-      if (x_issue_valid_o && x_issue_resp_i.accept) begin
-        if (~x_issue_resp_i.register_read[0]) begin
-          forward_rs1[0] = 1'b0;
-          stall_rs1[0]   = 1'b0;
-        end
-        if (~x_issue_resp_i.register_read[1]) begin
-          forward_rs2[0] = 1'b0;
-          stall_rs2[0]   = 1'b0;
-        end
-        if (OPERANDS_PER_INSTR == 3 && ~x_issue_resp_i.register_read[2]) begin
-          forward_rs3[0] = 1'b0;
-          stall_rs3[0]   = 1'b0;
-        end
+      if (CVA6Cfg.CvxifEn) begin
+        stall_raw[0] = x_transaction_rejected ? 1'b0 : stall_rs1[0] || stall_rs2[0] || stall_rs3[0];
       end
-      stall_raw[0] = x_transaction_rejected ? 1'b0 : stall_rs1[0] || stall_rs2[0] || stall_rs3[0];
     end
 
     if (CVA6Cfg.SuperscalarEn) begin
@@ -724,9 +710,9 @@ module issue_read_operands
         // zero extend operand a
         fu_data_n[i].operand_a = {{CVA6Cfg.XLEN - 5{1'b0}}, issue_instr_i[i].rs1[4:0]};
       end
-      // or is it an immediate (including PC), this is not the case for a store, control flow, and accelerator instructions
+      // or is it an immediate (including PC), this is not the case for a store and control flow instructions
       // also make sure operand B is not already used as an FP operand
-      if (issue_instr_i[i].use_imm && (issue_instr_i[i].fu != STORE) && (issue_instr_i[i].fu != CTRL_FLOW) && (issue_instr_i[i].fu != ACCEL) && !(CVA6Cfg.FpPresent && is_rs2_fpr(
+      if (issue_instr_i[i].use_imm && (issue_instr_i[i].fu != STORE) && (issue_instr_i[i].fu != CTRL_FLOW) && !(CVA6Cfg.FpPresent && is_rs2_fpr(
               issue_instr_i[i].op
           ))) begin
         fu_data_n[i].operand_b = issue_instr_i[i].result;
@@ -898,7 +884,7 @@ module issue_read_operands
   logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.XLEN-1:0] wdata_pack;
   logic [CVA6Cfg.NrCommitPorts-1:0]                   we_pack;
 
-  //adjust address to read from register file (when synchronous RAM is used reads take one cycle, so we advance the address)
+  //adjust address to read from register file (when synchronous RAM is used reads take one cycle, so we advance the address)   
   for (genvar i = 0; i <= CVA6Cfg.NrIssuePorts - 1; i++) begin
     assign raddr_pack[i*OPERANDS_PER_INSTR+0] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs1[4:0] : issue_instr_i[i].rs1[4:0];
     assign raddr_pack[i*OPERANDS_PER_INSTR+1] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs2[4:0] : issue_instr_i[i].rs2[4:0];
@@ -929,21 +915,26 @@ module issue_read_operands
         .we_i     (we_pack)
     );
   end else begin : gen_asic_regfile
-    ariane_regfile #(
-        .CVA6Cfg      (CVA6Cfg),
-        .DATA_WIDTH   (CVA6Cfg.XLEN),
-        .NR_READ_PORTS(CVA6Cfg.NrRgprPorts),
-        .ZERO_REG_ZERO(1)
-    ) i_ariane_regfile (
-        .clk_i,
-        .rst_ni,
-        .test_en_i(1'b0),
-        .raddr_i  (raddr_pack),
-        .rdata_o  (rdata),
-        .waddr_i  (waddr_pack),
-        .wdata_i  (wdata_pack),
-        .we_i     (we_pack)
-    );
+    if (CVA6Cfg.DclsEn & CVA6Cfg.DclsCommonRegfile) begin : gen_dcls_common_regfile_dup
+      assign rdata = dcls_common_regfile_data_i;
+      assign dcls_common_regfile_ctrl_o = '{raddr_pack, wdata_pack, waddr_pack, we_pack};
+    end else begin
+      ariane_regfile #(
+          .CVA6Cfg      (CVA6Cfg),
+          .DATA_WIDTH   (CVA6Cfg.XLEN),
+          .NR_READ_PORTS(CVA6Cfg.NrRgprPorts),
+          .ZERO_REG_ZERO(1)
+      ) i_ariane_regfile (
+          .clk_i,
+          .rst_ni,
+          .test_en_i(1'b0),
+          .raddr_i  (raddr_pack),
+          .rdata_o  (rdata),
+          .waddr_i  (waddr_pack),
+          .wdata_i  (wdata_pack),
+          .we_i     (we_pack)
+      );
+    end
   end
 
   // -----------------------------
@@ -1060,6 +1051,7 @@ module issue_read_operands
     end
   end
 
+
   assign alu_bypass_n = &issue_ack_o ? alu_bypass : '0;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -1077,15 +1069,15 @@ module issue_read_operands
     end else begin
       fu_data_q <= fu_data_n;
       alu_bypass_q <= alu_bypass_n;
+      pc_o <= pc_n;
+      is_compressed_instr_o <= is_compressed_instr_n;
+      branch_predict_o <= branch_predict_n;
       if (CVA6Cfg.ZKN) begin
         orig_instr_aes_bits <= {orig_instr_i[0][31:30], orig_instr_i[0][23:20]};
       end
       if (CVA6Cfg.RVH) begin
         tinst_q <= tinst_n;
       end
-      pc_o <= pc_n;
-      is_compressed_instr_o <= is_compressed_instr_n;
-      branch_predict_o <= branch_predict_n;
       if (issue_instr_i[0].fu == CTRL_FLOW) begin
         if (CVA6Cfg.RVZCMT) is_zcmt_o <= issue_instr_i[0].is_zcmt;
         else is_zcmt_o <= '0;
@@ -1098,10 +1090,8 @@ module issue_read_operands
   initial begin
     assert (OPERANDS_PER_INSTR == 2 || (OPERANDS_PER_INSTR == 3 && CVA6Cfg.CvxifEn))
     else
-      $fatal(
-          1,
-          "If CVXIF is enable, ariane regfile can have either 2 or 3 read ports. Else it has 2 read ports."
-      );
+      `ASSERT_FATAL(
+          "If CVXIF is enable, ariane regfile can have either 2 or 3 read ports. Else it has 2 read ports.");
   end
 
   for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
@@ -1110,7 +1100,7 @@ module issue_read_operands
     ) && !$isunknown(
         fu_data_q[i].operand_b
     )))
-    else $warning("Got unknown value in one of the operands");
+    else `ASSERT_WARNING("Got unknown value in one of the operands");
   end
   //pragma translate_on
 

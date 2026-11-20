@@ -33,6 +33,10 @@ module cva6_shared_tlb #(
     input logic flush_i,  // Flush normal translations signal
     input logic flush_vvma_i,  // Flush vs stage signal
     input logic flush_gvma_i,  // Flush g stage signal
+    input logic [CVA6Cfg.ASID_WIDTH-1:0] asid_to_be_flushed_i,  //control inputs for flush
+    input logic [CVA6Cfg.VLEN-1:0] vaddr_to_be_flushed_i,
+    input logic [CVA6Cfg.VMID_WIDTH-1:0] vmid_to_be_flushed_i,
+    input logic [CVA6Cfg.GPLEN-1:0] gpaddr_to_be_flushed_i,
     input logic s_st_enbl_i,  // s-stage enabled
     input logic g_st_enbl_i,  // g-stage enabled
     input logic v_i,  // virtualization mode
@@ -55,11 +59,6 @@ module cva6_shared_tlb #(
     input logic [CVA6Cfg.VLEN-1:0] dtlb_vaddr_i,
 
     input logic shared_tlb_miss_i,
-
-    input logic [CVA6Cfg.ASID_WIDTH-1:0] asid_to_be_flushed_i,  //control inputs for flush
-    input logic [CVA6Cfg.VLEN-1:0] vaddr_to_be_flushed_i,
-    input logic [CVA6Cfg.VMID_WIDTH-1:0] vmid_to_be_flushed_i,
-    input logic [CVA6Cfg.GPLEN-1:0] gpaddr_to_be_flushed_i,
 
     // to TLBs, update logic
     output tlb_update_cva6_t itlb_update_o,
@@ -99,8 +98,15 @@ module cva6_shared_tlb #(
     logic is_napot_64k;  // Svnapot: Flag indicating a 64KiB NAPOT page
   } shared_tag_t;
 
-  shared_tag_t shared_tag_wr;
-  shared_tag_t [SHARED_TLB_WAYS-1:0] shared_tag_rd;
+  logic        [                CVA6Cfg.VpnLen-1:0] lu_vpn;
+  logic        [               SHARED_TLB_WAYS-1:0] vpn0_napot_match;
+  logic        [               SHARED_TLB_WAYS-1:0] napot_tag_match;
+  pte_cva6_t                                        patched_pte;
+
+  logic        [                CVA6Cfg.VpnLen-1:0] vpn_to_store;
+  logic        [$clog2(CVA6Cfg.SharedTlbDepth)-1:0] vpn_index;
+  shared_tag_t                                      shared_tag_wr;
+  shared_tag_t [               SHARED_TLB_WAYS-1:0] shared_tag_rd;
 
   typedef enum logic [1:0] {
     FLUSH_SFENCE,
@@ -130,6 +136,11 @@ module cva6_shared_tlb #(
 
   logic flush_vmid_is0;
   logic flush_gpaddr_is0;
+
+  logic flush_asid_is0;
+  logic flush_vaddr_is0;
+  logic flush_last_set;
+  logic flush_all_now;
 
   logic [CVA6Cfg.SharedTlbDepth-1:0][SHARED_TLB_WAYS-1:0] shared_tag_valid_q, shared_tag_valid_d;
 
@@ -170,8 +181,8 @@ module cva6_shared_tlb #(
 
   pte_cva6_t [SHARED_TLB_WAYS-1:0][HYP_EXT:0] pte;
 
-  logic [CVA6Cfg.VLEN-1-12:0] itlb_vpn_q;
-  logic [CVA6Cfg.VLEN-1-12:0] dtlb_vpn_q;
+  logic [CVA6Cfg.VpnLen-1:0] itlb_vpn_q;
+  logic [CVA6Cfg.VpnLen-1:0] dtlb_vpn_q;
 
   logic [CVA6Cfg.ASID_WIDTH-1:0] tlb_update_asid_q, tlb_update_asid_d;
   logic [CVA6Cfg.VMID_WIDTH-1:0] tlb_update_vmid_q, tlb_update_vmid_d;
@@ -179,11 +190,6 @@ module cva6_shared_tlb #(
   logic shared_tlb_access_q, shared_tlb_access_d;
   logic shared_tlb_hit_d;
   logic [CVA6Cfg.VLEN-1:0] shared_tlb_vaddr_q, shared_tlb_vaddr_d;
-
-  logic      [ CVA6Cfg.VpnLen-1:0] lu_vpn;
-  logic      [SHARED_TLB_WAYS-1:0] vpn0_napot_match;
-  logic      [SHARED_TLB_WAYS-1:0] napot_tag_match;
-  pte_cva6_t                       patched_pte;
 
   logic itlb_req_d, itlb_req_q;
   logic dtlb_req_d, dtlb_req_q;
@@ -206,60 +212,53 @@ module cva6_shared_tlb #(
   assign shared_tlb_vaddr_o = shared_tlb_vaddr_q;
   assign itlb_req_o = itlb_req_q;
   assign v_st_enbl = {{v_i, g_st_enbl_i, s_st_enbl_i}, {ld_st_v_i, g_ld_st_enbl_i, s_ld_st_enbl_i}};
+
   assign lu_vpn = itlb_req_q ? itlb_vpn_q : dtlb_vpn_q;
 
-  assign flush_vmid_is0 = ~(|flush_vmid_q);
-  assign flush_gpaddr_is0 = ~(|flush_gpaddr_q);
-  assign flush_match_way = (flush_kind_q == FLUSH_SFENCE)? sfence_match_way: (flush_kind_q == FLUSH_VVMA)? vvma_match_way: gvma_match_way;
-
-  assign shared_tag_wr.asid = shared_tlb_update_i.asid;
-  assign shared_tag_wr.vmid = shared_tlb_update_i.vmid;
-  assign shared_tag_wr.is_page = shared_tlb_update_i.is_page;
-  assign shared_tag_wr.v_st_enbl = v_st_enbl[i_req_q][HYP_EXT*2:0];
-
-  genvar i_gen, x_gen;
+  genvar i, x;
   generate
-    for (i_gen = 0; i_gen < SHARED_TLB_WAYS; i_gen++) begin : gen_match_tlb_ways
+    for (i = 0; i < SHARED_TLB_WAYS; i++) begin : gen_match_tlb_ways
       //identify page_match for all TLB Entries
 
-      for (x_gen = 0; x_gen < CVA6Cfg.PtLevels; x_gen++) begin : gen_match
-        assign page_match[i_gen][x_gen] = x_gen==0 ? 1 :((HYP_EXT==0 || x_gen==(CVA6Cfg.PtLevels-1)) ? // PAGE_MATCH CONTAINS THE MATCH INFORMATION FOR EACH TAG OF is_1G and is_2M in sv39x4. HIGHER LEVEL (Giga page), THEN THERE IS THE Mega page AND AT THE LOWER LEVEL IS ALWAYS 1
-            &(shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen] | (~v_st_enbl[i_req_q][HYP_EXT:0])):
+      for (x = 0; x < CVA6Cfg.PtLevels; x++) begin : gen_match
+        assign page_match[i][x] = x==0 ? 1 :((HYP_EXT==0 || x==(CVA6Cfg.PtLevels-1)) ? // PAGE_MATCH CONTAINS THE MATCH INFORMATION FOR EACH TAG OF is_1G and is_2M in sv39x4. HIGHER LEVEL (Giga page), THEN THERE IS THE Mega page AND AT THE LOWER LEVEL IS ALWAYS 1
+            &(shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x] | (~v_st_enbl[i_req_q][HYP_EXT:0])):
                               ((&v_st_enbl[i_req_q][HYP_EXT:0]) ?
-                              ((shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][0] && (shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-2-x_gen][HYP_EXT] || shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][HYP_EXT]))
-                            || (shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][HYP_EXT] && (shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-2-x_gen][0] || shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][0]))):
-                                shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][0] && v_st_enbl[i_req_q][0] || shared_tag_rd[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][HYP_EXT] && v_st_enbl[i_req_q][HYP_EXT]));
+                              ((shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x][0] && (shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-2-x][HYP_EXT] || shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x][HYP_EXT]))
+                            || (shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x][HYP_EXT] && (shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-2-x][0] || shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x][0]))):
+                                shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x][0] && v_st_enbl[i_req_q][0] || shared_tag_rd[i].is_page[CVA6Cfg.PtLevels-1-x][HYP_EXT] && v_st_enbl[i_req_q][HYP_EXT]));
 
         //identify if vpn matches at all PT levels for all TLB entries
-        assign vpn_match[i_gen][x_gen]        = (HYP_EXT==1 && x_gen==(CVA6Cfg.PtLevels-1) && ~v_st_enbl[i_req_q][0]) ? //
-            vpn_q[x_gen] == shared_tag_rd[i_gen].vpn[x_gen] &&  vpn_q[x_gen+HYP_EXT][(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)-HYP_EXT:0] == shared_tag_rd[i_gen].vpn[x_gen+HYP_EXT][(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)-HYP_EXT:0]: //
-            vpn_q[x_gen] == shared_tag_rd[i_gen].vpn[x_gen];
+        assign vpn_match[i][x]        = (HYP_EXT==1 && x==(CVA6Cfg.PtLevels-1) && ~v_st_enbl[i_req_q][0]) ? //
+            vpn_q[x] == shared_tag_rd[i].vpn[x] &&  vpn_q[x+HYP_EXT][(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)-HYP_EXT:0] == shared_tag_rd[i].vpn[x+HYP_EXT][(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)-HYP_EXT:0]: //
+            vpn_q[x] == shared_tag_rd[i].vpn[x];
 
         //identify if there is a hit at each PT level for all TLB entries
-        assign level_match[i_gen][x_gen] = &vpn_match[i_gen][CVA6Cfg.PtLevels-1:x_gen] && page_match[i_gen][x_gen];
+        assign level_match[i][x] = &vpn_match[i][CVA6Cfg.PtLevels-1:x] && page_match[i][x];
 
       end
-      assign vpn0_napot_match[i_gen] = lu_vpn[(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-1 : 4] == shared_tag_rd[i_gen].vpn[0][(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-1 : 4];
-      assign napot_tag_match[i_gen] = (CVA6Cfg.SvnapotEn && shared_tag_rd[i_gen].is_napot_64k) ?
-                                  (vpn_match[i_gen][2] && vpn_match[i_gen][1] && vpn0_napot_match[i_gen]) : 1'b0;
+
+      assign vpn0_napot_match[i] = lu_vpn[(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-1 : 4] == shared_tag_rd[i].vpn[0][(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-1 : 4];
+      assign napot_tag_match[i] = (CVA6Cfg.SvnapotEn && shared_tag_rd[i].is_napot_64k) ?
+                                  (&vpn_match[i][CVA6Cfg.PtLevels-1:1] && vpn0_napot_match[i]) : 1'b0;
     end
   endgenerate
 
-  genvar w_gen;
+  genvar w;
   generate
-    for (w_gen = 0; w_gen < CVA6Cfg.PtLevels; w_gen++) begin
-      assign vpn_d[w_gen]               = ((|v_st_enbl[1][HYP_EXT:0]) && itlb_access_i && ~itlb_hit_i && ~dtlb_access_i) ? //
-          itlb_vaddr_i[12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(w_gen+1))-1:12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*w_gen)] :  //
+    for (w = 0; w < CVA6Cfg.PtLevels; w++) begin
+      assign vpn_d[w]               = ((|v_st_enbl[1][HYP_EXT:0]) && itlb_access_i && ~itlb_hit_i && ~dtlb_access_i) ? //
+          itlb_vaddr_i[12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(w+1))-1:12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*w)] :  //
           (((|v_st_enbl[0][HYP_EXT:0]) && dtlb_access_i && ~dtlb_hit_i) ?  //
-          dtlb_vaddr_i[12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(w_gen+1))-1:12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*w_gen)] : vpn_q[w_gen]);
+          dtlb_vaddr_i[12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(w+1))-1:12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*w)] : vpn_q[w]);
     end
   endgenerate
 
   if (CVA6Cfg.RVH)  //THIS UPDATES THE EXTRA BITS OF VPN IN SV39x4
     assign vpn_d[CVA6Cfg.PtLevels] = ((|v_st_enbl[1][HYP_EXT:0]) && itlb_access_i && ~itlb_hit_i && ~dtlb_access_i) ? //
-        {{(((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels))){1'b0}}, itlb_vaddr_i[CVA6Cfg.VpnLen-1:CVA6Cfg.VpnLen-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)]} :  //
+        {{(((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels))){1'b0}}, itlb_vaddr_i[12+CVA6Cfg.VpnLen-1:12+CVA6Cfg.VpnLen-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)]} :  //
         (((|v_st_enbl[0][HYP_EXT:0]) && dtlb_access_i && ~dtlb_hit_i) ?  //
-        {{(((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels))){1'b0}}, dtlb_vaddr_i[CVA6Cfg.VpnLen-1: CVA6Cfg.VpnLen-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)]} : //
+        {{(((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels))){1'b0}}, dtlb_vaddr_i[12+CVA6Cfg.VpnLen-1:12+CVA6Cfg.VpnLen-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)]} : //
         {{(((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels))){1'b0}}, vpn_q[CVA6Cfg.PtLevels][(CVA6Cfg.VpnLen%CVA6Cfg.PtLevels)-1:0]});
 
   ///////////////////////////////////////////////////////
@@ -331,6 +330,7 @@ module cva6_shared_tlb #(
     shared_tlb_hit_d = 1'b0;
     dtlb_update_o    = '0;
     itlb_update_o    = '0;
+    patched_pte      = '0;
     match_asid       = '{default: 0};
     match_vmid       = CVA6Cfg.RVH ? '{default: 0} : '{default: 1};
 
@@ -378,33 +378,33 @@ module cva6_shared_tlb #(
 
         if (shared_tag_valid[i] && match_asid[i] && match_vmid[i] && match_stage[i]) begin
           if (|level_match[i] || napot_tag_match[i]) begin
-            shared_tlb_hit_d = 1'b1;
             // Prepare PTE with NAPOT patching if needed
-            patched_pte      = pte[i][0];  // take the S‑stage PTE only
+            patched_pte = pte[i][0];  // take the S-stage PTE only
             if (shared_tag_rd[i].is_napot_64k && CVA6Cfg.SvnapotEn) begin
               // replace PPN[3:0] with vaddr[15:12] (equiv. lu_vpn[3:0])
               patched_pte.ppn[3:0] = lu_vpn[3:0];
             end
+            shared_tlb_hit_d = 1'b1;
             if (itlb_req_q) begin
               itlb_update_o.valid = 1'b1;
               itlb_update_o.vpn = itlb_vpn_q;
               itlb_update_o.is_page = shared_tag_rd[i].is_page;
               itlb_update_o.content = patched_pte;
+              itlb_update_o.is_napot_64k = CVA6Cfg.SvnapotEn ? shared_tag_rd[i].is_napot_64k : 1'b0;
               itlb_update_o.g_content = pte[i][HYP_EXT];
               itlb_update_o.v_st_enbl = shared_tag_rd[i].v_st_enbl;
               itlb_update_o.asid = tlb_update_asid_q;
               itlb_update_o.vmid = tlb_update_vmid_q;
-              itlb_update_o.is_napot_64k = CVA6Cfg.SvnapotEn ? shared_tag_rd[i].is_napot_64k : 1'b0;
             end else if (dtlb_req_q) begin
               dtlb_update_o.valid = 1'b1;
               dtlb_update_o.vpn = dtlb_vpn_q;
               dtlb_update_o.is_page = shared_tag_rd[i].is_page;
               dtlb_update_o.content = patched_pte;
+              dtlb_update_o.is_napot_64k = CVA6Cfg.SvnapotEn ? shared_tag_rd[i].is_napot_64k : 1'b0;
               dtlb_update_o.g_content = pte[i][HYP_EXT];
               dtlb_update_o.v_st_enbl = shared_tag_rd[i].v_st_enbl;
               dtlb_update_o.asid = tlb_update_asid_q;
               dtlb_update_o.vmid = tlb_update_vmid_q;
-              dtlb_update_o.is_napot_64k = CVA6Cfg.SvnapotEn ? shared_tag_rd[i].is_napot_64k : 1'b0;
             end
           end
         end
@@ -433,10 +433,9 @@ module cva6_shared_tlb #(
       flush_kind_q <= FLUSH_SFENCE;
       flush_vmid_q <= '0;
       flush_gpaddr_q <= '0;
-
     end else begin
-      itlb_vpn_q <= itlb_vaddr_i[CVA6Cfg.SV-1:12];
-      dtlb_vpn_q <= dtlb_vaddr_i[CVA6Cfg.SV-1:12];
+      itlb_vpn_q <= itlb_vaddr_i[12+CVA6Cfg.VpnLen-1:12];
+      dtlb_vpn_q <= dtlb_vaddr_i[12+CVA6Cfg.VpnLen-1:12];
       tlb_update_asid_q <= tlb_update_asid_d;
       shared_tlb_access_q <= shared_tlb_access_d;
       shared_tlb_vaddr_q <= shared_tlb_vaddr_d;
@@ -467,27 +466,22 @@ module cva6_shared_tlb #(
     end
   end
 
+
   // ------------------
-  // Update and Flush
+  // Selective flush of the shared TLB
   // ------------------
+  localparam int unsigned VPN_SEG_W = CVA6Cfg.VpnLen / CVA6Cfg.PtLevels;
 
-  logic [CVA6Cfg.VpnLen-1:0] vpn_to_store;
-  logic [$clog2(CVA6Cfg.SharedTlbDepth)-1:0] vpn_index;
-  //flushing signals
-  logic flush_asid_is0;
-  logic flush_vaddr_is0;
-  logic flush_last_set;
-
-  // When storing the VPN in the shared TLB, if NAPOT is used, the lower bits of the VPN are zeroed
-  // This way, when searching for a match, we can compare the full VPN if NAPOT is not used
-  // or only the upper bits if NAPOT is used (the lower bits are don't care)
-  // The actual PPN is stored in the PTE, with the lower bits patched if NAPOT is used
-  // This is done in the tag comparison logic above
-
-  assign vpn_to_store =
-    (shared_tlb_update_i.is_napot_64k && CVA6Cfg.SvnapotEn)
-      ? {shared_tlb_update_i.vpn[CVA6Cfg.VpnLen-1:4], 4'b0}
-      : shared_tlb_update_i.vpn;
+  assign flush_asid_is0 = ~(|flush_asid_q);
+  assign flush_vaddr_is0 = ~(|flush_vaddr_q);
+  assign flush_vmid_is0 = ~(|flush_vmid_q);
+  assign flush_gpaddr_is0 = ~(|flush_gpaddr_q);
+  assign flush_last_set = (flush_idx_q == CVA6Cfg.SharedTlbDepth - 1);
+  // SFENCE.VMA x0, x0 clears every entry at once instead of walking the sets
+  assign flush_all_now = (HYP_EXT == 0) && flush_i && !(|asid_to_be_flushed_i) && !(|vaddr_to_be_flushed_i);
+  assign flush_busy_o = (CVA6Cfg.UseSharedTlb) && (flush_state_q != IDLE);
+  assign flush_match_way = (flush_kind_q == FLUSH_SFENCE) ? sfence_match_way :
+      (flush_kind_q == FLUSH_VVMA) ? vvma_match_way : gvma_match_way;
 
   always_comb begin : flush_fsm
     flush_state_d = flush_state_q;
@@ -501,7 +495,13 @@ module cva6_shared_tlb #(
     unique case (flush_state_q)
       IDLE: begin
         if (flush_i) begin
-          flush_state_d = FLUSH_READ;
+          // Global SFENCE.VMA without the hypervisor extension: every entry is
+          // cleared at once (flush_all_now), no set walk.
+          if ((HYP_EXT == 0) && !(|asid_to_be_flushed_i) && !(|vaddr_to_be_flushed_i)) begin
+            flush_state_d = IDLE;
+          end else begin
+            flush_state_d = FLUSH_READ;
+          end
           flush_idx_d = '0;
           flush_asid_d = asid_to_be_flushed_i;
           flush_vaddr_d = vaddr_to_be_flushed_i;
@@ -547,7 +547,6 @@ module cva6_shared_tlb #(
     endcase
   end
 
-  localparam int unsigned VPN_SEG_W = CVA6Cfg.VpnLen / CVA6Cfg.PtLevels;
   always_comb begin : sfence_match_logic
     sfence_match_way = '0;
 
@@ -651,7 +650,7 @@ module cva6_shared_tlb #(
     gvma_match_way = '0;
 
     for (int unsigned i = 0; i < SHARED_TLB_WAYS; i++) begin
-      logic [CVA6Cfg.VpnLen-1:0] gppn_i;
+      logic [CVA6Cfg.GPPNW-1:0] gppn_i;
       logic [CVA6Cfg.PtLevels-1:0] gpaddr_vpn_match;
       logic [CVA6Cfg.PtLevels-1:0] gpaddr_level_match;
       logic upper_levels_match;
@@ -665,16 +664,22 @@ module cva6_shared_tlb #(
         if (shared_tag_rd[i].v_st_enbl[0]) begin
           gppn_i[CVA6Cfg.GPPNW-1:0] = pte[i][0].ppn[CVA6Cfg.GPPNW-1:0];
 
-          if (shared_tag_rd[i].is_page[1][0]) gppn_i[VPN_SEG_W-1:0] = shared_tag_rd[i].vpn[0];
+          if (CVA6Cfg.PtLevels > 2 && shared_tag_rd[i].is_page[CVA6Cfg.PtLevels>2?1 : 0][0])
+            gppn_i[VPN_SEG_W-1:0] = shared_tag_rd[i].vpn[0];
           if (shared_tag_rd[i].is_page[0][0])
             gppn_i[2*VPN_SEG_W-1:0] = {shared_tag_rd[i].vpn[1], shared_tag_rd[i].vpn[0]};
         end else begin
-          gppn_i[CVA6Cfg.VpnLen-1:0] = CVA6Cfg.VpnLen'({shared_tag_rd[i].vpn});
+          gppn_i = CVA6Cfg.GPPNW'({shared_tag_rd[i].vpn});
         end
 
-        for (int unsigned level = 0; level < CVA6Cfg.PtLevels; level++) begin
+        for (int unsigned level = 0; level < CVA6Cfg.PtLevels - 1; level++) begin
           gpaddr_vpn_match[level] = flush_gpaddr_q[12 + VPN_SEG_W*level +: VPN_SEG_W] == gppn_i[VPN_SEG_W*level +: VPN_SEG_W];
         end
+        // The last level also covers the supplementary bits of the GPA
+        // (cfg.GPPNW = 29 bits in Sv39x4, 27 in Sv39)
+        gpaddr_vpn_match[CVA6Cfg.PtLevels-1] =
+            flush_gpaddr_q[12+CVA6Cfg.GPPNW-1:12+VPN_SEG_W*(CVA6Cfg.PtLevels-1)] ==
+            gppn_i[CVA6Cfg.GPPNW-1:VPN_SEG_W*(CVA6Cfg.PtLevels-1)];
 
         for (int unsigned level = 0; level < CVA6Cfg.PtLevels; level++) begin
           upper_levels_match = 1'b1;
@@ -698,12 +703,17 @@ module cva6_shared_tlb #(
     end
   end
 
+  // ------------------
+  // Update and Flush
+  // ------------------
   always_comb begin : update_flush
     shared_tag_valid_d = shared_tag_valid_q;
     tag_wr_en = '0;
     pte_wr_en = '0;
 
-    if (flush_state_q == FLUSH_APPLY) begin
+    if (flush_all_now) begin
+      shared_tag_valid_d = '0;
+    end else if (flush_state_q == FLUSH_APPLY) begin
       for (int unsigned i = 0; i < SHARED_TLB_WAYS; i++) begin
         if (flush_match_way[i]) begin
           shared_tag_valid_d[flush_idx_q][i] = 1'b0;
@@ -720,19 +730,26 @@ module cva6_shared_tlb #(
         end
       end
     end
-  end
-  //update_flush
+  end  //update_flush
 
-  assign flush_asid_is0 = ~(|flush_asid_q);
-  assign flush_vaddr_is0 = ~(|flush_vaddr_q);
-  assign flush_last_set = (flush_idx_q == CVA6Cfg.SharedTlbDepth - 1);
-  assign flush_busy_o = (CVA6Cfg.UseSharedTlb) && (flush_state_q != IDLE);
-
+  assign shared_tag_wr.asid = shared_tlb_update_i.asid;
+  assign shared_tag_wr.vmid = shared_tlb_update_i.vmid;
+  assign shared_tag_wr.is_page = shared_tlb_update_i.is_page;
+  assign shared_tag_wr.v_st_enbl = v_st_enbl[i_req_q][HYP_EXT*2:0];
   assign shared_tag_wr.is_napot_64k = shared_tlb_update_i.is_napot_64k;  // Svnapot: Propagate the NAPOT flag from the update packet into the tag structure to be stored
-  genvar z_gen;
+
+  // When storing the VPN in the shared TLB, if NAPOT is used, the lower bits of the VPN are zeroed
+  // This way, when searching for a match, we can compare the full VPN if NAPOT is not used
+  // or only the upper bits if NAPOT is used (the lower bits are don't care)
+  assign vpn_to_store =
+    (shared_tlb_update_i.is_napot_64k && CVA6Cfg.SvnapotEn)
+      ? {shared_tlb_update_i.vpn[CVA6Cfg.VpnLen-1:4], 4'b0}
+      : shared_tlb_update_i.vpn;
+
+  genvar z;
   generate
-    for (z_gen = 0; z_gen < CVA6Cfg.PtLevels; z_gen++) begin : gen_shared_tag
-      assign shared_tag_wr.vpn[z_gen] = vpn_to_store[((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(z_gen+1))-1:((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*z_gen)];
+    for (z = 0; z < CVA6Cfg.PtLevels; z++) begin : gen_shared_tag
+      assign shared_tag_wr.vpn[z] = vpn_to_store[((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(z+1))-1:((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*z)];
     end
     if (CVA6Cfg.RVH) begin : gen_shared_tag_hyp
       //THIS UPDATES THE EXTRA BITS OF VPN IN SV39x4
@@ -744,12 +761,12 @@ module cva6_shared_tlb #(
   endgenerate
 
 
-  assign tag_wr_data = shared_tag_wr;
-
-  // derive the set index from bits [4 +: clog2] of the (possibly masked) VPN
+  // derive the set index from the (possibly masked) VPN
   assign vpn_index = shared_tlb_update_i.vpn[$clog2(CVA6Cfg.SharedTlbDepth)-1:0];
   // write the new entry into that set
   assign tag_wr_addr = vpn_index;
+  assign tag_wr_data = shared_tag_wr;
+
   assign pte_wr_addr = vpn_index;
 
   assign pte_wr_data[0] = shared_tlb_update_i.content[CVA6Cfg.XLEN-1:0];
@@ -835,7 +852,11 @@ module cva6_shared_tlb #(
         assign pte[i][a] = pte_cva6_t'(pte_rd_data[i][a]);
       end
     end else begin
+      // Without the shared TLB, the read paths the match logic reads are tied to zero.
       assign shared_tag_rd[i] = '0;
+      for (genvar a = 0; a < HYP_EXT + 1; a++) begin : g_no_content_sram
+        assign pte[i][a] = '0;
+      end
     end
   end
 endmodule

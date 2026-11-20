@@ -23,10 +23,16 @@
 # no_post_compare : Enable/disable comparison of trace log and ISS log (Optional)
 # compare_opts    : Options for the RTL & ISS trace comparison
 # gcc_opts        : gcc compile options
+# llvm_opts       : llvm compile options (used instead of gcc_opts with an LLVM toolchain)
 # --------------------------------------------------------------------------------
-
-- test: jump_to_zero
-  iterations: 1
-  path_var: TESTS_PATH
-  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common -lgcc"
-  asm_tests: <path_var>/custom/interrupt/jump_to_zero.S
+testlist:
+  - test: jump_to_zero
+    iterations: 1
+    path_var: TESTS_PATH
+    gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+      <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S
+      -I<path_var>/custom/env -I<path_var>/custom/common -lgcc"
+    llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+      <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S
+      -I<path_var>/custom/env -I<path_var>/custom/common"
+    asm_tests: <path_var>/custom/interrupt/jump_to_zero.S

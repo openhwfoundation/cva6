@@ -16,7 +16,7 @@
 
 hart_ids: [0]
 hart0: &hart0
-  ISA: RV32IMCZicsr_Zcb_Zba_Zbb_Zbc_Zbs
+  ISA: RV32IMCZicsr_Zcb_Zba_Zbb_Zbc_Zbs_Xcvxif
   User_Spec_Version: '2.3'
   supported_xlen: [32]
   physical_addr_sz: 32
@@ -52,7 +52,7 @@ hart0: &hart0
      accessible: true
      base:
        implemented: true
-       type:                            
+       type:
          warl:
            dependency_fields: []
            legal:
@@ -63,7 +63,7 @@ hart0: &hart0
              - Unchanged
      mode:
        implemented: true
-       type:                            
+       type:
          warl:
            dependency_fields: []
            legal:
@@ -108,9 +108,9 @@ hart0: &hart0
       type:
         warl:
           dependency_fields: []
-          legal: 
+          legal:
             - mpp[1:0] in [0x3]
-          wr_illegal: 
+          wr_illegal:
             - Unchanged
      fs:
       implemented: false
@@ -995,39 +995,19 @@ hart0: &hart0
             pmp0cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp0cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
             pmp1cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp1cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
             pmp2cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp2cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
             pmp3cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp3cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1037,39 +1017,19 @@ hart0: &hart0
             pmp4cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp4cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
             pmp5cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp5cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
             pmp6cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp6cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
             pmp7cfg:
                 implemented: true
                 type:
-                    warl:
-                       dependency_fields: []
-                       legal:
-                         - pmp7cfg[7:0] bitmask [0x8f, 0x0]
-                       wr_illegal:
-                         - unchanged 
+                    ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1437,12 +1397,7 @@ hart0: &hart0
         rv32:
             accessible: true            
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr0[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1450,12 +1405,7 @@ hart0: &hart0
         rv32:
             accessible: true
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr1[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1463,12 +1413,7 @@ hart0: &hart0
         rv32:
             accessible: true
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr2[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1476,12 +1421,7 @@ hart0: &hart0
         rv32:
             accessible: true            
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr3[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1489,12 +1429,7 @@ hart0: &hart0
         rv32:
             accessible: true
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr4[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1502,12 +1437,7 @@ hart0: &hart0
         rv32:
             accessible: true
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr5[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1515,12 +1445,7 @@ hart0: &hart0
         rv32:
             accessible: true
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr6[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+               ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0
@@ -1528,12 +1453,7 @@ hart0: &hart0
         rv32:
             accessible: true
             type:
-                warl:
-                    dependency_fields: []
-                    legal:
-                      - pmpaddr7[31:0] bitmask [0xFFFFFFFE, 0x00000000]
-                    wr_illegal:
-                      - unchanged
+                ro_constant: 0x0
         rv64:
             accessible: false
         reset-val: 0

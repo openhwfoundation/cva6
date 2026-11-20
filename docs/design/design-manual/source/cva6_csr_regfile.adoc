@@ -16,11 +16,13 @@ CSR_REGFILE Module
 Description
 ^^^^^^^^^^^
 
+////
 The CSR_REGFILE module implements ... TO BE COMPLETED
 
 The module is connected to:
 
 * TO BE COMPLETED
+////
 
 include::port_csr_regfile.adoc[]
 
@@ -28,4 +30,4 @@ include::port_csr_regfile.adoc[]
 Functionality
 ^^^^^^^^^^^^^
 
-TO BE COMPLETED
+// TO BE COMPLETED

@@ -562,4 +562,49 @@ testlist:
     <<: *common_test_config
     iterations: 1
     asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/B/src/zext.h_32-01.S
-    ## NOTE: rv32i_m/A (Atomic/AMO) tests intentionally excluded - cv32a60x has RVA=0
+
+    ##A
+  - test: rv32im-amoadd.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amoadd.w-01.S
+
+  - test: rv32im-amoand.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amoand.w-01.S
+
+  - test: rv32im-amomax.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amomax.w-01.S
+
+  - test: rv32im-amomaxu.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amomaxu.w-01.S
+
+  - test: rv32im-amomin.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amomin.w-01.S
+
+  - test: rv32im-amominu.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amominu.w-01.S
+
+  - test: rv32im-amoor.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amoor.w-01.S
+
+  - test: rv32im-amoswap.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amoswap.w-01.S
+
+  - test: rv32im-amoxor.w-01
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/riscv-arch-test/riscv-test-suite/rv32i_m/A/src/amoxor.w-01.S

@@ -15,5 +15,12 @@ Functionality
 include::instructions.adoc[]
 include::traps.adoc[]
 include::CSRs.adoc[]
+
+ifeval::["{MemSubsystem}" == "config_pkg::MEM_OBI"]
+include::OBI.adoc[]
+endif::[]
+ifeval::["{MemSubsystem}" != "config_pkg::MEM_OBI"]
 include::AXI.adoc[]
+endif::[]
+
 include::CVXIF.adoc[]

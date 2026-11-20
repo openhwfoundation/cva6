@@ -1,0 +1,129 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+#
+# Please refer to flows/README.md to add target
+#
+# CVA6 External Git Dependencies Configuration
+#
+# This file defines external Git repositories that need to be cloned
+# for verification and testing (not Git submodules).
+#
+# Each dependency can specify:
+#   - repo: Git repository URL
+#   - branch: Branch to checkout
+#   - commit: Specific commit hash to checkout
+#   - destination: Local path where to clone
+#   - patches: List of patch files to apply (optional)
+#
+# Patches can also be applied on the Git submodules, which are not cloned here
+# but checked out by `git submodule update`. They are declared under a
+# submodule_patches section, keyed by submodule path:
+#
+#   submodule_patches:
+#     path/to/submodule:
+#       patches:
+#         - "verif/patches/some-fix.patch"
+#         - "verif/patches/other-fix.patch:subdir"  # applied in subdir/
+#       reason: >
+#         Why the patch is needed, and what to watch for upstream so it can be
+#         dropped once the fix lands there.
+#
+# This keeps a fix that is not merged upstream yet out of the submodule history,
+# so its pointer keeps tracking upstream. The submodule_patches section is
+# always read from this file of the repository, never from $CONFIG_DIR.
+
+submodule_patches:
+  verif/core-v-verif:
+    patches:
+      - "verif/patches/core-v-verif-axi-amo-synchronizer.patch"
+      - "verif/patches/core-v-verif-obi-assert-aid-queue-depth.patch"
+      - "verif/patches/core-v-verif-obi-assert-outstanding-counter.patch"
+      - "verif/patches/core-v-verif-tandem-isa-from-config.patch"
+    reason: >
+      uvma_axi_amo_synchronizer passes the memory value between the read and the
+      write halves of an atomic through a non persistent SystemVerilog event.
+      When the read half runs first the notification is lost, the write half
+      blocks and the AXI slave never sends the B response, which hangs the core.
+      The OBI assertion module checks that rid mirrors aid (R-9) with a 4-entry
+      aid queue indexed by 5-bit pointers: from the fifth transaction on, writes
+      land out of range and reads return 0, so a nonzero rid is reported as an
+      error and a wrong rid of 0 goes unnoticed. The patch gives it 32 entries.
+      The OBI assertion module also checks that no response comes without an
+      outstanding address phase (R-5) with a 4-bit counter, which wraps to 0
+      at 16 outstanding transactions and then reports a valid response as an
+      error; the store port reaches that. The patch makes the counter an int.
+      The Spike tandem replaces the ISA string of the configuration file of
+      the target by one built from the base extensions of the core: with
+      Zcmp, Zcmt and F but no D, Spike decodes cm.* as the c.fsdsp they
+      overlap. The patch keeps the ISA string of the configuration file.
+      All are still present on core-v-verif master: drop each patch once
+      fixed upstream.
+  core/cache_subsystem/hpdcache:
+    patches:
+      - "verif/patches/hpdcache-bufferable-attribute.patch"
+    reason: >
+      The memory requests of the HPDcache only carry the cacheable attribute,
+      and the AXI adapters derive a fixed AxCACHE from it: write-back for
+      every cacheable access, non-bufferable for every other one. The patch
+      adds a bufferable bit to the request PMA and to the memory requests, set
+      by every emitter, and builds AxCACHE from both attributes, so a
+      write-through region and a non-cacheable bufferable region reach the bus
+      with their own memory type (openhwfoundation/cv-hpdcache#163).
+
+riscv-tests:
+  repo: "https://github.com/riscv-software-src/riscv-tests.git"
+  branch: "master"
+  commit: "f92842f91644092960ac7946a61ec2895e543cec"
+  destination: "verif/tests/riscv-tests"
+  patches:
+    - "verif/regress/riscv-tests.patch"
+    - "verif/regress/riscv-tests-env.patch:env"  # Apply in env/ subdirectory
+  submodules: true  # Clone submodules recursively
+
+riscv-pk:
+  # RISC-V proxy kernel: runs a user program and serves its system calls
+  # through HTIF. Built per target by the pk-build recipe.
+  repo: "https://github.com/riscv-software-src/riscv-pk.git"
+  branch: "master"
+  commit: "e5563d1044bd6790325c4602c49f89e1182fa91a"
+  destination: "tools/riscv-pk"
+  patches: []
+  submodules: false
+
+zephyr:
+  # Zephyr RTOS: kernel and build system of the applications built by the
+  # zephyr-build recipe. No module (HAL) is needed for the CVA6 boards.
+  repo: "https://github.com/zephyrproject-rtos/zephyr.git"
+  branch: "v4.3.0"
+  commit: "3568e1b6d5cdd51a6b964a2a1d6d29200fea2056"
+  destination: "tools/zephyr"
+  patches: []
+  submodules: false
+
+riscv-compliance:
+  repo: "https://github.com/riscv-non-isa/riscv-arch-test.git"
+  branch: "main"
+  commit: "220e78542da4510e40eac31e31fdd4e77cdae437"
+  destination: "verif/tests/riscv-compliance"
+  patches:
+    - "verif/regress/riscv-compliance.patch"
+  submodules: false
+
+riscv-arch-test:
+  repo: "https://github.com/riscv-non-isa/riscv-arch-test"
+  branch: "main"
+  commit: "a5a49fc9f244192649e57fe61b4513d9bc39b1e3"
+  destination: "verif/tests/riscv-arch-test"
+  patches: []
+  submodules: false
+  post_install:
+    # Copy Spike arch_test_target definitions to riscv-target subdirectory
+    # Uses: $SPIKE_PATH/riscv-isa-sim/arch_test_target
+    # SPIKE_PATH is defined in flows/config/setenv.sh
+    copy_spike_target: true

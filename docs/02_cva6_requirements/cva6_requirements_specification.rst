@@ -313,8 +313,8 @@ independent requirements.
 +-----------------------------------+-----------------------------------+
 | ISA-130                           | CVA6 should support as an         |
 |                                   | **option** the **Zicond**         |
-|                                   | extension (integer conditional    |
-|                                   | operations) version 1.0.          |
+|                                   | extension(ratification pending)   |
+|                                   | version 1.0.                      |
 +-----------------------------------+-----------------------------------+
 | ISA-140                           | CVA6 should support as an         |
 |                                   | **option** the **Zcb**            |
@@ -324,20 +324,9 @@ independent requirements.
 |                                   | **option** the **Zcmp**           |
 |                                   | extension version 1.0.            |
 +-----------------------------------+-----------------------------------+
-| ISA-160                           | CVA6 should support as an         |
-|                                   | **option** the **Zcmt**           |
-|                                   | extension version 1.0.            |
-+-----------------------------------+-----------------------------------+
-| ISA-170                           | CVA6 should support as an         |
-|                                   | **option** the **Zkn** extension  |
-|                                   | (NIST algorithm suite). The       |
-|                                   | **Zkn** extension comprises the   |
-|                                   | **Zbkb**, **Zbkc**, **Zbkx**,     |
-|                                   | **Zkne**, **Zknd** and **Zknh**   |
-|                                   | extensions.                       |
-+-----------------------------------+-----------------------------------+
 
-Note to ISA-60 and ISA-70: CV64A6 cannot support the D extension without
+
+Note to ISA-60 and ISA-70: CV64A6 cannot support the D extension with
 the F extension.
 
 .. _privileges_and_virtual_memory:
@@ -560,9 +549,7 @@ size/ways configurations may be implemented in the design.
 
 The design will support one replacement policy allowed by L1W-80.
 
-These L1WTD requirements apply to the legacy WT cache from PULP.
-
-They also apply to the HPDCache that is superseding the legacy PULP caches.
+These L1WTD requirements apply to the HPDCache in write-through mode.
 Note that the HPDCache has more features, such as write-back options, that
 are beyond the scope of this specification.
 
@@ -624,8 +611,7 @@ size/ways configurations may be implemented in the design.
 
 The design will support one replacement policy allowed by L1I-50.
 
-These requirements apply to the HPICache, a modified version of HPDCache, that
-will likely supersede the legacy PULP cache.
+These requirements apply to the HPICache, a modified version of HPDCache.
 
 .. _fence_t_custom_instruction:
 
@@ -674,16 +660,8 @@ integrated in the continuous integration flow.
 | PPA‑10                            | CVA6 should be resource-optimized |
 |                                   | on FPGA and ASIC targets.         |
 +-----------------------------------+-----------------------------------+
-| PPA‑20                            | CVA6 should target 3.0            |
-|                                   | CoreMark/MHz , assuming a         |
-|                                   | sufficiently fast memory          |
-|                                   | hierarchy.                        |
-+-----------------------------------+-----------------------------------+
-| PPA‑25                            | CVA6 should target as an          |
-|                                   | **option** 4.5                    |
-|                                   | CoreMark/MHz, assuming a          |
-|                                   | sufficiently fast memory          |
-|                                   | hierarchy.                        |
+| PPA‑20                            | CVA6 should deliver more than 2.1 |
+|                                   | CoreMark/MHz.                     |
 +-----------------------------------+-----------------------------------+
 | PPA‑30                            | CV32A6 should run at more than    |
 |                                   | 150 MHz in the cv32a6_imac_sv32   |
@@ -706,8 +684,6 @@ integrated in the continuous integration flow.
 |                                   | double-precision floating         |
 |                                   | performance per MHz.              |
 +-----------------------------------+-----------------------------------+
-
-PPA-25 comes with the optional dual-issue feature.
 
 .. _interface_requirements:
 
@@ -818,10 +794,6 @@ integration in FPGA and ASIC design flows:
 +-----------------------------------+-----------------------------------+
 | RUL‑40                            | CVA6 should not include           |
 |                                   | technology-dependent blocks.      |
-+-----------------------------------+-----------------------------------+
-| RUL-50                            | CVA6 should support as an         |
-|                                   | **option** protection of SRAM     |
-|                                   | against single-event upsets (SEU).|
 +-----------------------------------+-----------------------------------+
 
 If technology-dependent blocks are used, e.g. to improve PPA on certain

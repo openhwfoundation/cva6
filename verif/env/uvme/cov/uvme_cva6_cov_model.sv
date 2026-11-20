@@ -114,13 +114,15 @@ function void uvme_cva6_cov_model_c::build_phase(uvm_phase phase);
    uvm_config_db#(uvme_cva6_cfg_c)::set(this, "config_covg", "cfg", cfg);
    uvm_config_db#(uvme_cva6_cntxt_c)::set(this, "config_covg", "cntxt", cntxt);
 
-   if(cfg.axi_cfg.cov_model_enabled) begin
-      axi_covg   = uvme_axi_covg_c::type_id::create("axi_covg", this);
-      axi_ext_covg   = uvme_axi_ext_covg_c::type_id::create("axi_ext_covg", this);
-      uvm_config_db#(uvme_cva6_cfg_c)::set(this, "axi_covg", "cfg", cfg);
-      uvm_config_db#(uvme_cva6_cntxt_c)::set(this, "axi_covg", "cntxt", cntxt);
-      uvm_config_db#(uvme_cva6_cfg_c)::set(this, "axi_ext_covg", "cfg", cfg);
-      uvm_config_db#(uvme_cva6_cntxt_c)::set(this, "axi_ext_covg", "cntxt", cntxt);
+   if (RTLCVA6Cfg.MemSubsystem != config_pkg::MEM_OBI) begin
+      if(cfg.axi_cfg.cov_model_enabled) begin
+         axi_covg   = uvme_axi_covg_c::type_id::create("axi_covg", this);
+         axi_ext_covg   = uvme_axi_ext_covg_c::type_id::create("axi_ext_covg", this);
+         uvm_config_db#(uvme_cva6_cfg_c)::set(this, "axi_covg", "cfg", cfg);
+         uvm_config_db#(uvme_cva6_cntxt_c)::set(this, "axi_covg", "cntxt", cntxt);
+         uvm_config_db#(uvme_cva6_cfg_c)::set(this, "axi_ext_covg", "cfg", cfg);
+         uvm_config_db#(uvme_cva6_cntxt_c)::set(this, "axi_ext_covg", "cntxt", cntxt);
+      end
    end
 
    if(cfg.interrupt_cfg.cov_model_enabled) begin

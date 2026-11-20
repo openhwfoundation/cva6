@@ -79,7 +79,7 @@ The selection of file locations for the Yaml configuration and the Yaml report f
 
 Option `+config_file` should only be used when an appropriate configuration file exists, and should be omitted otherwise.
 
-SystemVerilog code of the tandem infrastructure is maintained in OpenHW Group repositiory `core-v-verif` (https://github.com/openhwgroup/core-v-verif) which also contains the UVM components and agents that leverage the pure SystemVerilog layer.
+SystemVerilog code of the tandem infrastructure is maintained in OpenHW Group repository `core-v-verif` (https://github.com/openhwgroup/core-v-verif) which also contains the UVM components and agents that leverage the pure SystemVerilog layer.
 
 A pure SystemVerilog tandem testbench for CVA6 is available in the OpenHW Group CVA6 repository (https://github.com/openhwgroup/cva6/).
 

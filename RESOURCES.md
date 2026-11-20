@@ -9,7 +9,7 @@ Please help improve this page, by filing an [issue](https://github.com/openhwgro
 > Resources that reach the TRL-5 maturity (ready to integrate into productions ICs) are clearly mentioned.
 > Otherwise, you can assume a TRL-4 maturity.
 
-> [!WARNING]
+> [!WARNING]  
 > The CVA6 team is not liable for the other repositories.
 > Assess their content and make sure they fit your needs and are mature enough for your design.
 > Plese direct your issues or pull requests to these external repositories.
@@ -69,8 +69,6 @@ The [technical kits](https://github.com/thalesgroup/cva6-softcore-contest) of a 
 - A treat with the support of Linux and a VGA output.
 
 **[CVA6 with Xilinx Ethernet](https://github.com/cispa/CVA6-Vivado-Project-with-Xilinx-AXI-Ethernet/)** is an alternative design which implements Xilinx 1G/2.5G Ethernet Subsystem on the Digilent Genesys 2 FPGA board. It has been tested with TFTP boot in u-boot and SSH in Linux.
-
-**[CVA6-MPSoC](https://github.com/NicolasDerumigny/cva6)** is an alternative design for AMD PYNQ-Z2 and ZCU104 boards, which optionnally includes Xilinx 1G/2.5G Ethernet Subsystem and an experimental dual-core, shared-L1 configuration. It has been tested to boot to Linux 6.6 through u-boot.
 
 ### Platforms, subsystems and systems
 

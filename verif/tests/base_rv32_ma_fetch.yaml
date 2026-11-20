@@ -1,0 +1,26 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv32_ma_fetch.yaml
+#
+#   Instruction address misaligned exception of riscv-tests (ma_fetch), on the
+#   RV32 targets: with C a jump to a 2-byte boundary is taken, without
+#   C it traps, and a jalr ignores the target LSB. The test defines its own
+#   handler, which the assembler of the LLVM toolchains rejects next to the
+#   weak one of the environment: it builds with GCC only.
+# ------------------------------------------------------------------------------
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/ -lgcc"
+
+testlist:
+  - test: rv32mi-p-ma_fetch
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32mi/ma_fetch.S

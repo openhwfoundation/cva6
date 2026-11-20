@@ -51,7 +51,7 @@ write_tohost:
 1:
     j 1b
 
-.section .riscv.jvt, "a", @progbits
+.section .riscv.jvt, "ax"
 .align 6
 __jvt_base$:
     .word cm_jt_target + 1

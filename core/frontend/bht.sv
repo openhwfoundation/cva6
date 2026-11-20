@@ -66,7 +66,9 @@ module bht #(
   if (CVA6Cfg.RVC) begin : gen_update_row_index
     assign update_row_index = bht_update_i.pc[ROW_ADDR_BITS+OFFSET-1:OFFSET];
   end else begin
-    assign update_row_index = '0;
+    // Without C, bit 2 of the pc selects the slot of a 4-byte instruction when
+    // a fetch holds two of them.
+    assign update_row_index = (CVA6Cfg.INSTR_PER_FETCH > 1) ? bht_update_i.pc[2] : '0;
   end
 
   if (!CVA6Cfg.FpgaEn) begin : gen_asic_bht  // ASIC TARGET
@@ -149,7 +151,7 @@ module bht #(
     if (CVA6Cfg.RVC) begin : gen_row_index
       assign row_index = vpc_i[ROW_ADDR_BITS+OFFSET-1:OFFSET];
     end else begin
-      assign row_index = '0;
+      assign row_index = (CVA6Cfg.INSTR_PER_FETCH > 1) ? vpc_i[2] : '0;
     end
 
     // -------------------------
@@ -167,7 +169,7 @@ module bht #(
       //Write to RAM
       if (bht_update_i.valid && !debug_mode_i) begin
         for (int i = 0; i < CVA6Cfg.INSTR_PER_FETCH; i++) begin
-          if (update_row_index == i) begin
+          if (32'(update_row_index) == i) begin
             bht_updated[i].valid = 1'b1;
             bht_ram_we[i] = 1'b1;
             bht_ram_write_address[i*$clog2(NR_ROWS)+:$clog2(NR_ROWS)] = update_pc;
@@ -183,7 +185,7 @@ module bht #(
         if (CVA6Cfg.FpgaAlteraEn)
           bht_ram_read_address_1[i*$clog2(NR_ROWS)+:$clog2(NR_ROWS)] = update_pc;
 
-        if (check_update_row_index == i) begin
+        if (32'(check_update_row_index) == i) begin
           //When asynchronous RAM is used, the address can be updated on the cycle when data is read
           if (!CVA6Cfg.FpgaAlteraEn)
             bht_ram_read_address_1[i*$clog2(NR_ROWS)+:$clog2(NR_ROWS)] = update_pc;

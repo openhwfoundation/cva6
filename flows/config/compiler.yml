@@ -1,0 +1,140 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Please refer to flows/README.md to add target
+
+
+# ===========================================================================================
+
+# THIS FILE NEED TO BE ADAPTED to fit your environment
+
+# This is a dummy configuration file. You can modify it locally, and by default it is
+# used by cook.py. However, it is mode convenient to use your own configuration directory
+# by setting the CONFIG_DIR environment variable.
+
+# see flows/utils/config_loader.py
+
+# ===========================================================================================
+
+# Parameters of each toolchain: adapt the paths to your installation
+
+dummy1: &dummy1
+    TOOLS_PATH: "/tmp/llvm-22"
+    CLANG: "riscv32-unknown-elf-clang"
+    GCC:
+    OBJDUMP: "riscv32-unknown-elf-objdump"
+    NM: "riscv32-unknown-elf-nm"
+    TARGET_TOOLCHAIN: "riscv32-unknown-elf"
+
+dummy2: &dummy2
+    TOOLS_PATH: "/tmp/gcc-15"
+    CLANG:
+    GCC: "riscv-none-elf-gcc"
+    OBJDUMP: "riscv-none-elf-objdump"
+    NM: "riscv-none-elf-nm"
+    TARGET_TOOLCHAIN: "riscv-none-elf"
+
+dummy3: &dummy3
+    TOOLS_PATH: "/tmp/zephyr-sdk/riscv64-zephyr-elf"
+    CLANG:
+    GCC: "riscv64-zephyr-elf-gcc"
+    OBJDUMP: "riscv64-zephyr-elf-objdump"
+    NM: "riscv64-zephyr-elf-nm"
+    TARGET_TOOLCHAIN: "riscv64-zephyr-elf"
+
+# Toolchains named on the command line (-c)
+llvm-22: &llvm_22
+  <<: *dummy1
+
+# Reference toolchain used to compile the benchmarks (coremark/dhrystone)
+# on every target in CI, so that performance numbers are comparable
+# across targets.
+gcc-15: &gcc_15
+  <<: *dummy2
+
+# Zephyr SDK, for the Zephyr hello world of full-regression: Zephyr needs a
+# libgcc built for -mcmodel=medany
+zephyr-sdk:
+  <<: *dummy3
+
+# Toolchain of the targets without a my_<target>_toolchain entry below
+default_toolchain:
+  <<: *gcc_15
+
+# Toolchain of each target in full-regression
+my_cv32a60x_toolchain:
+  <<: *llvm_22
+my_cv32a65x_toolchain:
+  <<: *llvm_22
+my_fpga_linux_cv64a6_toolchain:
+  <<: *gcc_15
+my_fpga_linux_cv32a6_toolchain:
+  <<: *gcc_15
+my_profile_rvi20u32_toolchain:
+  <<: *gcc_15
+my_profile_rvi20u64_toolchain:
+  <<: *gcc_15
+my_profile_tinyc32_toolchain:
+  <<: *gcc_15
+my_profile_rvm23u32_toolchain:
+  <<: *gcc_15
+my_profile_perf32_axi_toolchain:
+  <<: *gcc_15
+my_profile_perf32_obi_toolchain:
+  <<: *gcc_15
+my_profile_rva20s64_toolchain:
+  <<: *gcc_15
+my_profile_rva22s64_toolchain:
+  <<: *gcc_15
+my_profile_rva23s64_toolchain:
+  <<: *gcc_15
+my_profile_perf64_axi_toolchain:
+  <<: *gcc_15
+my_summit_titlis_toolchain:
+  <<: *gcc_15
+my_summit_pilatus_toolchain:
+  <<: *gcc_15
+my_summit_saentis_toolchain:
+  <<: *gcc_15
+my_summit_eiger_toolchain:
+  <<: *gcc_15
+my_summit_pizpalue_toolchain:
+  <<: *gcc_15
+my_summit_toedi_toolchain:
+  <<: *gcc_15
+my_summit_galenstock_toolchain:
+  <<: *gcc_15
+my_summit_dammastock_toolchain:
+  <<: *gcc_15
+my_summit_oldenhorn_toolchain:
+  <<: *gcc_15
+my_summit_dom_toolchain:
+  <<: *gcc_15
+my_summit_weisshorn_toolchain:
+  <<: *gcc_15
+my_summit_matterhorn_toolchain:
+  <<: *gcc_15
+my_summit_grandcombin_toolchain:
+  <<: *gcc_15
+my_summit_dentblanche_toolchain:
+  <<: *gcc_15
+my_summit_nadelhorn_toolchain:
+  <<: *gcc_15
+my_summit_grandesjorasses_toolchain:
+  <<: *gcc_15
+my_summit_finsteraarhorn_toolchain:
+  <<: *gcc_15
+my_summit_monterosa_toolchain:
+  <<: *gcc_15
+my_summit_lyskamm_toolchain:
+  <<: *gcc_15
+my_summit_barredesecrins_toolchain:
+  <<: *gcc_15
+my_summit_grandparadis_toolchain:
+  <<: *gcc_15

@@ -1,0 +1,27 @@
+#   Copyright (c) 2024 OpenHW Group
+#   Copyright (c) 2025 Thales DIS France SAS
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#   Author: Abdessamii Oukalrazqou
+
+cores:
+    - isa: rv32imc_zba_zbb_zbs_zbc_zicsr_zifencei
+      boot_addr: 0x80000000
+      marchid: 0x3
+      misa_we: false
+      misa_we_enable: true
+      pmpaddr0: 0x0
+      pmpcfg0: 0x0
+      pmpregions: 0x40
+      usable_pmpregions : 0x8
+      priv: M
+      status_fs_field_we: false
+      status_fs_field_we_enable: false
+      status_vs_field_we: false
+      status_vs_field_we_enable: false
+      priv: M
+      misa_we: false
+      mstatus_write_mask: 0x00000088
+      mstatus_override_mask: 0x00001800
+      mtval_write_mask: 0x00000000
+      unified_traps: true
+

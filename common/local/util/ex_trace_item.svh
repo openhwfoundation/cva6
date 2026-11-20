@@ -14,10 +14,36 @@
 
 `ifndef VERILATOR
 class ex_trace_item #(
-    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter type interrupts_t = logic,
-    parameter interrupts_t INTERRUPTS = '0
+    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 );
+
+    // Interrupt cause encodings, built here rather than taken as parameters:
+    // see the note in core/decoder.sv.
+    typedef struct packed {
+      logic [CVA6Cfg.XLEN-1:0] S_SW;
+      logic [CVA6Cfg.XLEN-1:0] VS_SW;
+      logic [CVA6Cfg.XLEN-1:0] M_SW;
+      logic [CVA6Cfg.XLEN-1:0] S_TIMER;
+      logic [CVA6Cfg.XLEN-1:0] VS_TIMER;
+      logic [CVA6Cfg.XLEN-1:0] M_TIMER;
+      logic [CVA6Cfg.XLEN-1:0] S_EXT;
+      logic [CVA6Cfg.XLEN-1:0] VS_EXT;
+      logic [CVA6Cfg.XLEN-1:0] M_EXT;
+      logic [CVA6Cfg.XLEN-1:0] HS_EXT;
+    } interrupts_t;
+
+    localparam interrupts_t INTERRUPTS = '{
+        S_SW: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_S_SOFT),
+        VS_SW: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_VS_SOFT),
+        M_SW: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_M_SOFT),
+        S_TIMER: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_S_TIMER),
+        VS_TIMER: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_VS_TIMER),
+        M_TIMER: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_M_TIMER),
+        S_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_S_EXT),
+        VS_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_VS_EXT),
+        M_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_M_EXT),
+        HS_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_HS_EXT)
+    };
 
     // contains a human readable form of the cause value
     string                  cause_s;
@@ -44,6 +70,7 @@ class ex_trace_item #(
             riscv::INSTR_PAGE_FAULT:      this.cause_s = "Instruction Page Fault";
             riscv::LOAD_PAGE_FAULT:       this.cause_s = "Load Page Fault";
             riscv::STORE_PAGE_FAULT:      this.cause_s = "Store Page Fault";
+            riscv::HARDWARE_ERROR:        this.cause_s = "Hardware Error";
             INTERRUPTS.S_SW:              this.cause_s = "Supervisor Software Interrupt";
             INTERRUPTS.M_SW:              this.cause_s = "Machine Software Interrupt";
             INTERRUPTS.S_TIMER:           this.cause_s = "Supervisor Timer Interrupt";

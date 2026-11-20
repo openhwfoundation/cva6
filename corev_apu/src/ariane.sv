@@ -12,18 +12,16 @@
 // Date: 19.03.2017
 // Description: Ariane Top-level module
 
-`include "rvfi_types.svh"
 `include "cvxif_types.svh"
 
 module ariane import ariane_pkg::*; #(
   parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-  parameter type rvfi_probes_instr_t = `RVFI_PROBES_INSTR_T(CVA6Cfg),
-  parameter type rvfi_probes_csr_t = `RVFI_PROBES_CSR_T(CVA6Cfg),
+  parameter type rvfi_probes_instr_t = logic,
+  parameter type rvfi_probes_csr_t = logic,
   parameter type rvfi_probes_t = struct packed {
     logic csr;
-    rvfi_probes_instr_t instr;
+    logic instr;
   },
-
   // CVXIF Types
   localparam type readregflags_t      = `READREGFLAGS_T(CVA6Cfg),
   localparam type writeregflags_t     = `WRITEREGFLAGS_T(CVA6Cfg),
@@ -73,27 +71,27 @@ module ariane import ariane_pkg::*; #(
 
   cva6 #(
     .CVA6Cfg ( CVA6Cfg ),
-    .rvfi_probes_instr_t ( rvfi_probes_instr_t ),
-    .rvfi_probes_csr_t ( rvfi_probes_csr_t ),
+    //.rvfi_probes_instr_t ( rvfi_probes_instr_t ),
+    //.rvfi_probes_csr_t ( rvfi_probes_csr_t ),
     .rvfi_probes_t ( rvfi_probes_t ),
-    .axi_ar_chan_t (axi_ar_chan_t),
-    .axi_aw_chan_t (axi_aw_chan_t),
-    .axi_w_chan_t (axi_w_chan_t),
+    //.axi_ar_chan_t (axi_ar_chan_t),
+    //.axi_aw_chan_t (axi_aw_chan_t),
+    //.axi_w_chan_t (axi_w_chan_t),
     .noc_req_t (noc_req_t),
-    .noc_resp_t (noc_resp_t),
-    .readregflags_t (readregflags_t),
-    .writeregflags_t (writeregflags_t),
-    .id_t (id_t),
-    .hartid_t (hartid_t),
-    .x_compressed_req_t (x_compressed_req_t),
-    .x_compressed_resp_t (x_compressed_resp_t),
-    .x_issue_req_t (x_issue_req_t),
-    .x_issue_resp_t (x_issue_resp_t),
-    .x_register_t (x_register_t),
-    .x_commit_t (x_commit_t),
-    .x_result_t (x_result_t),
-    .cvxif_req_t (cvxif_req_t),
-    .cvxif_resp_t (cvxif_resp_t)
+    .noc_resp_t (noc_resp_t)
+    //.readregflags_t (readregflags_t),
+    //.writeregflags_t (writeregflags_t),
+    //.id_t (id_t),
+    //.hartid_t (hartid_t),
+    //.x_compressed_req_t (x_compressed_req_t),
+    //.x_compressed_resp_t (x_compressed_resp_t),
+    //.x_issue_req_t (x_issue_req_t),
+    //.x_issue_resp_t (x_issue_resp_t),
+    //.x_register_t (x_register_t),
+    //.x_commit_t (x_commit_t),
+    //.x_result_t (x_result_t),
+    //.cvxif_req_t (cvxif_req_t),
+    //.cvxif_resp_t (cvxif_resp_t)
   ) i_cva6 (
     .clk_i                ( clk_i                     ),
     .rst_ni               ( rst_ni                    ),
@@ -109,6 +107,8 @@ module ariane import ariane_pkg::*; #(
     .noc_req_o            ( noc_req_o                 ),
     .noc_resp_i           ( noc_resp_i                )
   );
+
+
 
   if (CVA6Cfg.CvxifEn) begin: gen_cvxif
     if (CVA6Cfg.CoproType == config_pkg::COPRO_EXAMPLE) begin: gen_COPRO_EXAMPLE
@@ -135,7 +135,14 @@ module ariane import ariane_pkg::*; #(
         .cvxif_resp_o         ( cvxif_resp                     )
       );
     end else begin: gen_COPRO_NONE
-      assign cvxif_resp = '{compressed_ready: 1'b1, issue_ready: 1'b1, register_ready: 1'b1, default: '0};
+      assign cvxif_resp.compressed_resp = '0;
+      assign cvxif_resp.issue_resp = '0;
+      assign cvxif_resp.result_valid = '0;
+      assign cvxif_resp.result = '0;
+      assign cvxif_resp.compressed_ready = 1'b1;
+      assign cvxif_resp.issue_ready = 1'b1;
+      assign cvxif_resp.register_ready = 1'b1;
+      
     end
   end else begin: gen_no_cvxif
     assign cvxif_resp = '0;

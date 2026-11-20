@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
     check_debug_status(0,0);
     printf("------------------------\n");
     printf(" Test2.1: check access to Debug and Trigger registers\n");
-    // debug specifcation 13.2: 4.8 Core Debug Registers are not accessable unless in debug mode
+    // debug specification 13.2: 4.8 Core Debug Registers are not accessable unless in debug mode
 
     // ----------------------
     // Check Debug Write Access

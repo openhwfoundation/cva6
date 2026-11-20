@@ -47,7 +47,7 @@ module branch_unit #(
     output bp_resolve_t resolved_branch_o,
     // Branch is resolved, new entries can be accepted by scoreboard - ID_STAGE
     output logic resolve_branch_o,
-    // Branch exception out - TO_BE_COMPLETED
+    // Branch exception out - PERF_COUNTERS
     output exception_t branch_exception_o
 );
   logic [CVA6Cfg.VLEN-1:0] target_address;
@@ -57,7 +57,7 @@ module branch_unit #(
   always_comb begin : mispredict_handler
     // set the jump base, for JALR we need to look at the register, for all other control flow instructions we can take the current PC
     automatic logic [CVA6Cfg.VLEN-1:0] jump_base;
-    // TODO(zarubaf): The ALU can be used to calculate the branch target
+    // IMPROVEMENT: The ALU can be used to calculate the branch target
     jump_base = (fu_data_i.operation == ariane_pkg::JALR) ? fu_data_i.operand_a[CVA6Cfg.VLEN-1:0] : pc_i;
 
     resolve_branch_o = 1'b0;
@@ -67,7 +67,7 @@ module branch_unit #(
     resolved_branch_o.is_mispredict = 1'b0;
     resolved_branch_o.cf_type = branch_predict_i.cf;
     // calculate next PC, depending on whether the instruction is compressed or not this may be different
-    // TODO(zarubaf): We already calculate this a couple of times, maybe re-use?
+    // IMPROVEMENT: We already calculate this a couple of times, maybe re-use?
     next_pc                          = pc_i + ((is_compressed_instr_i) ? {{CVA6Cfg.VLEN-2{1'b0}}, 2'h2} : {{CVA6Cfg.VLEN-3{1'b0}}, 3'h4});
     // calculate target address simple 64 bit addition
     target_address = $unsigned($signed(jump_base) + $signed(fu_data_i.imm[CVA6Cfg.VLEN-1:0]));

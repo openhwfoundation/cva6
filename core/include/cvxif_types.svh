@@ -70,4 +70,4 @@
     x_result_t          result; \
 }
 
-`endif // CVXIF_TYPES_SVH
+`endif  // CVXIF_TYPES_SVH

@@ -15,7 +15,7 @@ behavioral and post-synthesis simulations, set the `CF_MATH_PKG_PATH` environmen
 path where you have that package installed.
 
 Add all files in the `rtl/` folder to the list of compilation files of your development tool (e.g.,
-Xilinx Vivado 2018.2).  Read the documentation (header of the source file) of the block that you want to
+Xilinx Vivado).  Read the documentation (header of the source file) of the block that you want to
 use and use the block as described there.
 
 ## Contributing

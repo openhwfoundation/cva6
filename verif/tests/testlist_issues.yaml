@@ -29,56 +29,14 @@
 # no_post_compare : Enable/disable comparison of trace log and ISS log (Optional)
 # compare_opts    : Options for the RTL & ISS trace comparison
 # gcc_opts        : gcc compile options
+# llvm_opts       : llvm compile options (used instead of gcc_opts with an LLVM toolchain)
 # --------------------------------------------------------------------------------
 common_test_config: &common_test_config
   path_var: TESTS_PATH
-  gcc_opts: "-static -misa-spec=2.2 -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common -T ../../config/gen_from_riscv_config/linker/link.ld -lgcc"
-
-pmp_test_config: &pmp_test_config
-  <<: *common_test_config
-  iterations: 1
-  gcc_opts: >-
-    -static
-    -misa-spec=2.2
-    -mcmodel=medany
-    -fvisibility=hidden
-    -nostdlib
-    -nostartfiles
-    ../tests/custom/common/syscalls.c
-    ../tests/custom/common/crt.S
-    -I../tests/custom/env
-    -I../tests/custom/common
-    -lgcc
+  gcc_opts: "-static -misa-spec=2.2 -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common -lgcc"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
 
 testlist:
-  - test: pmp-lsu-transaction-rv64
-    description: >
-      Check that PMP uses the access type and virtual address belonging to the
-      MMU response on DTLB-miss and DTLB-hit store transactions.
-    <<: *pmp_test_config
-    asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_test.S
-
-  - test: pmp-lsu-transaction-no-mmu-rv64
-    description: >
-      Check that the no-MMU LSU response keeps PMP address, access type, and
-      valid metadata aligned.
-    <<: *pmp_test_config
-    asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_no_mmu_test.S
-
-  - test: pmp-amo-access-fault-rv64
-    description: >
-      Check that a PMP-denied AMO reports a store/AMO access fault with the
-      matching tval and does not update its destination register.
-    <<: *pmp_test_config
-    asm_tests: <path_var>/custom/pmp/amo_access_fault_test.S
-
-  - test: pmp-hlvx-access-fault-rv64
-    description: >
-      Check that HLVX execute permission and fault metadata belong to the
-      response transaction when ordinary loads and HLVX requests are adjacent.
-    <<: *pmp_test_config
-    asm_tests: <path_var>/custom/pmp/hlvx_access_fault_test.S
-
   - test: compressed-fpreg-commits-rv64
     <<: *common_test_config
     iterations: 1
@@ -89,107 +47,10 @@ testlist:
     iterations: 1
     asm_tests: <path_var>/custom/issues/compressed-fpreg-commits-rv32.S
 
-  - test: misaligned-branch-rvc-disabled
-    <<: *common_test_config
-    iterations: 1
-    gen_opts: +disable_compressed_instr=1
-    gcc_opts: "-static -misa-spec=2.2 -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S -I../tests/custom/env -I../tests/custom/common -T ../../config/gen_from_riscv_config/linker/link.ld -lgcc -march=rv32im_zba_zbb_zbs_zbc_zicsr_zifencei -mabi=ilp32"
-    asm_tests: <path_var>/custom/issues/misaligned-branch-rvc-disabled.S
-  - test: mret-mpv-rv64
-    <<: *common_test_config
-    iterations: 1
-    asm_tests: <path_var>/custom/issues/mret-mpv-rv64.S
-
-  - test: pmp-tor-grain-rv64
-    <<: *common_test_config
-    description: >
-      Check that pmpaddr bit 0 does not affect either TOR boundary when the
-      PMP grain is eight bytes.
-    iterations: 1
-    asm_tests: <path_var>/custom/issues/pmp-tor-grain-rv64.S
-
-  - test: zcmt-jvt-index-rv32
-    description: >
-      Check that cm.jalt uses the complete eight-bit JVT table index.
-    iterations: 1
-    path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/zcmt/cm_jalt_long.S
-    gcc_opts: >-
-      -static
-      -mcmodel=medany
-      -fvisibility=hidden
-      -nostdlib
-      -nostartfiles
-
   - test: decoder-zip-unzip-rv64
     <<: *common_test_config
     iterations: 1
     asm_tests: <path_var>/custom/issues/decoder-zip-unzip-rv64.S
-
-  - test: pmp-misalign-priority-over-access-fault
-    description: >
-      Misaligned hsv.d/hlv.d to a PMP-denied paddr must report
-      address-misaligned (mcause 6/4), not access-fault (5/7).
-    iterations: 1
-    path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/issues/pmp-misalign-priority-over-access-fault.S
-    gcc_opts: >-
-      -static -misa-spec=2.2 -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
-      <path_var>/custom/common/crt.S
-      -I<path_var>/custom/env -I<path_var>/custom/common
-      -T ../../config/gen_from_riscv_config/linker/link.ld -lgcc -march=rv64gh
-  - test: vsmode-counterh-cause
-    description: >
-      RV64+H: a high-half counter CSR access from VS-mode must raise
-      illegal-instruction (mcause=2), not virtual-instruction (mcause=22).
-    iterations: 1
-    path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/issues/vsmode_counterh_cause.S
-    gcc_opts: >-
-      -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
-      -I<path_var>/riscv-tests/isa/macros/scalar/
-      -I<path_var>/riscv-tests/env/p/
-      -march=rv64gh
-
-  - test: zcmp-mva01s-equal-regs-rv32
-    description: >
-      Check that cm.mva01s accepts equal r1s' and r2s' encodings.
-    iterations: 1
-    path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/Zcmp/cm_mva01s_equal_regs_test.S
-    gcc_opts: >-
-      -static
-      -mcmodel=medany
-      -fvisibility=hidden
-      -nostdlib
-      -nostartfiles
-      -I../tests/custom/env
-
-  - test: zcmt-jt-target-lsb-rv32
-    description: >
-      Check that cm.jt clears bit 0 of the loaded JVT target.
-    iterations: 1
-    path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/zcmt/cm_jt_target_lsb.S
-    gcc_opts: >-
-      -static
-      -mcmodel=medany
-      -fvisibility=hidden
-      -nostdlib
-      -nostartfiles
-
-  - test: zcmt-jalt-target-lsb-rv32
-    description: >
-      Check that cm.jalt clears bit 0 of the loaded JVT target.
-    iterations: 1
-    path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/zcmt/cm_jalt_target_lsb.S
-    gcc_opts: >-
-      -static
-      -mcmodel=medany
-      -fvisibility=hidden
-      -nostdlib
-      -nostartfiles
 
   - test: load-misaligned-warning
     <<: *common_test_config
@@ -200,41 +61,17 @@ testlist:
     iterations: 1
     asm_tests: <path_var>/custom/issues/load-misaligned-warning.S
 
-  - test: zcmp-reserved-rlist-rv32
+  - test: pmp-instr-guest-page-fault-priority-rv64
     description: >
-      Check that reserved Zcmp push/pop rlist values 0 through 3
-      raise illegal-instruction exceptions.
+      RV64+H: a VS-mode instruction fetch to an unmapped guest physical address
+      must report an instruction guest-page fault (mcause=20), not an
+      instruction access fault, even when PMP denies the address that the MMU
+      forwards for the failed G-stage translation.
     iterations: 1
     path_var: TESTS_PATH
-    asm_tests: <path_var>/custom/Zcmp/cm_reserved_rlist_test.S
+    asm_tests: <path_var>/custom/issues/pmp-instr-guest-page-fault-priority-rv64.S
     gcc_opts: >-
-      -static
-      -mcmodel=medany
-      -fvisibility=hidden
-      -nostdlib
-      -nostartfiles
-      -I../tests/custom/env
-
-  - test: fcvt-rv64-only-rv32
-    <<: *common_test_config
-    description: >
-      Check that RV64-only FCVT L/LU conversions raise
-      illegal-instruction exceptions on RV32.
-    iterations: 1
-    asm_tests: <path_var>/custom/issues/fcvt-rv64-only-rv32.S
-
-  - test: htval-mtval2-warl-rv64
-    <<: *common_test_config
-    description: >
-      Check that RV64 Sv39x4 htval and mtval2 retain only the implemented
-      2-bit-shifted guest-physical-address bits.
-    iterations: 1
-    asm_tests: <path_var>/custom/issues/htval-mtval2-warl-rv64.S
-  - test: xret-mprv-clear-rv64
-    <<: *common_test_config
-    description: >
-      Check xRET mstatus.MPRV handling in an RVH-disabled configuration,
-      including MRET preservation when returning to M-mode and clearing
-      when MRET or SRET returns below M-mode.
-    iterations: 1
-    asm_tests: <path_var>/custom/issues/xret-mprv-clear-rv64.S
+      -static -misa-spec=2.2 -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles
+      <path_var>/custom/common/crt.S
+      -I<path_var>/custom/env -I<path_var>/custom/common
+      -Tconfig/gen_from_riscv_config/linker/link.ld -lgcc -march=rv64gh

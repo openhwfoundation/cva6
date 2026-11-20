@@ -12,6 +12,8 @@
 // Date: 08.04.2017
 // Description: Scoreboard - keeps track of all decoded, issued and committed instructions
 
+`include "utils_macros.svh"
+
 module scoreboard #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type bp_resolve_t = logic,
@@ -32,11 +34,11 @@ module scoreboard #(
     // Flush whole scoreboard - CONTROLLER
     input  logic                                          flush_i,
     // Writeback Handling of CVXIF
-    // TO_BE_COMPLETED - ISSUE_READ_OPERANDS
+    // CVXIF trasaction accepted - ISSUE_READ_OPERANDS
     input  logic                                          x_transaction_accepted_i,
-    // TO_BE_COMPLETED - ISSUE_READ_OPERANDS
+    // CVXIF Issue writeback - ISSUE_READ_OPERANDS
     input  logic                                          x_issue_writeback_i,
-    // TO_BE_COMPLETED - ISSUE_READ_OPERANDS
+    // CVXIF ID - ISSUE_READ_OPERANDS
     input  logic              [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_i,
     // advertise instruction to commit stage, if commit_ack_i is asserted advance the commit pointer
     // Instructions to commit - COMMIT_STAGE
@@ -115,7 +117,7 @@ module scoreboard #(
   logic [$clog2(CVA6Cfg.NrCommitPorts):0] num_commit;
 
   for (genvar i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
-    assign still_issued[i] = mem_q[i].issued & ~mem_q[i].cancelled;
+    assign still_issued[i] = mem_q[i].issued & ~(CVA6Cfg.SpeculativeSb & mem_q[i].cancelled);
   end
 
   for (genvar i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
@@ -187,6 +189,12 @@ module scoreboard #(
     for (int unsigned i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
       // The FU is NONE -> this instruction is valid immediately
       if (mem_q[i].sbe.fu == ariane_pkg::NONE && mem_q[i].issued) mem_n[i].sbe.valid = 1'b1;
+      // A cancelled first Zcmp micro-op is only marked valid by its last one,
+      // which the branch miss kept from issuing: mark it valid so that the
+      // commit stage drops it.
+      if (CVA6Cfg.SpeculativeSb && CVA6Cfg.RVZCMP && mem_q[i].issued && mem_q[i].cancelled &&
+          mem_q[i].sbe.is_macro_instr && !mem_q[i].sbe.is_last_macro_instr)
+        mem_n[i].sbe.valid = 1'b1;
     end
 
     // ------------
@@ -196,13 +204,16 @@ module scoreboard #(
       // check if this instruction was issued (e.g.: it could happen after a flush that there is still
       // something in the pipeline e.g. an incomplete memory operation)
       if (wt_valid_i[i] && mem_q[trans_id_i[i]].issued) begin
-        if (mem_q[trans_id_i[i]].sbe.is_double_rd_macro_instr && mem_q[trans_id_i[i]].sbe.is_macro_instr) begin
+        if (CVA6Cfg.RVZCMP && mem_q[trans_id_i[i]].sbe.is_double_rd_macro_instr && mem_q[trans_id_i[i]].sbe.is_macro_instr) begin
           if (mem_q[trans_id_i[i]].sbe.is_last_macro_instr) begin
             mem_n[trans_id_i[i]].sbe.valid = 1'b1;
-            mem_n[8'(trans_id_i[i])-1].sbe.valid = 1'b1;
-          end else begin
-            mem_n[trans_id_i[i]].sbe.valid = 1'b0;
+            // The first micro-op is the entry just before this one, wrapping
+            // from entry 0 to the last one.
+            mem_n[CVA6Cfg.TRANS_ID_BITS'(trans_id_i[i]-1'b1)].sbe.valid = 1'b1;
           end
+          // The first micro-op waits for the last one, which marks both
+          // valid: it is left as is, as the last one may have written back
+          // in this same cycle on another port.
         end else begin
           mem_n[trans_id_i[i]].sbe.valid = 1'b1;
         end
@@ -215,7 +226,8 @@ module scoreboard #(
           if (x_we_i) mem_n[trans_id_i[i]].sbe.rd = x_rd_i;
           else mem_n[trans_id_i[i]].sbe.rd = 5'b0;
         end
-        // write the exception back if it is valid
+        // write the exception back if it is valid, or if it is a load data trigger
+        // break (timing set, valid clear), which lands on the next instruction
         if (ex_i[i].valid || ex_i[i].timing) mem_n[trans_id_i[i]].sbe.ex = ex_i[i];
         // write the fflags back from the FPU (exception valid is never set), leave tval intact
         else if(CVA6Cfg.FpPresent && (mem_q[trans_id_i[i]].sbe.fu == ariane_pkg::FPU || mem_q[trans_id_i[i]].sbe.fu == ariane_pkg::FPU_VEC)) begin
@@ -262,7 +274,7 @@ module scoreboard #(
     end
   end
 
-  assign bmiss = resolved_branch_i.valid && resolved_branch_i.is_mispredict;
+  assign bmiss = resolved_branch_i.is_mispredict;
   assign after_flu_wb = trans_id_i[ariane_pkg::FLU_WB] + 'd1;
 
   // FIFO counter updates
@@ -272,7 +284,7 @@ module scoreboard #(
     assign num_commit = commit_ack_i[0];
   end
 
-  assign commit_pointer_n[0] = (flush_i) ? '0 : commit_pointer_q[0] + num_commit;
+  assign commit_pointer_n[0] = (flush_i) ? '0 : commit_pointer_q[0] + CVA6Cfg.TRANS_ID_BITS'(num_commit);
 
   always_comb begin : assign_issue_pointer_n
     issue_pointer_n = issue_pointer[num_issue];
@@ -321,22 +333,22 @@ module scoreboard #(
   //pragma translate_off
   initial begin
     assert (CVA6Cfg.NR_SB_ENTRIES == 2 ** CVA6Cfg.TRANS_ID_BITS)
-    else $fatal(1, "Scoreboard size needs to be a power of two.");
+    else `ASSERT_FATAL("Scoreboard size needs to be a power of two.");
   end
   // assert that we never acknowledge a commit if the instruction is not valid
   assert property (
     @(posedge clk_i) disable iff (!rst_ni) commit_ack_i[0] |-> commit_instr_o[0].valid)
-  else $fatal(1, "Commit acknowledged but instruction is not valid");
+  else `ASSERT_FATAL("Commit acknowledged but instruction is not valid");
   if (CVA6Cfg.NrCommitPorts == 2) begin : gen_two_commit_ports
     assert property (
         @(posedge clk_i) disable iff (!rst_ni) commit_ack_i[1] |-> commit_instr_o[1].valid)
-    else $fatal(1, "Commit acknowledged but instruction is not valid");
+    else `ASSERT_FATAL("Commit acknowledged but instruction is not valid");
   end
   // assert that we never give an issue ack signal if the instruction is not valid
   for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
     assert property (
       @(posedge clk_i) disable iff (!rst_ni) issue_ack_i[i] |-> issue_instr_valid_o[i])
-    else $fatal(1, "Issue acknowledged but instruction is not valid");
+    else `ASSERT_FATAL("Issue acknowledged but instruction is not valid");
   end
 
   // there should never be more than one instruction writing the same destination register (except x0)
@@ -346,10 +358,8 @@ module scoreboard #(
       assert property (
         @(posedge clk_i) disable iff (!rst_ni) wt_valid_i[i] && wt_valid_i[j] && (i != j) |-> (trans_id_i[i] != trans_id_i[j]))
       else
-        $fatal(
-            1,
-            "Two or more functional units are retiring instructions with the same transaction id!"
-        );
+        `ASSERT_FATAL(
+            "Two or more functional units are retiring instructions with the same transaction id!");
     end
   end
   //pragma translate_on

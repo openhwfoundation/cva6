@@ -9,7 +9,6 @@
 // waving these warnings since they are in vendor or core_apu
 lint_off -rule STMTDLY -file "*/corev_apu/*"
 lint_off -rule WIDTHEXPAND -file "*/common/local/util/sram.sv"
-lint_off -rule WIDTHTRUNC -file "*/core/include/std_cache_pkg.sv"
 lint_off -file "*/corev_apu/*"
 lint_off -file "*/vendor/*"
 
@@ -20,3 +19,5 @@ lint_off -rule WIDTHEXPAND -file "*/core/axi_shim.sv"
 lint_off -rule WIDTHEXPAND -file "*/core/issue_read_operands.sv"
 lint_off -rule WIDTHEXPAND -file "*/core/ariane_regfile_ff.sv"
 lint_off -rule SELRANGE -file "*/core/commit_stage.sv"
+// "register" is a field name defined by the CV-X-IF specification
+lint_off -rule SYMRSVDWORD -file "*" -match "*'register'*"

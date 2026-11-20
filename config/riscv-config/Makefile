@@ -20,10 +20,17 @@ RVCONFIG_DIR ?= $(shell pwd)/../../vendor/riscv/riscv-config
 TARGET ?= cv32a65x
 
 # List of component files (inputs and processed)
-COMPONENTS = isa custom platform
+COMPONENTS ?= isa custom platform
+
+ifeq ($(findstring custom, $(COMPONENTS)),custom)
+  CUSTOM_SPEC = -cspec $(SPEC_DIR)/custom_spec.yaml
+endif
+
 SPEC_DIR = $(TARGET)/spec
 GEN_DIR  = $(TARGET)/generated
 RVCONFIG_INPUTS = $(patsubst %,$(SPEC_DIR)/%_spec.yaml,$(COMPONENTS))
+
+
 # NOTE: names of the generated files are imposed by riscv-config.
 RVCONFIG_OUTPUTS= $(patsubst %,$(GEN_DIR)/%_spec_checked.yaml,$(COMPONENTS))
 OUTPUT_FILES    = $(patsubst %,$(GEN_DIR)/%_gen.yaml,$(COMPONENTS))
@@ -39,8 +46,8 @@ $(RVCONFIG_OUTPUTS): $(RVCONFIG_INPUTS) Makefile
 	  python3 -m riscv_config.main \
 	  --work_dir $(GEN_DIR) \
 	  -ispec $(SPEC_DIR)/isa_spec.yaml \
-	  -cspec $(SPEC_DIR)/custom_spec.yaml \
-	  -pspec $(SPEC_DIR)/platform_spec.yaml
+	  -pspec $(SPEC_DIR)/platform_spec.yaml \
+	  $(CUSTOM_SPEC)
 
 clean: distclean
 	$(RM) $(OUTPUT_FILES)

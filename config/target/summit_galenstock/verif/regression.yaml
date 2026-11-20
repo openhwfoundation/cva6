@@ -1,0 +1,59 @@
+
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Authors: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+#
+# ================================================================================
+#                  Regression test list format
+# --------------------------------------------------------------------------------
+# testlist        : Assembly test list
+# test            : Assembly test name
+# description     : Description of this test
+# gen_opts        : Instruction generator options
+# iterations      : Number of iterations of this test
+# no_iss          : Enable/disable ISS simulator (Optional)
+# gen_test        : Test name used by the instruction generator
+# asm_tests       : Path to directed, hand-coded assembly test file or directory
+# rtl_test        : RTL simulation test name
+# cmp_opts        : Compile options passed to the instruction generator
+# sim_opts        : Simulation options passed to the instruction generator
+# no_post_compare : Enable/disable comparison of trace log and ISS log (Optional)
+# compare_opts    : Options for the RTL & ISS trace comparison
+# gcc_opts        : gcc compile options
+# --------------------------------------------------------------------------------
+## C
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
+
+testlist:
+  - test: rv32ui-p-add
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32ui/add.S
+
+  - test: rv32ui-p-lw
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32ui/lw.S
+
+  - test: rv32ui-p-sw
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32ui/sw.S
+
+  - test: rv32ui-p-beq
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32ui/beq.S
+
+  - test: rv32ui-p-jal
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv32ui/jal.S

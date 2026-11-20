@@ -413,7 +413,9 @@ struct tms      time_info;
 
 
 #define Mic_secs_Per_Second     1000000
+#ifndef NUMBER_OF_RUNS
 #define NUMBER_OF_RUNS		50 /* Default number of runs */
+#endif
 
 #ifdef  NOSTRUCTASSIGN
 #define structassign(d, s)      memcpy(&(d), &(s), sizeof(d))

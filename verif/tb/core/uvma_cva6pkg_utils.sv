@@ -26,6 +26,7 @@ function st_core_cntrl_cfg cva6pkg_to_core_cntrl_cfg(st_core_cntrl_cfg cfg);
     cfg.ext_zba_supported = CVA6Cfg.RVB;
     cfg.ext_zbb_supported = CVA6Cfg.RVB;
     cfg.ext_zbc_supported = CVA6Cfg.RVB;
+    //cfg.ext_zcmt_supported = CVA6Cfg.RVZCMT;
     cfg.ext_zbe_supported = 0;
     cfg.ext_zbf_supported = 0;
     cfg.ext_zbm_supported = 0;
@@ -34,7 +35,7 @@ function st_core_cntrl_cfg cva6pkg_to_core_cntrl_cfg(st_core_cntrl_cfg cfg);
     cfg.ext_zbs_supported = CVA6Cfg.RVB;
     cfg.ext_zbt_supported = 0;
     cfg.ext_zcb_supported = CVA6Cfg.RVZCB;
-    cfg.ext_zifencei_supported = 1;
+    cfg.ext_zifencei_supported = CVA6Cfg.RVZifencei;
     cfg.ext_zicsr_supported = 1;
     cfg.ext_zicntr_supported = 0;
 
@@ -78,7 +79,6 @@ function st_core_cntrl_cfg cva6pkg_to_core_cntrl_cfg(st_core_cntrl_cfg cfg);
 
     void'(spike_set_param_bool(base, "hide_csrs_based_on_priv", 1));
     void'(spike_set_param_uint64_t(base, "mtvec_vectored_alignment", 64 * 4));
-    void'(spike_set_param_str(base, "extensions", "cvxif"));
 
     // All enabled except XS and TW bits
     void'(spike_set_param_uint64_t(base, "mstatus_write_mask", 'hFFDE_7FFF));

@@ -1,0 +1,13 @@
+// -*- coding: utf-8 -*-
+// Copyright (C) 2024 Thales DIS France SAS
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0.
+// Original Author: Yannick Casamatta
+
+
+{
+  upstream:
+  {
+    url: https://github.com/pulp-platform/obi.git
+    rev: c2141a653c755461ff44f61d12aeb5d99fc8e760
+  }
+}

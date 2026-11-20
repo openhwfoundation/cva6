@@ -349,11 +349,6 @@ testlist:
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv64si/dirty.S
 
-  - test: rv64si-p-noncanonical
-    iterations: 1
-    <<: *common_test_config
-    asm_tests: <path_var>/custom/sv39/noncanonical.S
-
   - test: rv64si-p-ma_fetch
     iterations: 1
     <<: *common_test_config

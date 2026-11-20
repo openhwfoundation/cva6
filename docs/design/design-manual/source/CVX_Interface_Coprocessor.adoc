@@ -5,6 +5,7 @@ CV-X-IF Interface and Coprocessor
 The CV-X-IF interface of CVA6 allows to extend its supported instruction
 set with external coprocessors.
 
+ifeval::["{ohg-config}" != "CV32A60X"]
 _Applicability of this chapter to configurations:_
 
 [cols=",",options="header",]
@@ -14,6 +15,7 @@ _Applicability of this chapter to configurations:_
 |CV32A60X |CV-X-IF included
 |CV64A6_MMU |CV-X-IF included
 |=============================
+endif::[]
 
 [[cv-x-if-interface-specification]]
 CV-X-IF interface specification
@@ -25,6 +27,7 @@ Description
 
 This design specification presents global functionalities of
 Core-V-eXtension-Interface (XIF, CVXIF, CV-X-IF, X-interface) in the CVA6 core.
+CVA6 implements version v1.0.0: Ratified Release.
 
 
 [source,sourceCode,text]
@@ -33,7 +36,7 @@ The CORE-V X-Interface is a RISC-V eXtension interface that provides a
 generalized framework suitable to implement custom coprocessors and ISA
 extensions for existing RISC-V processors.
 
---core-v-xif Readme, https://github.com/openhwgroup/core-v-xif
+Refer to https://github.com/openhwgroup/core-v-xif GitHub repository
 ----
 
 The specification of the CV-X-IF bus protocol can be found at [CV-X-IF].
@@ -50,9 +53,9 @@ CV-X-IF aims to:
 The coprocessor operates like another functional unit so it is connected
 to the CVA6 in the execute stage.
 
-Only the 3 mandatory interfaces from the CV-X-IF specification (issue, commit and result
+Only the 5 mandatory interfaces from the CV-X-IF specification (compressed, issue, register, commit and result
 ) have been implemented.
-Compressed interface, Memory Interface and Memory result interface are not yet
+Memory Interface and Memory result interface are optional interfaces, they are not
 implemented in the CVA6.
 
 [[supported-parameters]]
@@ -67,8 +70,7 @@ The following table presents CVXIF parameters supported by CVA6.
 |*X_NUM_RS* |
 int: 2 or 3 (configurable) +
 
-* CV32A60X: 2
-* CV32A65X: 2
+* {ohg-config}: 2
 |
 [verse]
 --
@@ -79,8 +81,12 @@ be used by the eXtension interface
 |*X_ID_WIDTH* |
 int: 1 to 32 +
 
+ifeval::["{ohg-config}" == "CV32A60X"]
 * CV32A60X: 2
+endif::[]
+ifeval::["{ohg-config}" == "CV32A65X"]
 * CV32A65X: 3
+endif::[]
 |
 [verse]
 --
@@ -98,8 +104,7 @@ eXtension interface
 |*X_RFR_WIDTH* |
 int: `XLEN` (32 or 64) +
 
-* CV32A60X: 32
-* CV32A65X: 32
+* {ohg-config}: 32
 |
 [verse]
 --
@@ -110,8 +115,7 @@ eXtension interface
 |*X_RFW_WIDTH* |
 int: `XLEN` (32 or 64) +
 
-* CV32A60X: 32
-* CV32A65X: 32
+* {ohg-config}: 32
 |
 [verse]
 --
@@ -133,6 +137,9 @@ CV-X-IF Enabling
 ++++++++++++++++
 
 CV-X-IF can be enabled or disabled via the `CVA6ConfigCvxifEn` parameter in the SystemVerilog source code.
+
+Never let the CV-X-IF interface unconnected with the `CVA6ConfigCvxifEn` parameter enabled.
+
 
 [[illegal-instruction-decoding]]
 Illegal instruction decoding
@@ -159,115 +166,75 @@ a third read port is added to the CVA6 general purpose register file.
 Description of interface connections between CVA6 and Coprocessor
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-In CVA6 execute stage, there is a new functional unit dedicated to drive the CV-X-IF interfaces. 
+In CVA6 execute stage, there is a new functional unit dedicated to drive the CV-X-IF interfaces.
 Here is _how_ and _to what_ CV-X-IF interfaces are connected to the CVA6.
 
-* Issue interface::
-  ** Request;;
-    *** [verse]
-    --
-    Operands are connected to `issue_req.rs` signals
-    --
-    *** [verse]
-    --
-    Scoreboard transaction id is connected to `issue_req.id` signal.
+* Compressed interface:
+  ** Request:
+    *** Undecoded illegal instruction is connected to `compressed_req.instruction`
+    *** Illegal compressed signal calculated from all compressed decoders (RVC, ZCMP, ZCMT) is connected to `compressed_req.valid`.
+  ** Response:
+    *** if `compressed_resp.accept` is set during a transaction (i.e.
+    `compressed_valid` and `compressed_ready` are set), the offloaded compressed
+    instruction is accepted by the coprocessor and `compressed_resp.instruction`
+    contains its 32 bits equivalent for the coprocessor and sent to the
+    32 bits decoder.
+    *** if ``compressed_resp.accept`` is not set during a transaction, the instruction
+    is an illegal compressed instruction and will follow its path in the
+    decode stage. Typically, it will try to be decoded as a 32 bits instruction.
+* Issue and register interface (Coupled):
+  ** Request:
+    *** Operands are connected to `register.rs` signals
+    *** Scoreboard transaction id is connected to `issue_req.id` signal.
     Therefore scoreboard ids and offloaded instruction ids are linked
     together (equal in this implementation). It allows the CVA6 to do out
     of order execution with the coprocessor in the same way as other
     functional units.
-    --
-    *** [verse]
-    --
-    Undecoded instruction is connected to `issue_req.instruction`
-    --
-    *** [verse]
-    --
-    Valid signal for CVXIF functional unit is connected to
+    *** Undecoded instruction is connected to `issue_req.instruction`
+    *** Valid signal for CVXIF functional unit is connected to
     `issue_req.valid`
-    --
-    *** [verse]
-    --
-    All `issue_req.rs_valid` signals are set to 1. The validity of source
-    registers is assured by the validity of valid signal sent from issue stage.
-    --
-  ** Response;;
-    *** [verse]
-    --
-    If `issue_resp.accept` is set during a transaction (i.e. issue valid
+    *** Each `register.rs_valid` signal is set when its associated stall signal is not set.
+    *** `register_valid` is connected to `issue_valid` because Issue and Register
+    interface are coupled. (`X_ISSUE_REGISTER_SPLIT == 0`)
+  ** Response:
+    *** If `issue_resp.accept` is set during a transaction (i.e. issue valid
     and ready are set), the offloaded instruction is accepted by the coprocessor
     and a result transaction will happen.
-    --
-    *** [verse]
-    --
-    If `issue_resp.accept` is not set during a transaction, the offloaded
+    *** If `issue_resp.accept` is not set during a transaction, the offloaded
     instruction is illegal and an illegal instruction exception will be
     raised as soon as no result transaction are written on the writeback bus.
-    --
-* Commit interface::
-  ** [verse]
-  --
-  Valid signal of commit interface is connected to the valid signal of
+* Commit interface:
+  ** Valid signal of commit interface is connected to the valid signal of
   issue interface.
-  --
-  ** [verse]
-  --
-  Id signal of commit interface is connected to issue interface id signal
+  ** Id signal of commit interface is connected to issue interface id signal
   (i.e. scoreboard id).
-  --
-  ** [verse]
-  --
-  Killing of offload instruction is never set. (Unsupported feature)
-  --
-  ** [verse]
-  --
-  Therefore all accepted offloaded instructions are commited to their
+  ** Killing of offload instruction is never set. (Unsupported feature)
+  ** Therefore all accepted offloaded instructions are committed to their
   execution and no killing of instruction is possible in this implementation.
-  --
-* Result interface::
-  ** Request;;
-    *** [verse]
-    --
-    Ready signal of result interface is always set as CVA6 is always ready
+* Result interface:
+  ** Request:
+    *** Ready signal of result interface is always set as CVA6 is always ready
     to take a result from coprocessor for an accepted offloaded instruction.
-    --
-  ** Response;;
-    *** [verse]
-    --
-    Result response is directly connected to writeback bus of the CV-X-IF
+  ** Response:
+    *** Result response is directly connected to writeback bus of the CV-X-IF
     functional unit.
-    --
-    *** [verse]
-    --
-    Valid signal of result interface is connected to valid signal of
+    *** Valid signal of result interface is connected to valid signal of
     writeback bus.
-    --
-    *** [verse]
-    --
-    Id signal of result interface is connected to scoreboard id of
+    *** Id signal of result interface is connected to scoreboard id of
     writeback bus.
-    --
-    *** [verse]
-    --
-    Write enable signal of result interface is connected to a dedicated CV-X-IF WE
+    *** Write enable signal of result interface is connected to a dedicated CV-X-IF WE
     signal in CVA6 which signals scoreboard if a writeback should happen
     or not to the CVA6 register file.
-    --
-    *** [verse]
-    --
-    `exccode` and `exc` signal of result interface are connected to exception
+    *** `exccode` and `exc` signal of result interface are connected to exception
     signals of writeback bus. Exception from coprocessor does not write
     the `tval` field in exception signal of writeback bus.
-    --
-    *** [verse]
-    --
-    Three registers are added to hold illegal instruction information in
+    *** Three registers are added to hold illegal instruction information in
     case a result transaction and a non-accepted issue transaction happen
     in the same cycle. Result transactions will be written to the writeback
     bus in this case having priority over the non-accepted instruction due
     to being linked to an older offloaded instruction. Once the writeback
     bus is free, an illegal instruction exception will be raised thanks to
     information held in these three registers.
-    --
 
 [[coprocessor-recommendations-for-use-with-cva6s-cv-x-if]]
 Coprocessor recommendations for use with CVA6's CV-X-IF
@@ -275,18 +242,16 @@ Coprocessor recommendations for use with CVA6's CV-X-IF
 
 CVA6 supports all coprocessors supporting the CV-X-IF specification with the exception of :
 
-* Coprocessor requiring the Memory interface and Memory result interface (not implemented in CVA6 yet).::
-  ** All memory transaction should happen via the Issue interface, i.e. Load into CVA6 register file 
+* Coprocessor requiring the Memory interface and Memory result interface (not implemented in CVA6 yet).
+  ** All memory transaction should happen via the Issue interface, i.e. Load into CVA6 register file
   then initialize an issue transaction.
-* Coprocessor requiring the Compressed interface (not implemented in CVA6 yet).::
-  ** RISC-V Compressed extension (RVC) is already implemented in CVA6 User Space for custom compressed instruction 
-  is not big enough to have RVC and a custom compressed extension.
-* Stateful coprocessors.::
-  ** CVA6 will commit on the Commit interface all its issue transactions. Speculation 
+* Stateful coprocessors.
+  ** CVA6 will commit on the Commit interface all its issue transactions. Speculation
   information is only kept in the CVA6 and speculation process is only done in CVA6.
-  The coprocessor shall be stateless otherwise it will not be able to revert its state if CVA6 kills an 
+  The coprocessor shall be stateless otherwise it will not be able to revert its state if CVA6 kills an
   in-flight instruction (in case of mispredict or flush).
 
+ifeval::["{ohg-config}" != "CV32A60X"]
 [[how-to-use-cva6-without-cv-x-if-interface]]
 How to use CVA6 without CV-X-IF interface
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -306,3 +271,4 @@ How to program a CV-X-IF coprocessor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 _The team is looking for a contributor to write this section._
+endif::[]

@@ -18,22 +18,20 @@
 // Description: Memory Management Unit for CVA6, contains TLB and
 //              address translation unit. SV32 SV39 and SV39x4 as defined in RISC-V
 //              privilege specification 1.11-WIP.
-//              This module is a merge of the MMU Sv39 developed
+//              This module is an merge of the MMU Sv39 developed
 //              by Florian Zaruba, the MMU Sv32 developed by Sebastien Jacq and the MMU Sv39x4 developed by Bruno Sá.
 
 
 module cva6_mmu
   import ariane_pkg::*;
 #(
-    parameter config_pkg::cva6_cfg_t CVA6Cfg        = config_pkg::cva6_cfg_empty,
-    parameter type                   icache_areq_t  = logic,
-    parameter type                   icache_arsp_t  = logic,
-    parameter type                   icache_dreq_t  = logic,
-    parameter type                   icache_drsp_t  = logic,
-    parameter type                   dcache_req_i_t = logic,
-    parameter type                   dcache_req_o_t = logic,
-    parameter type                   exception_t    = logic,
-    parameter int unsigned           HYP_EXT        = 0
+    parameter config_pkg::cva6_cfg_t CVA6Cfg           = config_pkg::cva6_cfg_empty,
+    parameter type                   fetch_areq_t      = logic,
+    parameter type                   fetch_arsp_t      = logic,
+    parameter type                   ypb_mmu_ptw_req_t = logic,
+    parameter type                   ypb_mmu_ptw_rsp_t = logic,
+    parameter type                   exception_t       = logic,
+    parameter int unsigned           HYP_EXT           = 0
 
 ) (
     input logic clk_i,
@@ -44,8 +42,8 @@ module cva6_mmu
     input logic en_ld_st_translation_i,  // enable virtual memory translation for load/stores
     input logic en_ld_st_g_translation_i,  // enable G-Stage translation for load/stores
     // IF interface
-    input icache_arsp_t icache_areq_i,
-    output icache_areq_t icache_areq_o,
+    input fetch_areq_t fetch_areq_i,
+    output fetch_arsp_t fetch_arsp_o,
     // LSU interface
     // this is a more minimalistic interface because the actual addressing logic is handled
     // in the LSU as we distinguish load and stores, what we do here is simple address translation
@@ -62,12 +60,13 @@ module cva6_mmu
     // Cycle 1 response
     output logic lsu_valid_o,  // translation is valid
     output logic [CVA6Cfg.PLEN-1:0] lsu_paddr_o,  // translated address
-    // Metadata for the same response transaction as lsu_valid_o, lsu_paddr_o,
-    // and lsu_exception_o.
+    output exception_t lsu_exception_o,  // address translation threw an exception
+    // Metadata for the same response transaction as lsu_valid_o, lsu_paddr_o
+    // and lsu_exception_o, so a checker downstream does not mix a response with
+    // the request that happens to be presented in the same cycle.
     output logic [CVA6Cfg.VLEN-1:0] lsu_vaddr_o,
     output logic lsu_is_store_o,
     output logic lsu_hlvx_inst_o,
-    output exception_t lsu_exception_o,  // address translation threw an exception
     // General control signals
     input riscv::priv_lvl_t priv_lvl_i,
     input logic v_i,
@@ -77,7 +76,6 @@ module cva6_mmu
     input logic vs_sum_i,
     input logic mxr_i,
     input logic vmxr_i,
-    input logic mbe_i,
     input logic hlvx_inst_i,
     input logic hs_ld_st_inst_i,
     // input logic flag_mprv_i,
@@ -96,17 +94,16 @@ module cva6_mmu
     input logic flush_tlb_i,
     input logic flush_tlb_vvma_i,
     input logic flush_tlb_gvma_i,
-
     // Shared TLB is busy processing a multi-cycle flush
     output logic shared_tlb_flush_busy_o,
+    input logic mbe_i,  // data endianness of the processor
 
     // Performance counters
-    output logic itlb_miss_o,
-    output logic dtlb_miss_o,
+    output logic             itlb_miss_o,
+    output logic             dtlb_miss_o,
     // PTW memory interface
-    input dcache_req_o_t req_port_i,
-    output dcache_req_i_t req_port_o,
-
+    output ypb_mmu_ptw_req_t ypb_mmu_ptw_req_o,
+    input  ypb_mmu_ptw_rsp_t ypb_mmu_ptw_rsp_i,
     // PMP
 
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0]                   pmpcfg_i,
@@ -146,6 +143,9 @@ module cva6_mmu
   logic daccess_err;  // insufficient privilege to access this data page
   logic canonical_addr_check;  // canonical check on the virtual address for SV39
   logic d_g_st_access_err;  // insufficient privilege to access this data page
+  logic hlvx_inst_n, hlvx_inst_q;
+  logic g_load_exec_as_read_ok;
+  logic g_load_access_ok;
   logic ptw_active;  // PTW is currently walking a page table
   logic walking_instr;  // PTW is walking because of an ITLB miss
   logic ptw_error;  // PTW threw an exception
@@ -154,16 +154,19 @@ module cva6_mmu
   logic ptw_access_exception;  // PTW threw an access exception (PMPs)
   logic [CVA6Cfg.PLEN-1:0] ptw_bad_paddr;  // PTW page fault bad physical addr
   logic [CVA6Cfg.GPLEN-1:0] ptw_bad_gpaddr;  // PTW guest page fault bad guest physical addr
-  logic [CVA6Cfg.PPNW-1:0] final_fetch_ppn;
 
   logic [CVA6Cfg.VLEN-1:0] update_vaddr, shared_tlb_vaddr;
 
   tlb_update_cva6_t update_itlb, update_dtlb, update_shared_tlb;
 
+  logic [CVA6Cfg.VLEN-1:0] shared_tlb_vaddr_prev, fetch_vaddr_prev;
+  logic new_fetch_req, new_ptw_req;
+
   logic                               itlb_lu_access;
   pte_cva6_t                          itlb_content;
   pte_cva6_t                          itlb_g_content;
   logic      [  CVA6Cfg.PtLevels-2:0] itlb_is_page;
+  logic      [      CVA6Cfg.PPNW-1:0] final_fetch_ppn;
   logic                               itlb_lu_hit;
   logic      [     CVA6Cfg.GPLEN-1:0] itlb_gpaddr;
   logic      [CVA6Cfg.ASID_WIDTH-1:0] itlb_lu_asid;
@@ -178,14 +181,19 @@ module cva6_mmu
 
   logic shared_tlb_access, shared_tlb_miss;
   logic shared_tlb_hit, itlb_req;
+  logic aborted_ptw_req;
+
+  exception_t misaligned_ex_n, misaligned_ex_q;
 
   // Assignments
 
-  assign itlb_lu_access = icache_areq_i.fetch_req;
+  assign itlb_lu_access = fetch_areq_i.fetch_req;
   assign dtlb_lu_access = lsu_req_i & !misaligned_ex_i.valid;
-  assign itlb_lu_asid   = v_i ? vs_asid_i : asid_i;
-  assign dtlb_lu_asid   = (ld_st_v_i || flush_tlb_vvma_i) ? vs_asid_i : asid_i;
+  assign itlb_lu_asid = v_i ? vs_asid_i : asid_i;
+  assign dtlb_lu_asid = (ld_st_v_i || flush_tlb_vvma_i) ? vs_asid_i : asid_i;
 
+  assign new_fetch_req = fetch_areq_i.fetch_vaddr == fetch_vaddr_prev ? '0 : '1;
+  assign new_ptw_req = shared_tlb_vaddr == shared_tlb_vaddr_prev ? '0 : shared_tlb_access && !shared_tlb_hit;
 
   cva6_tlb #(
       .CVA6Cfg          (CVA6Cfg),
@@ -206,7 +214,7 @@ module cva6_mmu
       .lu_access_i   (itlb_lu_access),
       .lu_asid_i     (itlb_lu_asid),
       .lu_vmid_i     (vmid_i),
-      .lu_vaddr_i    (icache_areq_i.fetch_vaddr),
+      .lu_vaddr_i    (fetch_areq_i.fetch_vaddr),
       .lu_gpaddr_o   (itlb_gpaddr),
       .lu_content_o  (itlb_content),
       .lu_g_content_o(itlb_g_content),
@@ -269,6 +277,12 @@ module cva6_mmu
       .g_ld_st_enbl_i(en_ld_st_g_translation_i),
       .ld_st_v_i     (ld_st_v_i),
 
+      .asid_to_be_flushed_i,
+      .vaddr_to_be_flushed_i,
+      .vmid_to_be_flushed_i,
+      .gpaddr_to_be_flushed_i,
+      .flush_busy_o(shared_tlb_flush_busy_o),
+
       .dtlb_asid_i  (dtlb_lu_asid),
       .itlb_asid_i  (itlb_lu_asid),
       .lu_vmid_i    (vmid_i),
@@ -276,20 +290,16 @@ module cva6_mmu
       // did we miss?
       .itlb_access_i(itlb_lu_access),
       .itlb_hit_i   (itlb_lu_hit),
-      .itlb_vaddr_i (icache_areq_i.fetch_vaddr),
+      .itlb_vaddr_i (fetch_areq_i.fetch_vaddr),
 
       .dtlb_access_i(dtlb_lu_access),
       .dtlb_hit_i   (dtlb_lu_hit),
       .dtlb_vaddr_i (lsu_vaddr_i),
 
-      .asid_to_be_flushed_i(asid_to_be_flushed_i),
-      .vaddr_to_be_flushed_i(vaddr_to_be_flushed_i),
-      .vmid_to_be_flushed_i(vmid_to_be_flushed_i),
-      .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
       // to TLBs, update logic
       .itlb_update_o(update_itlb),
       .dtlb_update_o(update_dtlb),
-      .flush_busy_o(shared_tlb_flush_busy_o),
+
       // Performance counters
       .itlb_miss_o(itlb_miss_o),
       .dtlb_miss_o(dtlb_miss_o),
@@ -308,14 +318,14 @@ module cva6_mmu
       .CVA6Cfg          (CVA6Cfg),
       .pte_cva6_t       (pte_cva6_t),
       .tlb_update_cva6_t(tlb_update_cva6_t),
-      .dcache_req_i_t   (dcache_req_i_t),
-      .dcache_req_o_t   (dcache_req_o_t),
+      .ypb_mmu_ptw_req_t(ypb_mmu_ptw_req_t),
+      .ypb_mmu_ptw_rsp_t(ypb_mmu_ptw_rsp_t),
       .HYP_EXT          (HYP_EXT)
   ) i_ptw (
-      .clk_i (clk_i),
-      .rst_ni(rst_ni),
+      .clk_i                 (clk_i),
+      .rst_ni                (rst_ni),
       .flush_i,
-
+      .new_req_i             (new_ptw_req),
       .ptw_active_o          (ptw_active),
       .walking_instr_o       (walking_instr),
       .ptw_error_o           (ptw_error),
@@ -330,10 +340,10 @@ module cva6_mmu
       .ld_st_v_i,
       .hlvx_inst_i           (hlvx_inst_i),
 
-      .lsu_is_store_i(lsu_is_store_i),
+      .lsu_is_store_i   (lsu_is_store_i),
       // PTW memory interface
-      .req_port_i    (req_port_i),
-      .req_port_o    (req_port_o),
+      .ypb_mmu_ptw_req_o(ypb_mmu_ptw_req_o),
+      .ypb_mmu_ptw_rsp_i(ypb_mmu_ptw_rsp_i),
 
       // to Shared TLB, update logic
       .shared_tlb_update_o(update_shared_tlb),
@@ -358,6 +368,7 @@ module cva6_mmu
       .mxr_i,
       .vmxr_i,
       .mbe_i(mbe_i),
+
       // Performance counters
       .shared_tlb_miss_o(shared_tlb_miss),  //open for now
 
@@ -365,7 +376,8 @@ module cva6_mmu
       .pmpcfg_i   (pmpcfg_i),
       .pmpaddr_i  (pmpaddr_i),
       .bad_paddr_o(ptw_bad_paddr),
-      .bad_gpaddr_o(ptw_bad_gpaddr)
+      .bad_gpaddr_o(ptw_bad_gpaddr),
+      .aborted_req_o(aborted_ptw_req)
   );
 
   //-----------------------
@@ -378,20 +390,21 @@ module cva6_mmu
 
   // The instruction interface is a simple request response interface
   always_comb begin : instr_interface
+    final_fetch_ppn = '0;
     // MMU disabled: just pass through
-    icache_areq_o.fetch_valid = icache_areq_i.fetch_req;
-    icache_areq_o.fetch_paddr = CVA6Cfg.PLEN'(icache_areq_i.fetch_vaddr[((CVA6Cfg.PLEN > CVA6Cfg.VLEN) ? CVA6Cfg.VLEN -1: CVA6Cfg.PLEN -1 ):0]);
+    fetch_arsp_o.fetch_valid = fetch_areq_i.fetch_req;
+    fetch_arsp_o.fetch_paddr  = CVA6Cfg.PLEN'(fetch_areq_i.fetch_vaddr[((CVA6Cfg.PLEN > CVA6Cfg.VLEN) ? CVA6Cfg.VLEN -1: CVA6Cfg.PLEN -1 ):0]);
     // two potential exception sources:
     // 1. HPTW threw an exception -> signal with a page fault exception
     // 2. We got an access error because of insufficient permissions -> throw an access exception
-    icache_areq_o.fetch_exception = '0;
+    fetch_arsp_o.fetch_exception = '0;
     // Check whether we are allowed to access this memory region from a fetch perspective
-    iaccess_err = icache_areq_i.fetch_req && enable_translation_i &&  //
+    iaccess_err = fetch_areq_i.fetch_req && enable_translation_i &&  //
     (((priv_lvl_i == riscv::PRIV_LVL_U) && ~itlb_content.u)  //
     || ((priv_lvl_i == riscv::PRIV_LVL_S) && itlb_content.u));
 
     if (CVA6Cfg.RVH)
-      i_g_st_access_err = icache_areq_i.fetch_req && enable_g_translation_i && !itlb_g_content.u;
+      i_g_st_access_err = fetch_areq_i.fetch_req && enable_g_translation_i && !itlb_g_content.u;
     // MMU enabled: address from TLB, request delayed until hit. Error when TLB
     // hit and no access right or TLB hit and translated address not valid (e.g.
     // AXI decode error), or when PTW performs walk due to ITLB miss and raises
@@ -401,35 +414,34 @@ module cva6_mmu
       // - in VS stage, check that all bits [CVA6Cfg.VLEN-1:CVA6Cfg.SV-1] are equal
       // - in pure G stage (SV39x4 mode), [CVA6Cfg.VLEN-1:CVA6Cfg.GPLEN] must be zero.
       // - in pure G stage (SV32x4 mode), no check is needed.
-      if ((enable_translation_i && (icache_areq_i.fetch_req && !((&icache_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:CVA6Cfg.SV-1]) == 1'b1 || (|icache_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:CVA6Cfg.SV-1]) == 1'b0)))
-          || (enable_g_translation_i && !enable_translation_i && CVA6Cfg.IS_XLEN64 && (|icache_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:CVA6Cfg.GPLEN] != 1'b0))) begin
-        icache_areq_o.fetch_exception.cause = riscv::INSTR_PAGE_FAULT;
-        icache_areq_o.fetch_exception.valid = 1'b1;
+      if ((enable_translation_i && (fetch_areq_i.fetch_req && !((&fetch_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:CVA6Cfg.SV-1]) == 1'b1 || (|fetch_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:CVA6Cfg.SV-1]) == 1'b0)))
+          || (enable_g_translation_i && !enable_translation_i && CVA6Cfg.IS_XLEN64 && ((fetch_areq_i.fetch_vaddr >> CVA6Cfg.GPLEN) != '0))) begin
+
+        fetch_arsp_o.fetch_exception.cause = riscv::INSTR_PAGE_FAULT;
+        fetch_arsp_o.fetch_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
-          icache_areq_o.fetch_exception.tval = CVA6Cfg.XLEN'(icache_areq_i.fetch_vaddr);
+          fetch_arsp_o.fetch_exception.tval = CVA6Cfg.XLEN'(fetch_areq_i.fetch_vaddr);
         if (CVA6Cfg.RVH) begin
-          icache_areq_o.fetch_exception.tval2 = '0;
-          icache_areq_o.fetch_exception.tinst = '0;
-          icache_areq_o.fetch_exception.gva   = v_i;
+          fetch_arsp_o.fetch_exception.tval2 = '0;
+          fetch_arsp_o.fetch_exception.tinst = '0;
+          fetch_arsp_o.fetch_exception.gva   = v_i;
         end
       end
 
-      icache_areq_o.fetch_valid = 1'b0;
+      fetch_arsp_o.fetch_valid = 1'b0;
 
-      final_fetch_ppn = (enable_g_translation_i && CVA6Cfg.RVH)? itlb_g_content.ppn : itlb_content.ppn;
-      icache_areq_o.fetch_paddr = {final_fetch_ppn, icache_areq_i.fetch_vaddr[11:0]};
+      final_fetch_ppn = (enable_g_translation_i && CVA6Cfg.RVH) ? itlb_g_content.ppn : itlb_content.ppn;
+      fetch_arsp_o.fetch_paddr = {final_fetch_ppn, fetch_areq_i.fetch_vaddr[11:0]};
 
       if (CVA6Cfg.PtLevels == 3 && itlb_is_page[CVA6Cfg.PtLevels-2]) begin
 
-        // strange 9+PtLevels to avoid CI errors on (purely syntactic) checks on Sv32, where
-        // `PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)` equals `11` and would lead to `icache_areq_i.fetch_vaddr[11:12]`
-        icache_areq_o.fetch_paddr[PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels):9+CVA6Cfg.PtLevels] = icache_areq_i.fetch_vaddr[PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels):9+CVA6Cfg.PtLevels];
+        fetch_arsp_o.fetch_paddr[PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels):9+CVA6Cfg.PtLevels] = fetch_areq_i.fetch_vaddr[PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels):9+CVA6Cfg.PtLevels];
 
       end
 
       if (itlb_is_page[0]) begin
 
-        icache_areq_o.fetch_paddr[PPNWMin:12] = icache_areq_i.fetch_vaddr[PPNWMin:12];
+        fetch_arsp_o.fetch_paddr[PPNWMin:12] = fetch_areq_i.fetch_vaddr[PPNWMin:12];
 
       end
       // ---------//
@@ -437,66 +449,66 @@ module cva6_mmu
       // --------//
       // if we hit the ITLB output the request signal immediately
       if (itlb_lu_hit) begin
-        icache_areq_o.fetch_valid = icache_areq_i.fetch_req;
+        fetch_arsp_o.fetch_valid = fetch_areq_i.fetch_req;
         if (CVA6Cfg.RVH && i_g_st_access_err) begin
-          icache_areq_o.fetch_exception.cause = riscv::INSTR_GUEST_PAGE_FAULT;
-          icache_areq_o.fetch_exception.valid = 1'b1;
+          fetch_arsp_o.fetch_exception.cause = riscv::INSTR_GUEST_PAGE_FAULT;
+          fetch_arsp_o.fetch_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
-            icache_areq_o.fetch_exception.tval = CVA6Cfg.XLEN'(icache_areq_i.fetch_vaddr);
+            fetch_arsp_o.fetch_exception.tval = CVA6Cfg.XLEN'(fetch_areq_i.fetch_vaddr);
           if (CVA6Cfg.RVH) begin
-            icache_areq_o.fetch_exception.tval2 = itlb_gpaddr[CVA6Cfg.GPLEN-1:0];
-            icache_areq_o.fetch_exception.tinst = '0;
-            icache_areq_o.fetch_exception.gva   = v_i;
+            fetch_arsp_o.fetch_exception.tval2 = itlb_gpaddr[CVA6Cfg.GPLEN-1:0];
+            fetch_arsp_o.fetch_exception.tinst = '0;
+            fetch_arsp_o.fetch_exception.gva   = v_i;
           end
 
           // we got an access error
         end else if (iaccess_err) begin
           // throw a page fault
-          icache_areq_o.fetch_exception.cause = riscv::INSTR_PAGE_FAULT;
-          icache_areq_o.fetch_exception.valid = 1'b1;
+          fetch_arsp_o.fetch_exception.cause = riscv::INSTR_PAGE_FAULT;
+          fetch_arsp_o.fetch_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
-            icache_areq_o.fetch_exception.tval = CVA6Cfg.XLEN'(icache_areq_i.fetch_vaddr);
+            fetch_arsp_o.fetch_exception.tval = CVA6Cfg.XLEN'(fetch_areq_i.fetch_vaddr);
           if (CVA6Cfg.RVH) begin
-            icache_areq_o.fetch_exception.tval2 = '0;
-            icache_areq_o.fetch_exception.tinst = '0;
-            icache_areq_o.fetch_exception.gva   = v_i;
+            fetch_arsp_o.fetch_exception.tval2 = '0;
+            fetch_arsp_o.fetch_exception.tinst = '0;
+            fetch_arsp_o.fetch_exception.gva   = v_i;
           end
         end
-      end else if (ptw_active && walking_instr) begin
+      end else if (ptw_active && walking_instr && !new_fetch_req && !aborted_ptw_req) begin
         // ---------//
         // ITLB Miss
         // ---------//
         // watch out for exceptions happening during walking the page table
-        icache_areq_o.fetch_valid = ptw_error | ptw_access_exception;
+        fetch_arsp_o.fetch_valid = ptw_error | ptw_access_exception;
         if (ptw_error) begin
           if (CVA6Cfg.RVH && ptw_error_at_g_st) begin
-            icache_areq_o.fetch_exception.cause = riscv::INSTR_GUEST_PAGE_FAULT;
-            icache_areq_o.fetch_exception.valid = 1'b1;
-            if (CVA6Cfg.TvalEn) icache_areq_o.fetch_exception.tval = CVA6Cfg.XLEN'(update_vaddr);
+            fetch_arsp_o.fetch_exception.cause = riscv::INSTR_GUEST_PAGE_FAULT;
+            fetch_arsp_o.fetch_exception.valid = 1'b1;
+            if (CVA6Cfg.TvalEn) fetch_arsp_o.fetch_exception.tval = CVA6Cfg.XLEN'(update_vaddr);
             if (CVA6Cfg.RVH) begin
-              icache_areq_o.fetch_exception.tval2 = ptw_bad_gpaddr[CVA6Cfg.GPLEN-1:0];
-              icache_areq_o.fetch_exception.tinst = (ptw_err_at_g_int_st ? (CVA6Cfg.IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : '0);
-              icache_areq_o.fetch_exception.gva = v_i;
+              fetch_arsp_o.fetch_exception.tval2 = ptw_bad_gpaddr[CVA6Cfg.GPLEN-1:0];
+              fetch_arsp_o.fetch_exception.tinst=(ptw_err_at_g_int_st ? (CVA6Cfg.IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : '0);
+              fetch_arsp_o.fetch_exception.gva = v_i;
             end
           end else begin
-            icache_areq_o.fetch_exception.cause = riscv::INSTR_PAGE_FAULT;
-            icache_areq_o.fetch_exception.valid = 1'b1;
-            if (CVA6Cfg.TvalEn) icache_areq_o.fetch_exception.tval = CVA6Cfg.XLEN'(update_vaddr);
+            fetch_arsp_o.fetch_exception.cause = riscv::INSTR_PAGE_FAULT;
+            fetch_arsp_o.fetch_exception.valid = 1'b1;
+            if (CVA6Cfg.TvalEn) fetch_arsp_o.fetch_exception.tval = CVA6Cfg.XLEN'(update_vaddr);
             if (CVA6Cfg.RVH) begin
-              icache_areq_o.fetch_exception.tval2 = '0;
-              icache_areq_o.fetch_exception.tinst = '0;
-              icache_areq_o.fetch_exception.gva   = v_i;
+              fetch_arsp_o.fetch_exception.tval2 = '0;
+              fetch_arsp_o.fetch_exception.tinst = '0;
+              fetch_arsp_o.fetch_exception.gva   = v_i;
             end
           end
         end else begin
-          icache_areq_o.fetch_exception.cause = riscv::INSTR_ACCESS_FAULT;
-          icache_areq_o.fetch_exception.valid = 1'b1;
-          if (CVA6Cfg.TvalEn)  // To confirm this is the right TVAL
-            icache_areq_o.fetch_exception.tval = CVA6Cfg.XLEN'(update_vaddr);
+          fetch_arsp_o.fetch_exception.cause = riscv::INSTR_ACCESS_FAULT;
+          fetch_arsp_o.fetch_exception.valid = 1'b1;
+          if (CVA6Cfg.TvalEn)  //To confirm this is the right TVAL 
+            fetch_arsp_o.fetch_exception.tval = CVA6Cfg.XLEN'(update_vaddr);
           if (CVA6Cfg.RVH) begin
-            icache_areq_o.fetch_exception.tval2 = '0;
-            icache_areq_o.fetch_exception.tinst = '0;
-            icache_areq_o.fetch_exception.gva   = v_i;
+            fetch_arsp_o.fetch_exception.tval2 = '0;
+            fetch_arsp_o.fetch_exception.tinst = '0;
+            fetch_arsp_o.fetch_exception.gva   = v_i;
           end
         end
       end
@@ -511,23 +523,20 @@ module cva6_mmu
   logic [CVA6Cfg.GPLEN-1:0] lsu_gpaddr_n, lsu_gpaddr_q;
   logic [31:0] lsu_tinst_n, lsu_tinst_q;
   logic hs_ld_st_inst_n, hs_ld_st_inst_q;
-  logic hlvx_inst_n, hlvx_inst_q;
-  logic g_load_exec_as_read_ok;
-  logic g_load_access_ok;
   pte_cva6_t dtlb_pte_n, dtlb_pte_q;
   pte_cva6_t dtlb_gpte_n, dtlb_gpte_q;
   logic lsu_req_n, lsu_req_q;
   logic lsu_is_store_n, lsu_is_store_q;
   logic dtlb_hit_n, dtlb_hit_q;
   logic [CVA6Cfg.PtLevels-2:0] dtlb_is_page_n, dtlb_is_page_q;
-  exception_t misaligned_ex_n, misaligned_ex_q;
-
-  assign lsu_vaddr_o = lsu_vaddr_q;
-  assign lsu_is_store_o = lsu_is_store_q;
-  assign lsu_hlvx_inst_o = CVA6Cfg.RVH ? hlvx_inst_q : 1'b0;
 
   // check if we need to do translation or if we are always ready (e.g.: we are not translating anything)
   assign lsu_dtlb_hit_o = (en_ld_st_translation_i || en_ld_st_g_translation_i) ? dtlb_lu_hit : 1'b1;
+
+  //  Registered alongside the response, see the port comment.
+  assign lsu_vaddr_o = lsu_vaddr_q;
+  assign lsu_is_store_o = lsu_is_store_q;
+  assign lsu_hlvx_inst_o = CVA6Cfg.RVH ? hlvx_inst_q : 1'b0;
 
 
   // The data interface is simpler and only consists of a request/response interface
@@ -539,6 +548,7 @@ module cva6_mmu
     dtlb_hit_n = dtlb_lu_hit;
     lsu_is_store_n = lsu_is_store_i;
     dtlb_is_page_n = dtlb_is_page;
+
     misaligned_ex_n = misaligned_ex_i;
 
     lsu_valid_o = lsu_req_q;
@@ -585,29 +595,30 @@ module cva6_mmu
     if ((en_ld_st_translation_i || en_ld_st_g_translation_i) && !misaligned_ex_q.valid) begin
       lsu_valid_o = 1'b0;
 
-      lsu_dtlb_ppn_o = (en_ld_st_g_translation_i && CVA6Cfg.RVH) ? dtlb_g_content.ppn : dtlb_content.ppn;
+      lsu_dtlb_ppn_o = (en_ld_st_g_translation_i && CVA6Cfg.RVH)? dtlb_g_content.ppn :dtlb_content.ppn;
       lsu_paddr_o = {
         (en_ld_st_g_translation_i && CVA6Cfg.RVH) ? dtlb_gpte_q.ppn : dtlb_pte_q.ppn,
         lsu_vaddr_q[11:0]
       };
 
       if (CVA6Cfg.PtLevels == 3 && dtlb_is_page_q[CVA6Cfg.PtLevels-2]) begin
-        // Strange 9+PtLevels to avoid CI errors on (purely syntactic) checks on Sv32, where
-        // `PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)` equals `11` and would lead to `lsu_paddr_o[11:12]`
         lsu_paddr_o[PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels):9+CVA6Cfg.PtLevels] = lsu_vaddr_q[PPNWMin-(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels):9+CVA6Cfg.PtLevels];
       end
-      if (CVA6Cfg.PtLevels == 3 && dtlb_is_page_n[CVA6Cfg.PtLevels-2]) begin
-        lsu_dtlb_ppn_o[0+:MegaPageSubstWidth] = lsu_vaddr_n[(9+CVA6Cfg.PtLevels)+:MegaPageSubstWidth];
-      end
-
 
       if (dtlb_is_page_q[0]) begin
         lsu_paddr_o[PPNWMin:12] = lsu_vaddr_q[PPNWMin:12];
       end
 
+      // lsu_dtlb_ppn_o is a same-cycle output, so it follows the incoming
+      // request rather than the registered one
+      if (CVA6Cfg.PtLevels == 3 && dtlb_is_page_n[CVA6Cfg.PtLevels-2]) begin
+        lsu_dtlb_ppn_o[0+:MegaPageSubstWidth] = lsu_vaddr_n[(9+CVA6Cfg.PtLevels)+:MegaPageSubstWidth];
+      end
+
       if (dtlb_is_page_n[0]) begin
         lsu_dtlb_ppn_o[PPNWMin-12:0] = lsu_vaddr_n[PPNWMin:12];
       end
+
 
 
       // ---------
@@ -632,7 +643,7 @@ module cva6_mmu
                 {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, lsu_vaddr_q
               };
             if (CVA6Cfg.RVH) begin
-              lsu_exception_o.tval2 = CVA6Cfg.GPLEN'(lsu_gpaddr_q[(CVA6Cfg.IS_XLEN32 ? CVA6Cfg.VLEN : CVA6Cfg.GPLEN)-1:0]);
+              lsu_exception_o.tval2= CVA6Cfg.GPLEN'(lsu_gpaddr_q[(CVA6Cfg.IS_XLEN32?CVA6Cfg.VLEN : CVA6Cfg.GPLEN)-1:0]);
               lsu_exception_o.tinst = '0;
               lsu_exception_o.gva = ld_st_v_i;
             end
@@ -659,7 +670,7 @@ module cva6_mmu
                 {CVA6Cfg.XLEN - CVA6Cfg.VLEN{lsu_vaddr_q[CVA6Cfg.VLEN-1]}}, lsu_vaddr_q
               };
             if (CVA6Cfg.RVH) begin
-              lsu_exception_o.tval2 = CVA6Cfg.GPLEN'(lsu_gpaddr_q[(CVA6Cfg.IS_XLEN32 ? CVA6Cfg.VLEN : CVA6Cfg.GPLEN)-1:0]);
+              lsu_exception_o.tval2= CVA6Cfg.GPLEN'(lsu_gpaddr_q[(CVA6Cfg.IS_XLEN32?CVA6Cfg.VLEN : CVA6Cfg.GPLEN)-1:0]);
               lsu_exception_o.tinst = '0;
               lsu_exception_o.gva = ld_st_v_i;
             end
@@ -700,7 +711,7 @@ module cva6_mmu
                 };
               if (CVA6Cfg.RVH) begin
                 lsu_exception_o.tval2 = ptw_bad_gpaddr[CVA6Cfg.GPLEN-1:0];
-                lsu_exception_o.tinst = (ptw_err_at_g_int_st ? (CVA6Cfg.IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : '0);
+                lsu_exception_o.tinst= (ptw_err_at_g_int_st ? (CVA6Cfg.IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : '0);
                 lsu_exception_o.gva = ld_st_v_i;
               end
             end else begin
@@ -726,7 +737,7 @@ module cva6_mmu
                 };
               if (CVA6Cfg.RVH) begin
                 lsu_exception_o.tval2 = ptw_bad_gpaddr[CVA6Cfg.GPLEN-1:0];
-                lsu_exception_o.tinst = (ptw_err_at_g_int_st ? (CVA6Cfg.IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : '0);
+                lsu_exception_o.tinst= (ptw_err_at_g_int_st ? (CVA6Cfg.IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : '0);
                 lsu_exception_o.gva = ld_st_v_i;
               end
             end else begin
@@ -792,13 +803,15 @@ module cva6_mmu
       hlvx_inst_q     <= '0;
       misaligned_ex_q <= '0;
     end else begin
-      lsu_vaddr_q     <= lsu_vaddr_n;
-      lsu_req_q       <= lsu_req_n;
-      dtlb_pte_q      <= dtlb_pte_n;
-      dtlb_hit_q      <= dtlb_hit_n;
-      lsu_is_store_q  <= lsu_is_store_n;
-      dtlb_is_page_q  <= dtlb_is_page_n;
-      misaligned_ex_q <= misaligned_ex_n;
+      lsu_vaddr_q           <= lsu_vaddr_n;
+      lsu_req_q             <= lsu_req_n;
+      dtlb_pte_q            <= dtlb_pte_n;
+      dtlb_hit_q            <= dtlb_hit_n;
+      lsu_is_store_q        <= lsu_is_store_n;
+      dtlb_is_page_q        <= dtlb_is_page_n;
+      shared_tlb_vaddr_prev <= shared_tlb_vaddr;
+      fetch_vaddr_prev      <= fetch_areq_i.fetch_vaddr;
+      misaligned_ex_q       <= misaligned_ex_n;
 
       if (CVA6Cfg.RVH) begin
         lsu_tinst_q     <= lsu_tinst_n;

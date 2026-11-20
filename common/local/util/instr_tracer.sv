@@ -21,9 +21,7 @@ module instr_tracer #(
   parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
   parameter type bp_resolve_t = logic,
   parameter type scoreboard_entry_t = logic[303:0], // Fix for xcelium bug at runtime: does not have enough memory space reserved for scoreboard_entry
-  parameter type interrupts_t = logic,
-  parameter type exception_t = logic,
-  parameter interrupts_t INTERRUPTS = '0
+  parameter type exception_t = logic
 )(
   input logic                                          pck,
   input logic                                          rstn,
@@ -285,9 +283,7 @@ module instr_tracer #(
 
   function void printException(logic [CVA6Cfg.VLEN-1:0] pc, logic [63:0] cause, logic [63:0] tval);
     automatic ex_trace_item #(
-      .CVA6Cfg(CVA6Cfg),
-      .interrupts_t(interrupts_t),
-      .INTERRUPTS(INTERRUPTS)
+      .CVA6Cfg(CVA6Cfg)
     ) eti = new (pc, cause, tval);
     automatic string print_ex = eti.printException();
     $fwrite(f, {print_ex, "\n"});

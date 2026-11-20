@@ -22,17 +22,17 @@ main:
 # core of the test
 
 start0:
-    LOAD_RS(a0, 0x332211);
-    LOAD_RS(a1, 0xDEADBEEF);
-    LOAD_RS(a2, 0xDEADBEEF);
-    CUS_NOP();
-    CUS_ADD(01010, 01010, 01011);
-    CUS_ADD(01011, 01010, 01011);
-    CUS_ADD(01010, 01011, 01011);
+    li a0, 0x332211
+    li a1, 0xDEADBEEF
+    li a2, 0xDEADBEEF
+    cus_nop
+    cus_add a0, a0, a1
+    cus_add a1, a0, a1
+    cus_add a0, a1, a1
     lw a0, num1;
-    CUS_ADD_RS1(01100,01010,01011);
+    cus_add a2, a0, a1
     lw a1, num2;
-    CUS_ADD(01010,01011,00000);
+    cus_add a0, a1, zero
 
 # Take branch to check for instruction kill
     li a0, 0xCAFE;
@@ -41,16 +41,16 @@ start0:
     beqz a2, branch2;
 
 branch1:
-    CUS_ADD(00000, 00000, 01011);
-    CUS_NOP();
-    CUS_NOP();
+    cus_add zero, zero, a1
+    cus_nop
+    cus_nop
 
 branch2:
-    CUS_ADD(01010, 01010, 01011);
+    cus_add a0, a0, a1
     lw a0, num1;
-    CUS_ADD_RS1(01100,01010,01011);
+    cus_add a2, a0, a1
     lw a1, num2;
-    CUS_ADD(01010,01011,00000);
+    cus_add a0, a1, zero
 
 # (example of) final self-check test
   li a0, 0xCAFE;

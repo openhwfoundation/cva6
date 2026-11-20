@@ -53,17 +53,18 @@ The configuration fragment above instructs the reference model that:
 
 Currently, tandem simulations are supported out-of-the-box only for CVA6 target `cv32a65x` using RTL simulator configurations `vcs-uvm` (recommended), `vcs-testharness`, `questa-uvm` and `questa-testharness`.  Tandem simulations of target `cv32a65x` with Verilator using the `veri-testharness` configuration require Verilator v5.016 or higher.
 
-Tandem verification is enabled by setting environment variable `SPIKE_TANDEM` to a non-empty value prior to invoking any of the test scripts located in the `verif/regress` directory of the CVA6 source tree.
+Tandem verification is enabled by the `--tandem-enabled` option of the UVM recipes of `cook.py`.
 
 **Example:**
 [,sh]
 ----
-export SPIKE_TANDEM=1 ; bash verif/regress/dv-csr-embedded-tests.sh
+./cook.py vcs-uvm-comp -t cv32a65x --tandem-enabled
+./cook.py vcs-uvm-run -t cv32a65x -n hello-world --tandem-enabled
 ----
 
-The output of tandem simulation is sent to the log file of the RTL simulator, by default `verif/sim/out_<date>/<simconfig>_sim/<testname>.<target>.log.iss`.
+The output of tandem simulation is sent to the log file of the RTL simulator, in `build/<target>/simulation/sim_rtl/<testname>/`.
 
-A machine-processable Yaml report file summarizing the mismatches detected during the simulation is stored in a separate report file, by default `verif/sim/out_<date>/<simconfig>_sim/<testname>.<target>.log.yaml`.  It contains the configuration of the simulated design, the number of mismatches that were found (if any) and a list of entries describing the successive mismatches.
+A machine-processable Yaml report file summarizing the mismatches detected during the simulation is `tandem_report.yml`, in the same directory.  It contains the configuration of the simulated design, the number of mismatches that were found (if any) and a list of entries describing the successive mismatches.
 
 == How to analyze tandem verification results
 

@@ -1,76 +1,57 @@
-.globl _start
-_start:
+#include "riscv_test.h"
+
+RVTEST_RV32M
+RVTEST_CODE_BEGIN
+
     la t0, trap_handler
     csrw mtvec, t0
 
-    # Configure the Jump Vector Table.
+    la a1, target1
     la t0, __jvt_base$
 
-    # JVT CSR = 0x017.
-    # Use the numeric CSR address because the bundled assembler does not
-    # recognize the Zcmt CSR name.
-    csrw 0x017, t0
+    sw a1, 256(t0)       // cm.jalt entry start from index >=32
+
+    csrw jvt, t0
 
     fence.i
+    //Perform jump using the index from JVT
+    cm.jalt 64
 
-    # cm.jalt 64
-    #
-    # The bundled GNU assembler does not recognize the Zcmt mnemonic, so emit
-    # the architecturally defined 16-bit encoding directly.
-    #
-    # index = instruction[9:2] = 64
-    # encoding = 0xa102
-    .2byte 0xa102
-
-    # cm.jalt must not fall through.
-    j fail
+    li t1, 1
+    addi x20, x20, 9
+    j failure
 
 target1:
-    j pass
+    li x2, 99
+    j success
 
 trap_handler:
-    j fail
+    j failure
 
-pass:
-    # RISC-V test convention: tohost = 1 means success.
+// jump to this label to signal that the test failed
+failure:
     li x1, 1
-    j write_tohost
+	slli x1, x1, 1
+	addi x1, x1, 1
+	sw x1, tohost, t5
+	self_loop_2: j self_loop_2
 
-fail:
-    # An odd value greater than one represents failure.
-    li x1, 3
+// jump to this label to signal that the test passed
+success:
+    li x1, 0
+	slli x1, x1, 1
+	addi x1, x1, 1
+	sw x1, tohost, t5
+	self_loop: j self_loop
 
-write_tohost:
-    la t0, tohost
-    sw x1, 0(t0)
 
-1:
-    j 1b
+RVTEST_CODE_END
 
-# Jump Vector Table.
-#
-# Entry 0 deliberately points to the failure path.
-# Entry 64 deliberately points to target1.
-#
-# With the buggy six-bit index calculation:
-#   index 64 aliases index 0 -> fail
-#
-# With the correct eight-bit calculation:
-#   index 64 -> target1 -> pass
-.section .riscv.jvt, "a", @progbits
-.align 6
+.data
+RVTEST_DATA_BEGIN
+    // Jump Vector Table (JVT)
+    .align 6
 __jvt_base$:
-    .word fail
-    .space 252
-    .word target1
-
-.section .data
-.align 6
-.global tohost
-tohost:
-    .dword 0
-
-.align 6
-.global fromhost
-fromhost:
-    .dword 0
+    .space 256              //Reserve space for indices 0-63 (unused)
+    .word 0                 //Entry 64 (will be overwritten by test)
+RVTEST_DATA_END

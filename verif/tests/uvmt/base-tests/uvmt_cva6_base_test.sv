@@ -77,6 +77,7 @@ class uvmt_cva6_base_test_c extends uvm_test;
          env_cfg.cov_model_enabled         == 0;
          env_cfg.force_disable_csr_checks  == 1;
          env_cfg.scoreboard_enabled        == 0;
+         env_cfg.zero_obi_stall            == 1;
       }
    }
 
@@ -263,6 +264,8 @@ function void uvmt_cva6_base_test_c::build_phase(uvm_phase phase);
 
    if(!env_cfg.axi_cfg.preload_mem) begin
       factory.set_type_override_by_name("uvma_axi_fw_preload_seq_c", "uvme_axi_fw_preload_seq_c");
+      factory.set_type_override_by_name("uvma_obi_memory_fw_preload_seq_c", "uvme_obi_fw_preload_seq_c");
+      factory.set_type_override_by_name("uvma_obi_memory_slv_seq_c", "uvme_obi_slv_seq_c");
    end
 
 endfunction : build_phase

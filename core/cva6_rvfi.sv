@@ -272,8 +272,9 @@ module cva6_rvfi
   fu_t lsu_ctrl_fu;
   logic [(CVA6Cfg.XLEN/8)-1:0] lsu_ctrl_be;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] lsu_ctrl_trans_id;
+  logic [CVA6Cfg.XLEN-1:0] lsu_wdata;
 
-  logic [((CVA6Cfg.CvxifEn || CVA6Cfg.RVV) ? 5 : 4)-1:0][CVA6Cfg.XLEN-1:0] wbdata;
+  logic [CVA6Cfg.NrWbPorts-1:0][CVA6Cfg.XLEN-1:0] wbdata;
   logic [CVA6Cfg.NrCommitPorts-1:0] commit_ack;
   logic [CVA6Cfg.PLEN-1:0] mem_paddr;
   logic debug_mode;
@@ -286,9 +287,7 @@ module cva6_rvfi
 
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] branch_trans_id;
 
-  riscv::pmpcfg_t [15:0] pmpcfg_q, pmpcfg_d;
-
-  rvfi_probes_csr_t   csr;
+  rvfi_probes_csr_t csr;
   rvfi_probes_instr_t instr;
 
   always_comb begin
@@ -354,6 +353,10 @@ module cva6_rvfi
   assign lsu_rmask = instr.lsu_ctrl_fu == LOAD ? instr.lsu_ctrl_be : '0;
   assign lsu_wmask = instr.lsu_ctrl_fu == STORE ? instr.lsu_ctrl_be : '0;
   assign lsu_addr_trans_id = instr.lsu_ctrl_trans_id;
+  // Store data of the access presented this cycle. The store result port
+  // carries the same value but NrStorePipeRegs cycles later, when lsu_ctrl
+  // already presents another access.
+  assign lsu_wdata = instr.lsu_ctrl_data;
   assign branch_trans_id = instr.branch_trans_id;
 
 
@@ -428,6 +431,7 @@ module cva6_rvfi
     logic [CVA6Cfg.XLEN-1:0] rs1_rdata;
     logic [CVA6Cfg.XLEN-1:0] rs2_rdata;
     logic [CVA6Cfg.VLEN-1:0] lsu_addr;
+    logic [CVA6Cfg.PLEN-1:0] lsu_paddr;
     logic [(CVA6Cfg.XLEN/8)-1:0] lsu_rmask;
     logic [(CVA6Cfg.XLEN/8)-1:0] lsu_wmask;
     logic [CVA6Cfg.XLEN-1:0] lsu_wdata;
@@ -438,6 +442,11 @@ module cva6_rvfi
   } sb_mem_t;
   sb_mem_t [CVA6Cfg.NR_SB_ENTRIES-1:0] mem_q, mem_n;
 
+  // Delayed copy of the access signals, used to pair mem_paddr with the
+  // access it belongs to when an MMU delays the store buffer by one cycle.
+  logic [(CVA6Cfg.XLEN/8)-1:0] lsu_rmask_q, lsu_wmask_q;
+  logic [CVA6Cfg.TRANS_ID_BITS-1:0] lsu_addr_trans_id_q;
+
   always_comb begin : issue_fifo
     mem_n = mem_q;
 
@@ -447,6 +456,7 @@ module cva6_rvfi
             rs1_rdata: rs1[i],
             rs2_rdata: rs2[i],
             lsu_addr: '0,
+            lsu_paddr: '0,
             lsu_rmask: '0,
             lsu_wmask: '0,
             lsu_wdata: '0,
@@ -461,21 +471,45 @@ module cva6_rvfi
       mem_n[branch_trans_id].branch_valid = branch_valid_iti;
       mem_n[branch_trans_id].is_taken = is_taken_iti;
     end
+    // The physical address is latched with the access it belongs to, next to
+    // the virtual one: mem_paddr is a probe of the address currently presented
+    // to the store buffer, so sampling it at commit time would report whatever
+    // access the LSU happens to handle then, which follows the memory latency
+    // rather than the instruction.
+    //
+    // With an MMU the store buffer accepts the entry one cycle after lsu_ctrl
+    // presents the access (store_unit.sv registers store_buffer_valid), so the
+    // address of the access seen this cycle only reaches mem_paddr on the next
+    // one: use the delayed lsu_ctrl to pair them. Without an MMU both are
+    // combinational and coincide.
     if (lsu_rmask != 0) begin
       mem_n[lsu_addr_trans_id].lsu_addr  = lsu_addr;
       mem_n[lsu_addr_trans_id].lsu_rmask = lsu_rmask;
     end else if (lsu_wmask != 0) begin
       mem_n[lsu_addr_trans_id].lsu_addr  = lsu_addr;
       mem_n[lsu_addr_trans_id].lsu_wmask = lsu_wmask;
-      mem_n[lsu_addr_trans_id].lsu_wdata = wbdata[STORE_WB];
+      mem_n[lsu_addr_trans_id].lsu_wdata = lsu_wdata;
+    end
+    if (CVA6Cfg.MmuPresent) begin
+      if (lsu_wmask_q != 0 || lsu_rmask_q != 0) begin
+        mem_n[lsu_addr_trans_id_q].lsu_paddr = mem_paddr;
+      end
+    end else if (lsu_rmask != 0 || lsu_wmask != 0) begin
+      mem_n[lsu_addr_trans_id].lsu_paddr = mem_paddr;
     end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : regs
     if (!rst_ni) begin
       mem_q <= '{default: sb_mem_t'(0)};
+      lsu_rmask_q <= '0;
+      lsu_wmask_q <= '0;
+      lsu_addr_trans_id_q <= '0;
     end else begin
       mem_q <= mem_n;
+      lsu_rmask_q <= lsu_rmask;
+      lsu_wmask_q <= lsu_wmask;
+      lsu_addr_trans_id_q <= lsu_addr_trans_id;
     end
   end
 
@@ -519,8 +553,7 @@ module cva6_rvfi
       )) ? commit_instr_result[i] : wdata[i];
       rvfi_instr_o[i].pc_rdata <= commit_instr_pc[i];
       rvfi_instr_o[i].mem_addr <= mem_q[commit_pointer[i]].lsu_addr;
-      // So far, only write paddr is reported. TODO: read paddr
-      rvfi_instr_o[i].mem_paddr <= mem_paddr;
+      rvfi_instr_o[i].mem_paddr <= mem_q[commit_pointer[i]].lsu_paddr;
       rvfi_instr_o[i].mem_wmask <= mem_q[commit_pointer[i]].lsu_wmask;
 
       // For AMO operations, compute the actual write value
@@ -621,6 +654,8 @@ module cva6_rvfi
     `CONNECT_RVFI_SAME(1'b1, mepc)
     `CONNECT_RVFI_SAME(1'b1, mcause)
     `CONNECT_RVFI_SAME(1'b1, mtval)
+    `CONNECT_RVFI_SAME(CVA6Cfg.RVH, mtinst)
+    `CONNECT_RVFI_SAME(CVA6Cfg.RVH, mtval2)
     `CONNECT_RVFI_SAME(1'b1, mip)
 
     `CONNECT_RVFI_FULL(1'b1, menvcfg, csr.fiom_q)
@@ -648,7 +683,6 @@ module cva6_rvfi
     `CONNECT_RVFI_SAME(1'b1, dcache)
     `CONNECT_RVFI_SAME(1'b1, icache)
 
-    `CONNECT_RVFI_SAME(CVA6Cfg.EnableAccelerator, acc_cons)
     `CONNECT_RVFI_SAME(CVA6Cfg.RVZCMT, jvt)
     `CONNECT_RVFI_FULL(1'b1, pmpcfg0, csr.pmpcfg_q[CVA6Cfg.XLEN/8-1:0])
     `CONNECT_RVFI_FULL(CVA6Cfg.IS_XLEN32, pmpcfg1, csr.pmpcfg_q[7:4])
@@ -656,10 +690,11 @@ module cva6_rvfi
     `CONNECT_RVFI_FULL(1'b1, pmpcfg2, csr.pmpcfg_q[8+:CVA6Cfg.XLEN/8])
     `CONNECT_RVFI_FULL(CVA6Cfg.IS_XLEN32, pmpcfg3, csr.pmpcfg_q[15:12])
 
-    bit [CVA6Cfg.XLEN-1:0] pmpaddr_q;
+    // The value csrr returns: bit 0 reads 1 for a NA4/NAPOT entry, as the CSR
+    // file builds it.
     genvar i;
     for (i = 0; i < 16; i++) begin
-      `CONNECT_RVFI_FULL(1'b1, pmpaddr[i], {csr.pmpaddr_q[i][CVA6Cfg.PLEN-3:1], pmpcfg_q[i].addr_mode[1]})
+      `CONNECT_RVFI_FULL(1'b1, pmpaddr[i], {csr.pmpaddr_q[i][CVA6Cfg.PLEN-3:1], CVA6Cfg.PMPNapotEn && csr.pmpcfg_q[i].addr_mode[1]})
     end
     ;
   end

@@ -1,0 +1,133 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv64_fp_p.yaml
+#
+#   The rv64uf and rv64ud tests of riscv-tests, in physical mode, for the
+#   targets with an FPU.
+# ------------------------------------------------------------------------------
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/"
+
+testlist:
+  - test: rv64uf-p-fadd
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fadd.S
+
+  - test: rv64uf-p-fclass
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fclass.S
+
+  - test: rv64uf-p-fcmp
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fcmp.S
+
+  - test: rv64uf-p-fcvt
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fcvt.S
+
+  - test: rv64uf-p-fcvt_w
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fcvt_w.S
+
+  - test: rv64uf-p-fdiv
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fdiv.S
+
+  - test: rv64uf-p-fmadd
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fmadd.S
+
+  - test: rv64uf-p-fmin
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/fmin.S
+
+  - test: rv64uf-p-ldst
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/ldst.S
+
+  - test: rv64uf-p-move
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/move.S
+
+  - test: rv64uf-p-recoding
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64uf/recoding.S
+
+  - test: rv64ud-p-fadd
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fadd.S
+
+  - test: rv64ud-p-fclass
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fclass.S
+
+  - test: rv64ud-p-fcmp
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fcmp.S
+
+  - test: rv64ud-p-fcvt
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fcvt.S
+
+  - test: rv64ud-p-fcvt_w
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fcvt_w.S
+
+  - test: rv64ud-p-fdiv
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fdiv.S
+
+  - test: rv64ud-p-fmadd
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fmadd.S
+
+  - test: rv64ud-p-fmin
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/fmin.S
+
+  - test: rv64ud-p-ldst
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/ldst.S
+
+  - test: rv64ud-p-move
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/move.S
+
+  - test: rv64ud-p-recoding
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/recoding.S
+
+  - test: rv64ud-p-structural
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/riscv-tests/isa/rv64ud/structural.S

@@ -125,7 +125,7 @@ module copro_alu
         hartid_n = hartid_i;
         id_n = id_i;
         valid_n = 1'b1;
-        rd_n = 5'b01010;
+        rd_n = rd_i;
         we_n = 1'b1;
       end
       default: begin

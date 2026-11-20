@@ -402,18 +402,18 @@ ifdef::archi-CV32A60X,archi-CV32A65X[]
 The `mimpid` CSR provides a unique encoding of the version of the
 processor implementation.
 
-[CVA6] The `mimpid` register is implemented and the return value is TODO.
-The Implementation value should reflect the design of the RISC-V
-processor itself and not any surrounding system.
+[CVA6] This register is readable,
+but a value of 0 is returned to indicate that the
+field is not implemented.
 endif::[]
 
 ifeval::["{ohg-config}" == "CV64A6_MMU"]
 The `mimpid` CSR provides a unique encoding of the version of the
 processor implementation.
 
-[CVA6] The `mimpid` register is implemented and the return value is TODO.
-The Implementation value should reflect the design of the RISC-V
-processor itself and not any surrounding system.
+[CVA6] This register is readable,
+but a value of 0 is returned to indicate that the
+field is not implemented.
 endif::[]
 
 .Machine Implementation ID (`mimpid`) register
@@ -575,6 +575,7 @@ enabled when MIE=1 and globally disabled when MIE=0.
 endif::[]
 
 ////
+TODO
 To support nested traps, each privilege mode _x_ that can respond to
 interrupts has a two-level stack of interrupt-enable bits and privilege
 modes. __x__PIE holds the value of the interrupt-enable bit active prior
@@ -584,6 +585,7 @@ and SPP is one bit wide. When a trap is taken from privilege mode _y_
 into privilege mode _x_, __x__PIE is set to the value of __x__IE; __x__IE is
 set to 0; and __x__PP is set to _y_.
 
+ifeval::[{note} == true]
 [NOTE]
 ====
 For lower privilege modes, any trap (synchronous or asynchronous) is
@@ -593,8 +595,8 @@ return using the stacked information, or, if not returning immediately
 to the interrupted context, will save the privilege stack before
 re-enabling interrupts, so only one entry per stack is required.
 ====
+endif::[]
 ////
-TODO
 
 ifdef::archi-default,RVS-true[]
 An MRET or SRET instruction is used to return from a trap in M-mode or
@@ -1265,7 +1267,7 @@ VS is read-only zero.
 
 [{ohg-config}]
 As no additional user extensions require new state, the
-XS field is read-only zero. TODO
+XS field is read-only zero.
 endif::[]
 
 ifeval::["{ohg-config}" == "CV64A6_MMU"]
@@ -1284,7 +1286,7 @@ VS is read-only zero.
 
 [{ohg-config}]
 As no additional user extensions require new state, the
-XS field is read-only zero. TODO
+XS field is read-only zero.
 endif::[]
 
 ifdef::archi-default[]
@@ -2053,7 +2055,7 @@ ifdef::archi-CVA6[]
 can become pending but bit _i_ in `mip` is read-only, the implementation
 must provide some other mechanism for clearing the pending interrupt.
 
-[{ohg-config}] TODO: A bit in `mie` must be writable if the corresponding interrupt can ever
+[{ohg-config}] A bit in `mie` must be writable if the corresponding interrupt can ever
 become pending. Bits of `mie` that are not writable must be read-only
 zero.
 
@@ -2466,8 +2468,8 @@ ifdef::archi-CVA6[]
 [CVA6] If an instruction may raise multiple synchronous exceptions, the
 decreasing priority order of
 <<exception-priority>> indicates which
-exception is taken and reported in `mcause`. The priority of any custom
-synchronous exceptions is implementation-defined. TODO
+exception is taken and reported in `mcause`.
+There is no custom synchronous exceptions.
 endif::[]
 
 <<<
@@ -2647,9 +2649,9 @@ exceptions.
 endif::[]
 
 ifdef::archi-CVA6[]
-[{ohg-config}] Load/store address-misaligned exceptions may have either higher or
+[{ohg-config}] Load/store address-misaligned exceptions have
 lower priority than load/store access-fault
-exceptions. TODO
+exceptions.
 endif::[]
 
 ifeval::[{note} == true]
@@ -3123,7 +3125,7 @@ endif::[]
 
 ifdef::archi-CVA6[]
 [{ohg-config}] As Zkr, Smepmp, and Smmpm extensions are not implemented,
-`mseccfg` and `mseccfgh` do not exist. TODO.
+`mseccfg` and `mseccfgh` do not exist.
 endif::[]
 
 === Machine-Level Memory-Mapped Registers
@@ -3328,7 +3330,7 @@ ifeval::[{note} == true]
 [NOTE]
 ====
 If MRET instructions always cleared LR reservations, it would be
-impossible to single-step through LR/SC sequences using a debugger. TODO
+impossible to single-step through LR/SC sequences using a debugger.
 ====
 endif::[]
 
@@ -3500,7 +3502,7 @@ As little-endian memory accesses are supported,
 the `mstatus` field MBE is reset to 0.
 Upon reset, the `mstatus` fields MIE and MPRV are reset to 0.
 The `misa` register is set as described in <<misa>>.
-The `pc` is set to 0x80000000 reset vector. TODO
+The `pc` is set to 0x80000000 reset vector.
 The `mcause` register is set to a value indicating the cause of the reset.
 Writable PMP registers’ A and L fields are set to 0.
 No *WARL* field contains an illegal value. All other hart state is UNSPECIFIED.
@@ -3515,7 +3517,7 @@ As little-endian memory accesses are supported,
 the `mstatus`/`mstatush` field MBE is reset to 0.
 Upon reset, the `mstatus` fields MIE and MPRV are reset to 0.
 The `misa` register is set as described in <<misa>>.
-The `pc` is set to 0x80000000 reset vector. TODO
+The `pc` is set to 0x80000000 reset vector.
 The `mcause` register is set to a value indicating the cause of the reset.
 Writable PMP registers’ A and L fields are set to 0.
 No *WARL* field contains an illegal value. All other hart state is UNSPECIFIED.

@@ -60,7 +60,11 @@ BINUTILS_CONFIGURE_OPTS() {
         --target=$1
         --prefix=${INSTALL_DIR}
         --disable-werror
+        --disable-gdb
         --disable-nls
+        --disable-sim
+        --disable-libdecnumber
+        --disable-readline
     )
     echo "${OPTS[@]}"
 }

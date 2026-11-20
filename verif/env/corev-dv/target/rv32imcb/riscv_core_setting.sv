@@ -27,7 +27,8 @@ parameter satp_mode_t SATP_MODE = BARE;
 privileged_mode_t supported_privileged_mode[] = {MACHINE_MODE};
 
 // Unsupported instructions
-riscv_instr_name_t unsupported_instr[];
+// Disable generating fence.i instruction as we don't support it
+riscv_instr_name_t unsupported_instr[] = {FENCE_I};
 
 // ISA supported by the processor
 riscv_instr_group_t supported_isa[$] = {RV32I,

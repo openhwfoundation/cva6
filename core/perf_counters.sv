@@ -18,12 +18,15 @@ module perf_counters
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type bp_resolve_t = logic,
-    parameter type dcache_req_i_t = logic,
-    parameter type dcache_req_o_t = logic,
     parameter type exception_t = logic,
-    parameter type icache_dreq_t = logic,
+    parameter type ypb_fetch_req_t = logic,
+    parameter type ypb_store_req_t = logic,
+    parameter type ypb_amo_req_t = logic,
+    parameter type ypb_load_req_t = logic,
+    parameter type ypb_mmu_ptw_req_t = logic,
+    parameter type ypb_zcmt_req_t = logic,
     parameter type scoreboard_entry_t = logic,
-    parameter int unsigned NumPorts = 3  // number of miss ports
+    parameter int unsigned NumMissPorts = 3  // number of miss ports
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -50,11 +53,18 @@ module perf_counters
     input exception_t ex_i,
     input logic eret_i,
     input bp_resolve_t resolved_branch_i,
+
     // for newly added events
     input exception_t branch_exceptions_i,  //Branch exceptions->execute unit-> branch_exception_o
-    input icache_dreq_t l1_icache_access_i,
-    input dcache_req_i_t [2:0] l1_dcache_access_i,
-    input  logic [NumPorts-1:0][CVA6Cfg.DCACHE_SET_ASSOC-1:0]miss_vld_bits_i,  //For Cache eviction (3ports-LOAD,STORE,PTW)
+
+    input ypb_fetch_req_t   ypb_fetch_req_i,
+    input ypb_store_req_t   ypb_store_req_i,
+    input ypb_amo_req_t     ypb_amo_req_i,
+    input ypb_load_req_t    ypb_load_req_i,
+    input ypb_mmu_ptw_req_t ypb_mmu_ptw_req_i,
+    input ypb_zcmt_req_t    ypb_zcmt_req_i,
+
+    input logic [NumMissPorts-1:0][CVA6Cfg.DCACHE_SET_ASSOC-1:0]miss_vld_bits_i,  //For Cache eviction (3ports-LOAD,STORE,PTW)
     input logic i_tlb_flush_i,
     input logic stall_issue_i,  //stall-read operands
     input logic [31:0] mcountinhibit_i
@@ -114,8 +124,7 @@ module perf_counters
         5'b00111: events[i] = ex_i.valid;  //Exceptions
         5'b01000: events[i] = eret_i;  //Exception handler returns
         5'b01001: events[i] = |branch_event;  // Branch instructions
-        5'b01010:
-        events[i] = resolved_branch_i.valid && resolved_branch_i.is_mispredict;//Branch mispredicts
+        5'b01010: events[i] = resolved_branch_i.is_mispredict;  //Branch mispredicts
         5'b01011: events[i] = branch_exceptions_i.valid;  //Branch exceptions
         // The standard software calling convention uses register x1 to hold the return address on a call
         // the unconditional jump is decoded as ADD op
@@ -123,11 +132,19 @@ module perf_counters
         5'b01101: events[i] = |return_event;  //Return
         5'b01110: events[i] = sb_full_i;  //MSB Full
         5'b01111: events[i] = if_empty_i;  //Instruction fetch Empty
-        5'b10000: events[i] = l1_icache_access_i.req;  //L1 I-Cache accesses
+        5'b10000:
+        events[i] = ypb_fetch_req_i.vreq;  //L1 I-Cache accesses TODO maybe preq should be used depending on config
         5'b10001:
-        events[i] = l1_dcache_access_i[0].data_req || l1_dcache_access_i[1].data_req || l1_dcache_access_i[2].data_req;//L1 D-Cache accesses
-        5'b10010:
-        events[i] = (l1_dcache_miss_i && miss_vld_bits_i[0] == 8'hFF) || (l1_dcache_miss_i && miss_vld_bits_i[1] == 8'hFF) || (l1_dcache_miss_i && miss_vld_bits_i[2] == 8'hFF);//eviction
+        events[i] = ypb_mmu_ptw_req_i.vreq || ypb_load_req_i.vreq || ypb_store_req_i.vreq || ypb_amo_req_i.vreq  || ypb_zcmt_req_i.vreq; //L1 D-Cache accesses TODO maybe preq should be used depending on config
+        5'b10010: begin
+          events[i] = 0;
+          if (l1_dcache_miss_i) begin
+            for (int j = 0; j < NumMissPorts; j++) begin
+              if (miss_vld_bits_i[j][0] == 8'hFF)  //  //eviction  8'hFF Hardcoded?
+                events[i] = 1;
+            end
+          end
+        end
         5'b10011: events[i] = i_tlb_flush_i;  //I-TLB flush
         5'b10100: events[i] = |int_event;  //Integer instructions
         5'b10101: events[i] = |fp_event;  //Floating Point Instructions

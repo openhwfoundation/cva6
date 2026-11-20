@@ -30,6 +30,7 @@ CVA6 User Manual
    PMA
    PMP
    Traps_Interrupts_Exceptions
+   Trigger_Module
    Compiler_Command_Lines
    RISCV_Instructions
    RV32I <RISCV_Instructions_RV32I>
@@ -68,4 +69,3 @@ CVA6 User Manual
 
    
    
-

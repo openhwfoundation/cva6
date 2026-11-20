@@ -5,7 +5,11 @@ Traps, Interrupts, Exceptions
 Traps are composed of interrupts and exceptions.
 Interrupts are asynchronous events whereas exceptions are synchronous ones.
 On one hand, interrupts are occurring independently of the instructions
-(mainly raised by peripherals or debug module).
+(mainly raised by peripherals
+ifeval::[{DebugEn} == true]
+or debug module
+endif::[]
+).
 On the other hand, an instruction may raise exceptions synchronously.
 
 [[raising-traps]]
@@ -21,10 +25,24 @@ Configuration CSRs
 
 CSRs having an effect on the core behaviour when a trap occurs are:
 
-* `mstatus` and `sstatus`: several fields control the core behaviour like interrupt enable (`MIE`, `SIE`)
-* `mtvec` and `stvec`: specifies the address of trap handler.
+* `mstatus`
+ifeval::[{RVS} == true]
+and `sstatus`
+endif::[]
+: several fields control the core behaviour like interrupt enable (`MIE`
+ifeval::[{RVS} == true]
+, `SIE`
+endif::[]
+)
+* `mtvec`
+ifeval::[{RVS} == true]
+and `stvec`
+endif::[]
+: specifies the address of trap handler.
+ifeval::[{RVS} == true]
 * `medeleg`: specifies which exceptions can be handled by a lower privileged mode (S-mode)
 * `mideleg`: specifies which interrupts can be handled by a lower privileged mode (S-mode)
+endif::[]
 
 [[modified-csrs]]
 Modified CSRs
@@ -32,22 +50,54 @@ Modified CSRs
 
 CSRs (or fields) updated by the core when a trap occurs are:
 
-* `mstatus` or `sstatus`: several fields are updated like previous privilege mode (`MPP`, `SPP`), previous interrupt enabled (`MPIE`, SPIE``)
-* `mepc` or `sepc`: updated with the virtual address of the interrupted instruction or the instruction raising the exception.
-* `mcause` or `scause`: updated with a code indicating the event causing the trap.
-* `mtval` or `stval`: updated with exception specific information like the faulting virtual address
+* `mstatus`
+ifeval::[{RVS} == true]
+or `sstatus`
+endif::[]
+: several fields are updated like previous privilege mode (`MPP`
+ifeval::[{RVS} == true]
+, `SPP`
+endif::[]
+), previous interrupt enabled (`MPIE`
+ifeval::[{RVS} == true]
+, `SPIE`
+endif::[]
+)
+* `mepc`
+ifeval::[{RVS} == true]
+or `sepc`
+endif::[]
+: updated with the
+ifeval::[{MmuPresent} == true]
+virtual
+endif::[]
+address of the interrupted instruction or the instruction raising the exception.
+* `mcause`
+ifeval::[{RVS} == true]
+or `scause`
+endif::[]
+: updated with a code indicating the event causing the trap.
+ifdef::archi-default,MTvalEn-true[]
+* `mtval`
+ifeval::[{RVS} == true]
+or `stval`
+endif::[]
+: updated with exception specific information like the faulting virtual address
+endif::[]
 
 [[supported-exceptions]]
 Supported exceptions
 ++++++++++++++++++++
 
-The following exceptions are supported by the CVA6:
+The following exceptions are supported by the {ohg-config}:
 
 * instruction address misaligned
 ** control flow instruction with misaligned target
 
+ifeval::[{NrPMPEntries} != 0]
 * instruction access fault
 ** access to PMP region without execute permissions
+endif::[]
 
 * illegal instruction:
 ** unimplemented CSRs
@@ -59,22 +109,31 @@ The following exceptions are supported by the CVA6:
 ** `LH` at 2n+1 address
 ** `LW` at 4n+1, 4n+2, 4n+3 address
 
+ifeval::[{NrPMPEntries} != 0]
 * load access fault
 ** access to PMP region without read permissions
+endif::[]
 
 * store/AMO address misaligned
 ** `SH` at 2n+1 address
 ** `SW` at 4n+1, 4n+2, 4n+3 address
 
+ifeval::[{NrPMPEntries} != 0]
 * store/AMO access fault
 ** access to PMP region without write permissions
+endif::[]
 
+ifeval::[{RVU} == true]
 * environment call (`ECALL`) from U-mode
+endif::[]
 
+ifeval::[{RVS} == true]
 * environment call (`ECALL`) from S-mode
+endif::[]
 
 * environment call (`ECALL`) from M-mode
 
+ifeval::[{MmuPresent} == true]
 * instruction page fault
 
 * load page fault
@@ -82,16 +141,25 @@ The following exceptions are supported by the CVA6:
 
 * store/AMO page fault
 ** access to effective address without write permissions
+endif::[]
 
+ifeval::[{DebugEn} == true]
 * debug request (custom) via debug interface
+endif::[]
 
+////
 Note: all exceptions are supported except the ones linked to the hypervisor extension
+////
 
 [[trap-return]]
 Trap return
 ^^^^^^^^^^^
 
-Trap handler ends with trap return instruction (`MRET`, `SRET`). The behaviour of the CVA6 core depends on several CSRs.
+Trap handler ends with trap return instruction (`MRET`
+ifeval::[{RVS} == true]
+, `SRET`
+endif::[]
+). The behaviour of the {ohg-config} core depends on several CSRs.
 
 [[configuration-csrs-1]]
 Configuration CSRs
@@ -99,7 +167,15 @@ Configuration CSRs
 
 CSRs having an effect on the core behaviour when returning from a trap are:
 
-* `mstatus`: several fields control the core behaviour like previous privilege mode (`MPP`, `SPP`), previous interrupt enabled (`MPIE`, `SPIE`)
+* `mstatus`: several fields control the core behaviour like previous privilege mode (`MPP`
+ifeval::[{RVS} == true]
+, `SPP`
+endif::[]
+), previous interrupt enabled (`MPIE`
+ifeval::[{RVS} == true]
+, `SPIE`
+endif::[]
+)
 
 [[modified-csrs-1]]
 Modified CSRs
@@ -107,16 +183,24 @@ Modified CSRs
 
 CSRs (or fields) updated by the core when returning from a trap are:
 
-* `mstatus`: several fields are updated like interrupt enable (`MIE`, `SIE`), modify privilege (`MPRV`)
+* `mstatus`: several fields are updated like interrupt enable (`MIE`
+ifeval::[{RVS} == true]
+, `SIE`
+endif::[]
+), modify privilege (`MPRV`)
 
 [[interrupts]]
 Interrupts
 ^^^^^^^^^^
 
 * external interrupt: `irq_i` signal
+ifeval::[{SoftwareInterruptEn} == true]
 * software interrupt (inter-processor interrupt): `ipi_i` signal
+endif::[]
 * timer interrupt: `time_irq_i` signal
+ifeval::[{DebugEn} == true]
 * debug interrupt: `debug_req_i` signal
+endif::[]
 
 These signals are level sensitive. It means the interrupt is raised until it is cleared.
 
@@ -126,4 +210,8 @@ The exception code field (`mcause` CSR) depends on the interrupt source.
 Wait for Interrupt
 ^^^^^^^^^^^^^^^^^^
 
-* CVA6 implementation: `WFI` stalls the core. The instruction is not available in U-mode (raise illegal instruction exception). Such exception is also raised when `TW=1` in `mstatus`.
+* CVA6 implementation: `WFI` stalls the core until an interrupt occurs.
+ifeval::[{RVU} == true]
+The instruction is not available in U-mode (raise illegal instruction exception).
+Such exception is also raised when `TW=1` in `mstatus`.
+endif::[]

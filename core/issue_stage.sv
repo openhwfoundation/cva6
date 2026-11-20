@@ -27,7 +27,8 @@ module issue_stage
     parameter type x_issue_req_t = logic,
     parameter type x_issue_resp_t = logic,
     parameter type x_register_t = logic,
-    parameter type x_commit_t = logic
+    parameter type x_commit_t = logic,
+    parameter type regfile_inputs_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -39,8 +40,6 @@ module issue_stage
     input logic flush_unissued_instr_i,
     // Flush whole scoreboard - CONTROLLER
     input logic flush_i,
-    // Stall inserted by Acc dispatcher - ACC_DISPATCHER
-    input logic stall_i,
     // Handshake's data with decode stage - ID_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instr_i,
     input scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instr_i_prev,
@@ -88,14 +87,14 @@ module issue_stage
     output logic [CVA6Cfg.NrIssuePorts-1:0] mult_valid_o,
     // FPU FU is ready - EX_STAGE
     input logic fpu_ready_i,
+    // FPU early valid - EX_STAGE
+    input logic fpu_early_valid_i,
     // FPU FU is valid - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] fpu_valid_o,
     // FPU fmt field - EX_STAGE
     output logic [1:0] fpu_fmt_o,
     // FPU rm field - EX_STAGE
     output logic [2:0] fpu_rm_o,
-    // FPU early valid - EX_STAGE
-    input logic fpu_early_valid_i,
     // ALU2 FU is valid - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] alu2_valid_o,
     // CSR is valid - EX_STAGE
@@ -110,28 +109,24 @@ module issue_stage
     input logic [CVA6Cfg.XLEN-1:0] hart_id_i,
     // CVXIF Issue interface - EX_STAGE
     input logic x_issue_ready_i,
-    // TO_BE_COMPLETED - EX_STAGE
+    // CVXIF Issue interface response - EX_STAGE
     input x_issue_resp_t x_issue_resp_i,
-    // TO_BE_COMPLETED - EX_STAGE
+    // CVXIF Issue interface valid - EX_STAGE
     output logic x_issue_valid_o,
-    // TO_BE_COMPLETED - EX_STAGE
+    // CVXIF Issue interface request - EX_STAGE
     output x_issue_req_t x_issue_req_o,
     // CVXIF Register interface - EX_STAGE
     input logic x_register_ready_i,
-    // TO_BE_COMPLETED - EX_STAGE
+    // CVXIF register interface valid - EX_STAGE
     output logic x_register_valid_o,
-    // TO_BE_COMPLETED - EX_STAGE
+    // CVXIF register interface - EX_STAGE
     output x_register_t x_register_o,
     // CVXIF Commit interface - EX_STAGE
     output logic x_commit_valid_o,
-    // TO_BE_COMPLETED - EX_STAGE
+    // CVXIF Commit interface - EX_STAGE
     output x_commit_t x_commit_o,
     // CVXIF Transaction rejected -> instruction is illegal - EX_STAGE
     output logic x_transaction_rejected_o,
-    // Issue scoreboard entry - ACC_DISPATCHER
-    output scoreboard_entry_t issue_instr_o,
-    // TO_BE_COMPLETED - ACC_DISPATCHER
-    output logic issue_instr_hs_o,
     // Transaction ID - EX_STAGE
     input logic [CVA6Cfg.NrWbPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] trans_id_i,
     // Result from branch unit - EX_STAGE
@@ -171,7 +166,10 @@ module issue_stage
     // Information dedicated to RVFI - RVFI
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs2_o,
     // Original instruction bits for AES
-    output logic [5:0] orig_instr_aes_bits
+    output logic [5:0] orig_instr_aes_bits,
+    // DCLS
+    input logic [CVA6Cfg.NrRgprPorts-1:0][CVA6Cfg.XLEN-1:0] dcls_common_regfile_data_i,
+    output regfile_inputs_t dcls_common_regfile_ctrl_o
 );
   // ---------------------------------------------------
   // Scoreboard (SB) <-> Issue and Read Operands (IRO)
@@ -189,9 +187,6 @@ module issue_stage
   logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] orig_instr_sb_iro;
   logic              [CVA6Cfg.NrIssuePorts-1:0]       issue_instr_valid_sb_iro;
   logic              [CVA6Cfg.NrIssuePorts-1:0]       issue_ack_iro_sb;
-
-  assign issue_instr_o    = issue_instr_sb_iro[0];
-  assign issue_instr_hs_o = issue_instr_valid_sb_iro[0] & issue_ack_iro_sb[0];
 
   logic x_transaction_accepted_iro_sb, x_issue_writeback_iro_sb;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_iro_sb;
@@ -243,22 +238,22 @@ module issue_stage
   // 3. Issue instruction and read operand, also commit
   // ---------------------------------------------------------
   issue_read_operands #(
-      .CVA6Cfg(CVA6Cfg),
+      .CVA6Cfg            (CVA6Cfg),
       .branchpredict_sbe_t(branchpredict_sbe_t),
-      .fu_data_t(fu_data_t),
-      .scoreboard_entry_t(scoreboard_entry_t),
-      .rs3_len_t(rs3_len_t),
-      .writeback_t(writeback_t),
-      .forwarding_t(forwarding_t),
-      .x_issue_req_t(x_issue_req_t),
-      .x_issue_resp_t(x_issue_resp_t),
-      .x_register_t(x_register_t),
-      .x_commit_t(x_commit_t)
+      .fu_data_t          (fu_data_t),
+      .scoreboard_entry_t (scoreboard_entry_t),
+      .rs3_len_t          (rs3_len_t),
+      .writeback_t        (writeback_t),
+      .forwarding_t       (forwarding_t),
+      .x_issue_req_t      (x_issue_req_t),
+      .x_issue_resp_t     (x_issue_resp_t),
+      .x_register_t       (x_register_t),
+      .x_commit_t         (x_commit_t),
+      .regfile_inputs_t   (regfile_inputs_t)
   ) i_issue_read_operands (
       .clk_i,
       .rst_ni,
       .flush_i                 (flush_unissued_instr_i),
-      .stall_i,
       .issue_instr_i           (issue_instr_sb_iro),
       .issue_instr_i_prev      (decoded_instr_i_prev),
       .orig_instr_i            (orig_instr_sb_iro),
@@ -282,10 +277,10 @@ module issue_stage
       .lsu_valid_o,
       .mult_valid_o,
       .fpu_ready_i,
+      .fpu_early_valid_i,
       .fpu_valid_o,
       .fpu_fmt_o,
       .fpu_rm_o,
-      .fpu_early_valid_i,
       .alu2_valid_o,
       .csr_valid_o,
       .cvxif_valid_o           (xfu_valid_o),
@@ -312,7 +307,9 @@ module issue_stage
       .stall_issue_o,
       .rvfi_rs1_o              (rvfi_rs1_o),
       .rvfi_rs2_o              (rvfi_rs2_o),
-      .orig_instr_aes_bits     (orig_instr_aes_bits)
+      .orig_instr_aes_bits     (orig_instr_aes_bits),
+      .dcls_common_regfile_data_i,
+      .dcls_common_regfile_ctrl_o
   );
 
 endmodule

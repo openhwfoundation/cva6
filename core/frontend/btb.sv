@@ -59,9 +59,6 @@ module btb #(
   localparam ANTIALIAS_BITS = 8;
   // number of bits par word in the bram
   localparam BRAM_WORD_BITS = $bits(btb_prediction_t);
-  // we are not interested in all bits of the address
-  unread i_unread (.d_i(|vpc_i));
-
 
   logic [$clog2(NR_ROWS)-1:0] index, update_pc;
   logic [ROW_INDEX_BITS-1:0] update_row_index;
@@ -71,7 +68,9 @@ module btb #(
   if (CVA6Cfg.RVC) begin : gen_update_row_index
     assign update_row_index = btb_update_i.pc[ROW_ADDR_BITS+OFFSET-1:OFFSET];
   end else begin
-    assign update_row_index = '0;
+    // Without C, bit 2 of the pc selects the slot of a 4-byte instruction when
+    // a fetch holds two of them.
+    assign update_row_index = (CVA6Cfg.INSTR_PER_FETCH > 1) ? btb_update_i.pc[2] : '0;
   end
 
   if (CVA6Cfg.FpgaEn) begin : gen_fpga_btb  //FPGA TARGETS
@@ -107,7 +106,7 @@ module btb #(
 
       if (btb_update_i.valid && !debug_mode_i) begin
         for (int i = 0; i < CVA6Cfg.INSTR_PER_FETCH; i++) begin
-          if (update_row_index == i) begin
+          if (32'(update_row_index) == i) begin
             btb_ram_csel_update[i] = 1'b1;
             btb_ram_we_update[i] = 1'b1;
             btb_ram_addr_update[i*$clog2(NR_ROWS)+:$clog2(NR_ROWS)] = update_pc;

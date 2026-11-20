@@ -27,7 +27,7 @@ module pmp_data_if
     input logic [CVA6Cfg.VLEN-1:0] lsu_vaddr_i,  // virtual address in, for tval only
     input exception_t lsu_exception_i,  // lsu exception coming from MMU, or misaligned exception
     input logic lsu_is_store_i,  // the translation is requested by a store
-    input logic lsu_hlvx_inst_i,
+    input logic lsu_hlvx_inst_i,  // the access is an HLVX, which reads instruction memory
     output logic lsu_valid_o,  // translation is valid
     output logic [CVA6Cfg.PLEN-1:0] lsu_paddr_o,  // translated address
     output exception_t lsu_exception_o,  // address translation threw an exception
@@ -79,11 +79,13 @@ module pmp_data_if
 
     // if it didn't match any execute region throw an `Instruction Access Fault` (PMA)
     // or if PMP reject the access
-    // Per RISCV privilege spec, a page fault has higher priority than access
-    // fault, therefore do not change the exception type in case of double
-    // exception
+    // A translation fault outranks the access fault of the final physical
+    // access, and a failed G-stage walk has no final physical address at all,
+    // so keep INSTR_GUEST_PAGE_FAULT here just like INSTR_PAGE_FAULT. An access
+    // fault raised during the translation itself is unrelated and unaffected.
     if (icache_areq_i.fetch_valid) begin
-      if (icache_areq_o.fetch_exception.cause != riscv::INSTR_PAGE_FAULT) begin
+      if (!(icache_areq_o.fetch_exception.cause inside
+            {riscv::INSTR_PAGE_FAULT, riscv::INSTR_GUEST_PAGE_FAULT})) begin
         if (!match_any_execute_region || !pmp_if_allow) begin
           icache_areq_o.fetch_exception.cause = riscv::INSTR_ACCESS_FAULT;
           icache_areq_o.fetch_exception.valid = 1'b1;
@@ -124,6 +126,9 @@ module pmp_data_if
     lsu_valid_o     = lsu_valid_i;
     lsu_paddr_o     = lsu_paddr_i;
     lsu_exception_o = lsu_exception_i;
+    //  HLVX reads instruction memory, so the region must be executable as well
+    //  as readable; checking it as a plain load lets an execute-only region be
+    //  read, and a no-execute one be fetched from.
     if (lsu_is_store_i) begin
       pmp_access_type = riscv::ACCESS_WRITE;
     end else if (lsu_hlvx_inst_i) begin
@@ -174,7 +179,7 @@ module pmp_data_if
   // Assert for PMPs
   // ----------------
 
-  // synthesis translate_off
+  // pragma translate_off
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
       no_locked_data <= 1'b0;
@@ -206,5 +211,5 @@ module pmp_data_if
       end
     end
   end
-  // synthesis translate_on
+  // pragma translate_on
 endmodule

@@ -11,14 +11,12 @@ core/cvxif_fu.sv @Gchauvon
 
 core/cache_subsystem/hpdcache @cfuguet
 core/cache_subsystem/cva6_hpdcache* @cfuguet
-core/include/cv64a6_imafdc_sv39_hpdcache_config_pkg.sv @cfuguet
-core/include/cv64a6_imafdc_sv39_hpdcache_wb_config_pkg.sv @cfuguet
 
 # OpenPiton
 
 corev_apu/openpiton @Jbalkind
-core/cache_subsystem/wt_l15_adapter.sv @Jbalkind
-core/include/cv64a6_imafdc_sv39_openpiton_config_pkg.sv @Jbalkind
+core/cache_subsystem/cva6_hpdcache_subsystem_l15_adapter.sv @cfuguet @Jbalkind
+config/target/cv64a6_openpiton @Jbalkind
 
 ## Documentation
 

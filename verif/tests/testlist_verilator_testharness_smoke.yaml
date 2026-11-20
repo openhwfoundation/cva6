@@ -1,0 +1,35 @@
+# Copyright 2026 OpenHW Foundation
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Junchao Chen (junchao.chen@eclipse-foundation.org)
+
+# RV32 execution smoke on the TestHarness; not a full ISA regression.
+
+common_test_config: &common_test_config
+  path_var: TESTS_PATH
+  gcc_opts: >-
+    -g -static -mcmodel=medany -fvisibility=hidden -nostartfiles
+    <path_var>/custom/common/syscalls.c
+    <path_var>/custom/common/crt.S
+    -I<path_var>/custom/env
+    -I<path_var>/custom/common
+  march: rv32imc_zicsr_zba_zbb_zbs_zbc_zifencei
+  mabi: ilp32
+
+testlist:
+  # Check execution and normal exit; buffered printf produces no text here.
+  - test: hello-original
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/hello_world/hello_world.c
+
+  # Check normal exit and "0: Hello World !" in the run log.
+  # A PASS receipt alone does not check the output text.
+  - test: hello-uart
+    iterations: 1
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/hello_world/testharness_uart_hello_world.c

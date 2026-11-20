@@ -1,0 +1,49 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Header of the documentation generated for this target by
+# `./cook.py docs-build`. See flows/README.md.
+#
+# `authors` lists who is responsible for it, one entry per line of
+# the header: an organisation, the people it delegates to, or both.
+authors:
+  - "Looking for a maintainer"
+
+# Category of this target in the dashboard (config/README.md): official,
+# fpga, profile or cross
+category: cross
+
+# One-line description of this target, shown in the dashboard
+role: "Generated configuration to cross the options of the core: its options may change without notice."
+
+# Point of the configuration matrix (config/README.md). Axes:
+matrix:
+  XLEN: "64"
+  C: "noC"
+  SS: "1c"
+  Zc: "none"
+  Cvxif: "noX"
+  Priv: "MSU"
+  MMU: "nommu"
+  Mem: "HPD-WT_WB"
+  FP: "FD"
+  ISA: "noB"
+  Cnt: "---"
+  Trig: "nodbg"
+  Debug: "D"
+  BP: "BHT"
+  Endian: "BE"
+  Dcls: "-"
+  Ecc: "ecc"
+  PMP: "nopmp"
+  Tval: "tval"
+  LdBuf: "16+"
+  LdPipe: "0"
+  StPipe: "1"
+  description: "cv64a6_imfd_bare_hpdwtwb_c1_nox_nob_trignd_bht_be_ecc_nocnt"

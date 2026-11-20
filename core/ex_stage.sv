@@ -20,19 +20,20 @@ module ex_stage
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type bp_resolve_t = logic,
     parameter type branchpredict_sbe_t = logic,
-    parameter type dcache_req_i_t = logic,
-    parameter type dcache_req_o_t = logic,
+    parameter type ypb_store_req_t = logic,
+    parameter type ypb_store_rsp_t = logic,
+    parameter type ypb_amo_req_t = logic,
+    parameter type ypb_amo_rsp_t = logic,
+    parameter type ypb_load_req_t = logic,
+    parameter type ypb_load_rsp_t = logic,
+    parameter type ypb_mmu_ptw_req_t = logic,
+    parameter type ypb_mmu_ptw_rsp_t = logic,
     parameter type exception_t = logic,
     parameter type fu_data_t = logic,
-    parameter type icache_areq_t = logic,
-    parameter type icache_arsp_t = logic,
-    parameter type icache_dreq_t = logic,
-    parameter type icache_drsp_t = logic,
+    parameter type fetch_areq_t = logic,
+    parameter type fetch_arsp_t = logic,
     parameter type lsu_ctrl_t = logic,
-    parameter type x_result_t = logic,
-    parameter type acc_mmu_req_t = logic,
-    parameter type acc_mmu_resp_t = logic,
-    parameter type cbo_t = logic
+    parameter type x_result_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -114,12 +115,14 @@ module ex_stage
     output logic lsu_commit_ready_o,
     // Commit transaction ID - COMMIT_STAGE
     input logic [CVA6Cfg.TRANS_ID_BITS-1:0] commit_tran_id_i,
-    // TO_BE_COMPLETED - ACC_DISPATCHER
-    input logic stall_st_pending_i,
-    // TO_BE_COMPLETED - COMMIT_STAGE
+    // The committing instruction is dropped (speculative scoreboard) - COMMIT_STAGE
+    input logic commit_drop_i,
+    // No store pending - COMMIT_STAGE
     output logic no_st_pending_o,
     // Shared TLB is busy processing a multi-cycle flush
     output logic shared_tlb_flush_busy_o,
+    // Data endianness - CSR REGFILE
+    input logic mbe_i,
     // Atomic result is valid - COMMIT_STAGE
     input logic amo_valid_commit_i,
     // FU is ready - ISSUE_STAGE
@@ -170,11 +173,18 @@ module ex_stage
     output logic x_result_ready_o,
     // CVXIF Issue transaction rejected -> illegal instruction - ISSUE_STAGE
     input logic x_transaction_rejected_i,
-    // accelerate port result is valid - ACC_DISPATCHER
-    input logic acc_valid_i,
-    // Accelerator MMU access
-    input acc_mmu_req_t acc_mmu_req_i,
-    output acc_mmu_resp_t acc_mmu_resp_o,
+    //Trigger module communication
+    output logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_operand_a_o,
+    output logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_operand_c_o,
+    output logic sdtrig_lsu_inputs_we_o,
+    output logic sdtrig_lsu_inputs_valid_o,
+    input logic sdtrig_load_cancel_i,
+    input logic [CVA6Cfg.XLEN-1:0] sdtrig_load_action_i,
+    output logic sdtrig_load_data_valid_o,
+    output logic [CVA6Cfg.XLEN-1:0] sdtrig_load_data_o,
+    input logic [CVA6Cfg.XLEN-1:0] sdtrig_load_data_action_i,
+    input logic sdtrig_store_stall_i,
+    input logic [CVA6Cfg.XLEN-1:0] sdtrig_store_action_i,
     // Enable virtual memory translation - CSR_REGFILE
     input logic enable_translation_i,
     // Enable G-Stage memory translation - CSR_REGFILE
@@ -189,8 +199,6 @@ module ex_stage
     input logic flush_tlb_gvma_i,
     // Privilege mode - CSR_REGFILE
     input riscv::priv_lvl_t priv_lvl_i,
-    // Data endianness - CSR REGFILE
-    input logic mbe_i,
     // Virtualization mode - CSR_REGFILE
     input logic v_i,
     // Privilege level at which load and stores should happen - CSR_REGFILE
@@ -219,22 +227,31 @@ module ex_stage
     input logic [CVA6Cfg.PPNW-1:0] hgatp_ppn_i,
     // TO_BE_COMPLETED - CSR_REGFILE
     input logic [CVA6Cfg.VMID_WIDTH-1:0] vmid_i,
-    // icache translation response - CACHE
-    input icache_arsp_t icache_areq_i,
-    // icache translation request - CACHE
-    output icache_areq_t icache_areq_o,
-    // Data cache request output - CACHE
-    input dcache_req_o_t [2:0] dcache_req_ports_i,
-    // Data cache request input - CACHE
-    output dcache_req_i_t [2:0] dcache_req_ports_o,
+    // fetch translation request - FETCH
+    input fetch_areq_t fetch_areq_i,
+    // fetch translation response - FETCH
+    output fetch_arsp_t fetch_arsp_o,
+    // Store cache response - DCACHE
+    output ypb_store_req_t ypb_store_req_o,
+    // Store cache request - DCACHE
+    input ypb_store_rsp_t ypb_store_rsp_i,
+    // AMO request - DCACHE
+    output ypb_amo_req_t ypb_amo_req_o,
+    // AMO response - DCACHE
+    input ypb_amo_rsp_t ypb_amo_rsp_i,
+    // Load cache response - DCACHE
+    output ypb_load_req_t ypb_load_req_o,
+    // Load cache request - DCACHE
+    input ypb_load_rsp_t ypb_load_rsp_i,
+    // MMU PTW cache response - DCACHE
+    output ypb_mmu_ptw_req_t ypb_mmu_ptw_req_o,
+    // MMU PTW cache request - DCACHE
+    input ypb_mmu_ptw_rsp_t ypb_mmu_ptw_rsp_i,
+
     // Write buffer is empty - CACHE
     input logic dcache_wbuffer_empty_i,
     // TO_BE_COMPLETED - CACHE
     input logic dcache_wbuffer_not_ni_i,
-    // AMO request - CACHE
-    output amo_req_t amo_req_o,
-    // AMO response - CACHE
-    input amo_resp_t amo_resp_i,
     // To count the instruction TLB misses - PERF_COUNTERS
     output logic itlb_miss_o,
     // To count the data TLB misses - PERF_COUNTERS
@@ -248,17 +265,7 @@ module ex_stage
     // Information dedicated to RVFI - RVFI
     output [CVA6Cfg.PLEN-1:0] rvfi_mem_paddr_o,
     // Original instruction AES bits
-    input logic [5:0] orig_instr_aes_i,
-    //Trigger module communication
-    output logic [CVA6Cfg.VLEN-1:0] sdtrig_lsu_inputs_operand_a_o,
-    output logic [CVA6Cfg.XLEN-1:0] sdtrig_lsu_inputs_operand_c_o,
-    output logic sdtrig_lsu_inputs_we_o,
-    output logic sdtrig_lsu_inputs_valid_o,
-    input logic sdtrig_load_stall_i,
-    input logic sdtrig_load_cancel_i,
-    input logic [CVA6Cfg.XLEN-1:0] sdtrig_load_action_i,
-    input logic sdtrig_store_stall_i,
-    input logic [CVA6Cfg.XLEN-1:0] sdtrig_store_action_i
+    input logic [5:0] orig_instr_aes_i
 );
 
   // -------------------------
@@ -297,12 +304,9 @@ module ex_stage
   logic [CVA6Cfg.NrALUs-1:0][CVA6Cfg.XLEN-1:0] alu_result;
   logic [CVA6Cfg.XLEN-1:0] csr_result, mult_result, aes_result;
   logic [CVA6Cfg.VLEN-1:0] branch_result;
-  bp_resolve_t resolved_branch;
   logic csr_ready, mult_ready;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] mult_trans_id;
   logic mult_valid;
-
-  fu_data_t [CVA6Cfg.NrALUs-1:0] alu_data;
 
   logic [CVA6Cfg.NrIssuePorts-1:0] one_cycle_select;
   assign one_cycle_select = alu_valid_i | branch_valid_i | csr_valid_i | aes_valid_i;
@@ -326,6 +330,8 @@ module ex_stage
   end
 
   // 1. ALU(s) (combinatorial)
+  fu_data_t [CVA6Cfg.NrALUs-1:0] alu_data;
+
   assign alu_data[0] = one_cycle_data;
 
   if (CVA6Cfg.SuperscalarEn) begin : gen_alu2_data_sel
@@ -372,11 +378,10 @@ module ex_stage
       .branch_comp_res_i (alu_branch_res),
       .branch_result_o   (branch_result),
       .branch_predict_i,
-      .resolved_branch_o (resolved_branch),
+      .resolved_branch_o,
       .resolve_branch_o,
       .branch_exception_o(flu_exception_o)
   );
-  assign resolved_branch_o = resolved_branch;
 
   // 3. CSR (sequential)
   csr_buffer #(
@@ -453,6 +458,7 @@ module ex_stage
   logic fpu_valid;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] fpu_trans_id;
   logic [CVA6Cfg.XLEN-1:0] fpu_result;
+  logic alu2_valid;
 
   generate
     if (CVA6Cfg.FpPresent) begin : fpu_gen
@@ -497,6 +503,7 @@ module ex_stage
     end
   endgenerate
 
+  // ----------------
   // result MUX
   // This is really explicit so that synthesis tools can elide unused signals
   if (CVA6Cfg.SuperscalarEn) begin
@@ -526,49 +533,43 @@ module ex_stage
   // ----------------
   fu_data_t lsu_data;
   logic [31:0] lsu_tinst;
-  logic speculative_load;
   always_comb begin
-    lsu_data = lsu_valid_i[0] ? fu_data_i[0] : '0;
+    lsu_data  = lsu_valid_i[0] ? fu_data_i[0] : '0;
     lsu_tinst = tinst_i[0];
-    speculative_load = 1'b0;
 
     if (CVA6Cfg.SuperscalarEn) begin
       if (lsu_valid_i[1]) begin
         lsu_data  = fu_data_i[1];
         lsu_tinst = tinst_i[1];
-        if (CVA6Cfg.SpeculativeSb) begin
-          speculative_load = branch_valid_i[0];
-        end
       end
     end
   end
 
   load_store_unit #(
-      .CVA6Cfg   (CVA6Cfg),
-      .dcache_req_i_t(dcache_req_i_t),
-      .dcache_req_o_t(dcache_req_o_t),
-      .exception_t(exception_t),
-      .fu_data_t (fu_data_t),
-      .icache_areq_t(icache_areq_t),
-      .icache_arsp_t(icache_arsp_t),
-      .icache_dreq_t(icache_dreq_t),
-      .icache_drsp_t(icache_drsp_t),
-      .lsu_ctrl_t(lsu_ctrl_t),
-      .cbo_t(cbo_t),
-      .acc_mmu_req_t(acc_mmu_req_t),
-      .acc_mmu_resp_t(acc_mmu_resp_t),
-      .bp_resolve_t(bp_resolve_t)
+      .CVA6Cfg          (CVA6Cfg),
+      .ypb_store_req_t  (ypb_store_req_t),
+      .ypb_store_rsp_t  (ypb_store_rsp_t),
+      .ypb_amo_req_t    (ypb_amo_req_t),
+      .ypb_amo_rsp_t    (ypb_amo_rsp_t),
+      .ypb_load_req_t   (ypb_load_req_t),
+      .ypb_load_rsp_t   (ypb_load_rsp_t),
+      .ypb_mmu_ptw_req_t(ypb_mmu_ptw_req_t),
+      .ypb_mmu_ptw_rsp_t(ypb_mmu_ptw_rsp_t),
+      .exception_t      (exception_t),
+      .fu_data_t        (fu_data_t),
+      .fetch_areq_t     (fetch_areq_t),
+      .fetch_arsp_t     (fetch_arsp_t),
+      .lsu_ctrl_t       (lsu_ctrl_t)
   ) lsu_i (
       .clk_i,
       .rst_ni,
       .flush_i,
-      .stall_st_pending_i,
       .no_st_pending_o,
       .shared_tlb_flush_busy_o(shared_tlb_flush_busy_o),
+      .mbe_i,
       .fu_data_i              (lsu_data),
       .lsu_ready_o,
       .lsu_valid_i            (|lsu_valid_i),
-      .speculative_load_i     (speculative_load),
       .load_trans_id_o,
       .load_result_o,
       .load_valid_o,
@@ -580,17 +581,14 @@ module ex_stage
       .commit_i               (lsu_commit_i),
       .commit_ready_o         (lsu_commit_ready_o),
       .commit_tran_id_i,
-      .resolved_branch_i      (resolved_branch),
+      .commit_drop_i,
       .enable_translation_i,
       .enable_g_translation_i,
       .en_ld_st_translation_i,
       .en_ld_st_g_translation_i,
-      .acc_mmu_req_i,
-      .acc_mmu_resp_o,
-      .icache_areq_i,
-      .icache_areq_o,
+      .fetch_areq_i,
+      .fetch_arsp_o,
       .priv_lvl_i,
-      .mbe_i,
       .v_i,
       .ld_st_priv_lvl_i,
       .ld_st_v_i,
@@ -614,33 +612,41 @@ module ex_stage
       .flush_tlb_gvma_i,
       .itlb_miss_o,
       .dtlb_miss_o,
-      .dcache_req_ports_i,
-      .dcache_req_ports_o,
+      // DCACHE interfaces
+      .ypb_amo_req_o          (ypb_amo_req_o),
+      .ypb_amo_rsp_i          (ypb_amo_rsp_i),
+      .ypb_store_req_o        (ypb_store_req_o),
+      .ypb_store_rsp_i        (ypb_store_rsp_i),
+      .ypb_load_req_o         (ypb_load_req_o),
+      .ypb_load_rsp_i         (ypb_load_rsp_i),
+      .ypb_mmu_ptw_req_o      (ypb_mmu_ptw_req_o),
+      .ypb_mmu_ptw_rsp_i      (ypb_mmu_ptw_rsp_i),
       .dcache_wbuffer_empty_i,
       .dcache_wbuffer_not_ni_i,
       .amo_valid_commit_i,
-      .amo_req_o,
-      .amo_resp_i,
       .tinst_i                (lsu_tinst),
       .pmpcfg_i,
       .pmpaddr_i,
       .rvfi_lsu_ctrl_o,
       .rvfi_mem_paddr_o,
       //Trigger module command signals
-      .sdtrig_load_stall_i    (sdtrig_load_stall_i),
       .sdtrig_load_cancel_i   (sdtrig_load_cancel_i),
       .sdtrig_load_action_i   (sdtrig_load_action_i),
+      .sdtrig_load_data_valid_o,
+      .sdtrig_load_data_o,
+      .sdtrig_load_data_action_i,
       .sdtrig_store_stall_i   (sdtrig_store_stall_i),
       .sdtrig_store_action_i  (sdtrig_store_action_i)
   );
 
-  //Sdtrig
-  if(CVA6Cfg.SdtrigMcontrol6Store || CVA6Cfg.SdtrigMcontrol6LoadAddr || CVA6Cfg.SdtrigMcontrol6LoadData) begin
+  //Sdtrig: the address and the value an access carries, tapped before the LSU
+  //consumes them, so a trigger can compare either one.
+  if (CVA6Cfg.SdtrigMcontrol6Store || CVA6Cfg.SdtrigMcontrol6LoadAddr || CVA6Cfg.SdtrigMcontrol6LoadData) begin : gen_sdtrig_lsu_taps
     assign sdtrig_lsu_inputs_operand_a_o = CVA6Cfg.VLEN'(lsu_data.operand_a + lsu_data.imm);
     assign sdtrig_lsu_inputs_operand_c_o = lsu_data.operand_b;
     assign sdtrig_lsu_inputs_we_o = lsu_data.fu == STORE;
     assign sdtrig_lsu_inputs_valid_o = |lsu_valid_i;
-  end else begin
+  end else begin : gen_no_sdtrig_lsu_taps
     assign sdtrig_lsu_inputs_operand_a_o = '0;
     assign sdtrig_lsu_inputs_operand_c_o = '0;
     assign sdtrig_lsu_inputs_we_o = '0;
@@ -665,7 +671,6 @@ module ex_stage
     ) cvxif_fu_i (
         .clk_i,
         .rst_ni,
-        .v_i,
         .x_valid_i(|x_valid_i),
         .x_trans_id_i(cvxif_data.trans_id),
         .x_illegal_i(x_transaction_rejected_i),

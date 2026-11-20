@@ -40,6 +40,10 @@ Original Author: Shay Gal-on
 */
 #include "coremark.h"
 
+
+// Symbols to measure cycles
+#define GLOBAL_PATTERN(name) asm volatile ("GLOBAL_PATTERN_" name ": .global GLOBAL_PATTERN_" name :)
+
 /* Function: iterate
         Run the benchmark for a specified number of iterations.
 
@@ -284,6 +288,8 @@ for (i = 0; i < MULTITHREAD; i++)
     iterate(&results[0]);
     /* perform actual benchmark */
     start_time();
+    GLOBAL_PATTERN("start");
+
 #if (MULTITHREAD > 1)
     if (default_num_contexts > MULTITHREAD)
     {
@@ -302,6 +308,7 @@ for (i = 0; i < MULTITHREAD; i++)
 #else
     iterate(&results[0]);
 #endif
+    GLOBAL_PATTERN("end");
     stop_time();
     total_time = get_time();
     total_time_secs = time_in_secs(total_time);

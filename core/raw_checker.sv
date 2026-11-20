@@ -47,8 +47,11 @@ module raw_checker
 
   for (genvar i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
     assign same_rd_as_rs[i] = (rs_fpr_i == rd_fpr_i[i]) && (rs_i == rd_i[i]) && still_issued_i[i];
-    assign same_rd_as_rs_before[i] = (i < issue_pointer_i) && same_rd_as_rs[i];
-    assign same_rd_as_rs_after[i] = (i >= issue_pointer_i) && same_rd_as_rs[i];
+    // Constant for the first and last entries, by design
+    /* verilator lint_off CMPCONST */
+    assign same_rd_as_rs_before[i] = (CVA6Cfg.TRANS_ID_BITS'(i) < issue_pointer_i) && same_rd_as_rs[i];
+    assign same_rd_as_rs_after[i] = (CVA6Cfg.TRANS_ID_BITS'(i) >= issue_pointer_i) && same_rd_as_rs[i];
+    /* verilator lint_on CMPCONST */
   end
 
   always_comb begin
@@ -57,10 +60,10 @@ module raw_checker
 
     for (int unsigned i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
       if (same_rd_as_rs_before[i]) begin
-        last_before_idx = i;
+        last_before_idx = CVA6Cfg.TRANS_ID_BITS'(i);
       end
       if (same_rd_as_rs_after[i]) begin
-        last_after_idx = i;
+        last_after_idx = CVA6Cfg.TRANS_ID_BITS'(i);
       end
     end
   end

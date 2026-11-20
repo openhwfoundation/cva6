@@ -1,5 +1,5 @@
 ////
-   Copyright 2022 Thales DIS design services SAS
+   Copyright 2025 Thales DIS France SAS
    Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
@@ -55,28 +55,32 @@ specifications.
 * *[CVA6req]* “CVA6 requirement specification”,
 https://github.com/openhwgroup/cva6/blob/master/docs/specifications/cva6_requirement_specification.rst,
 HASH#767c465.
-* *[RVunpriv]* “The RISC-V Instruction Set Manual, Volume I: User-Level
-ISA, Document Version 20191213”, Editors Andrew Waterman and Krste
-Asanović, RISC-V Foundation, December 13, 2019.
-* *[RVpriv]* “The RISC-V Instruction Set Manual, Volume II: Privileged
-Architecture, Document Version 20211203”, Editors Andrew Waterman, Krste
-Asanović and John Hauser, RISC-V Foundation, December 4, 2021.
+* *[RVunpriv]* “The RISC-V Instruction Set Manual for CV32A60X, Volume I: User-Level
+ISA”,
+https://docs.openhwgroup.org/projects/cva6-user-manual/07_cv32a60x/riscv/unpriv.html.
+* *[RVpriv]* “The RISC-V Instruction Set Manual for CV32A60X, Volume II: Privileged
+Architecture”,
+https://docs.openhwgroup.org/projects/cva6-user-manual/07_cv32a60x/riscv/priv.html.
+ifeval::[{DebugEn} == true]
 * *[RVdbg]* “RISC-V External Debug Support, Document Version 0.13.2”,
 Editors Tim Newsome and Megan Wachs, RISC-V Foundation, March 22, 2019.
+endif::[]
 * *[RVcompat]* “RISC-V Architectural Compatibility Test Framework”,
 https://github.com/riscv-non-isa/riscv-arch-test.
+ifeval::["{MemSubsystem}" != "config_pkg::MEM_OBI"]
 * *[AXI]* AXI Specification,
 https://developer.arm.com/documentation/ihi0022/hc.
-* *[CV-X-IF]* Placeholder for the CV-X-IF coprocessor interface
-currently prepared at OpenHW Group; current version in
-https://docs.openhwgroup.org/projects/openhw-group-core-v-xif/.
-* *[OpenPiton]* “OpenPiton Microarchitecture Specification”, Princeton
-University,
-https://parallel.princeton.edu/openpiton/docs/micro_arch.pdf.
+endif::[]
+ifeval::["{MemSubsystem}" == "config_pkg::MEM_OBI"]
+* *[OBI]* OBI Specification v1.6.0,
+https://github.com/openhwgroup/obi/blob/072d9173c1f2d79471d6f2a10eae59ee387d4c6f/OBI-v1.6.0.pdf
+endif::[]
+* *[CV-X-IF]* Core-V eXtension interface (CV-X-IF) v1.0.0,
+https://docs.openhwgroup.org/projects/openhw-group-core-v-xif/en/v1.0.0/.
 
 {ohg-config} is a standards-compliant {XLEN}-bit processor fully compliant with
-RISC-V specifications: [RVunpriv], [RVpriv] and [RVdbg] and passes
-[RVcompat] compatibility tests, as requested by [GEN-10] in [CVA6req].
+above specifications. In the meanwhile, the conformity of {ohg-config} versus
+[RVcompat] has not been tested.
 
 [[documentation-framework]]
 Documentation framework
@@ -89,7 +93,7 @@ to as Common Criteria or CC) is an international standard (ISO/IEC
 
 Description of the framework:
 
-* Processor is split into module corresponding to the main modules of
+* Processor is split into modules corresponding to the main modules of
 the design
 * Modules can contain several modules
 * Each module is described in a chapter, which contains the following
@@ -113,8 +117,10 @@ Contributors
 [verse]
 --
 Jean-Roch Coulon - Thales
+André Sintzoff - Thales
+Yannick Casamatta - Thales
+Guillaume Chauvon - Thales
 Ayoub Jalali (mailto:ayoub.jalali@external.thalesgroup.com[ayoub.jalali@external.thalesgroup.com])
 Alae Eddine Ezzejjari (mailto:alae-eddine.ez-zejjari@external.thalesgroup.com[alae-eddine.ez-zejjari@external.thalesgroup.com])
 --
 
-*[TO BE COMPLETED]*

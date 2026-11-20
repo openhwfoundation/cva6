@@ -1,0 +1,316 @@
+////
+  Copyright (c) 2025 OpenHW Group
+  Copyright (c) 2025 Thales DIS France SAS
+  SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+  Author: Yannick Casamatta -  Thales
+////
+
+[[cva6_obi]]
+OBI Bus interface
+~~~~~~~~~~~~~~~~~
+
+OBI Bus aims to connected CVA6 to the memory.
+
+CVA6 implements 3 interfaces, one for fetch instruction and two interfaces for data handling, one dedicated to loading operations and the other to storing operations.
+
+Each connection uses a bus interface that complies with the OBI 1.6 standard. A detailed explanation of the optional fields described by this standard is provided in the table below.
+
+In order to understand how the OBI memory interface behaves in CVA6, it is necessary to read the OBI Protocol Specification (https://github.com/openhwgroup/obi/) and this chapter.
+
+[[protocol-description]]
+Protocol Description
+^^^^^^^^^^^^^^^^^^^^
+
+OBI is a point-to-point protocol (between manager and subordinate)
+
+An OBI link consists of two channels:
+
+* The address channel, called the A channel.
+* The response channel, called the R channel
+
+OBI transaction consists of two transfers:
+
+* An address phase transfer over the A channel.
+* A response phase transfer over the R channel.
+
+The address phase transfer is as follows:
+
+* The manager indicates the validity of its address phase signals (i.e. addr, wdata, we, be, auser, aid, mid, wuser, prot, memtype, dbg, atop, achk) by settings its request (req) high.
+* The subordinate indicates its readiness to accept the address phase signals by setting grant (gnt) high.
+* The address phase of a transaction starts in the cycle in which req goes high and completes on the rising clk edge when both req and gnt are high.
+
+The response phase transfer is as follows:
+
+* After a granted request (in the A channel), the subordinate indicates the validity of its response phase signals (i.e. rdata, err, ruser, rid, exokay, rchk) by setting rvalid high.
+* The manager indicates its readiness to accept the response phase signals by setting rready high.
+* The response phase of a transaction starts in the cycle in which rvalid goes high and completes on the rising clk edge when both rvalid and rready are high.
+
+[[cva6-implem]]
+CVA6 implementation
+^^^^^^^^^^^^^^^^^^^
+
+The LOAD and STORE OBI buses have a data size of {XLEN} bits. The FETCH OBI bus has a data size of {ifetch-len} bits.
+
+The Fetch interface performs only full BE accesses.
+
+The Fetch and Load interfaces are only capable of read accesses.
+
+The Store interface is exclusively for write accesses.
+
+CVA6 is always ready to accept a response on channel R, so the rrready signal is always high.
+
+The Fetch and Load interfaces do not generate outstanding accesses.
+
+The Store interface does not use channel R. Therefore, the depth of outstanding accesses depends on the subordinate.
+
+The error flag is not used at all.
+
+Parity signal support is partial. Parity signals reqpar and rreadypar are generated as specified by the standard, but gntpar and rvalidpar are currently not checked by CVA6.
+
+Checksum signals achk and rchk are not supported.
+
+All user data signals (auser, wuser, ruser) are not used.
+
+CVA6 does not support atomic operations, so exokay and atom are not used.
+
+CVA6 does not have a Physical Memory Attribution (PMA), so cacheable or bufferable regions are not defined. As a consequence, memtype always 0.
+
+prot[0] is driven to indicate the type of access: FETCH for the Fetch interface and DATA for the LOAD/STORE interfaces.
+
+As only Machine mode is available in CVA6, prot[2:1] is statically at b'11' (Machine Mode).
+
+The master identifier "Mid" is set to 0.
+
+The transaction identifiers aid and rid signals are only 1-bit size. Even though there are no outstanding reads available, rid must be driven by the subordinate in compliance with the standard (rid = aid).
+
+
+[[obi-port-list-a]]
+Port list channel A
+^^^^^^^^^^^^^^^^^^^
+
+[cols=",,,,,",options="header",]
+|===
+|
+|
+|Fetch
+|Load
+|Store
+|
+
+|req
+|OUTPUT
+|used
+|used
+|used
+|Address transfer request. req=1 signals the availability of valid address phase signals.
+
+|gnt
+|INPUT
+|used
+|used
+|used
+|Grant. Ready to accept address transfer. Address transfer is accepted on rising clk with req=1 and gnt=1.
+
+|addr[]
+|OUTPUT
+|used
+|used
+|used
+|Address
+
+|we
+|OUTPUT
+|used
+|used
+|used
+|Write Enable, high for writes, low for reads.
+
+|be[3:0]
+|OUTPUT
+|used (always Full)
+|used
+|used
+|Byte Enable. Is set for the bytes to write/read.
+
+|wdata[31:0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|used
+|Write data. Only valid for write transactions. Undefined for read transactions.
+
+|auser[0:0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Address Phase User signals. Valid for both read and write transactions.
+
+|wuser[0:0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Additional Address Phase User signals. Only valid for write transactions. Undefined for read transactions.
+
+|aid[0:0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Address Phase transaction identifier.
+
+|atop[5:0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Atomic Operation.
+
+|memtype[0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Memory type attributes
+
+|memtype[1]
+|OUTPUT
+|0, no PMA
+|0, no PMA
+|0, no PMA
+|Memory type attributes, cacheable flag.
+
+|mid[0:0]
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Manager ID.
+
+|prot[0]
+|OUTPUT
+|FETCH only
+|DATA only
+|DATA only
+|Protection attributes. Kind of access : 0 is FETCH, 1 is DATA
+
+|prot[2:1]
+|OUTPUT
+|2'b11
+|2'b11
+|2'b11
+|Protection attributes, Privilege Mode: 2'b11 is machine mode.
+
+|dbg
+|OUTPUT
+|0 (default)
+|0 (default)
+|0 (default)
+|Debug access.
+
+|reqpar
+|OUTPUT
+|used
+|used
+|used
+|Parity bit for req signal (odd parity).
+
+|gntpar
+|INPUT
+|not used
+|not used
+|not used
+|Parity bit for gnt signal (odd parity).
+
+|achk[0:0]
+|OUTPUT
+|tied at zero
+|tied at zero
+|tied at zero
+|Checksum for address phase signals (except achk itself).
+|===
+
+[[obi-port-list-r]]
+Port list channel R
+^^^^^^^^^^^^^^^^^^^
+
+[cols=",,,,,",options="header",]
+|===
+|
+|
+|Fetch
+|Load
+|Store
+|
+
+|rvalid
+|INPUT
+|used
+|used
+|used
+|Response transfer request. rvalid=1 signals the availability of valid response phase signals. Used for both reads and writes.
+
+|rready
+|OUTPUT
+|used
+|used
+|used
+|Ready to accept response transfer. Response transfer is accepted on rising clk with rvalid=1 and rready=1.
+
+|rdata[31:0]
+|INPUT
+|used
+|used
+|not used
+|Read data. Only valid for read transactions. Undefined for write transactions.
+
+|err
+|INPUT
+|not used
+|not used
+|not used
+|Error.
+
+|ruser[0:0]
+|INPUT
+|not used
+|not used
+|not used
+|Response phase User signals. Only valid for read transactions. Undefined for write transactions.
+
+|rid[0:0]
+|INPUT
+|used
+|used
+|used
+|Response Phase transaction identifier.
+
+|exokay
+|INPUT
+|not used
+|not used
+|not used
+|Exclusive transaction okay.
+
+|rvalidpar
+|INPUT
+|not used
+|not used
+|not used
+|Parity bit for rvalid signal (odd parity).
+
+|rreadypar
+|OUTPUT
+|used
+|used
+|used
+|Parity bit for rready signal (odd parity).
+
+|rchk[0:0]
+|INPUT
+|not used
+|not used
+|not used
+|Checksum for address phase signals (except rchk itself).
+|===

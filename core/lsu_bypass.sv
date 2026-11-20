@@ -27,31 +27,27 @@ module lsu_bypass
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter type lsu_ctrl_t = logic,
-    parameter type bp_resolve_t = logic
+    parameter type lsu_ctrl_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Flush - CONTROLLER
     input logic flush_i,
 
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Load store unit request - LSU_UNIT
     input lsu_ctrl_t lsu_req_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // load store unit valid - LSU_UNIT
     input logic      lsu_req_valid_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Pop load - LOAD_UNIT
     input logic      pop_ld_i,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Pop store - STORE_UNIT
     input logic      pop_st_i,
 
-    // Result from branch unit - EX_STAGE
-    input bp_resolve_t resolved_branch_i,
-
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // RVFI information - RVFI
     output lsu_ctrl_t lsu_ctrl_o,
-    // TO_BE_COMPLETED - TO_BE_COMPLETED
+    // Load Store Unit is ready - ISSUE_STAGE
     output logic      ready_o
 );
 
@@ -77,15 +73,6 @@ module lsu_bypass
     // we've got a valid LSU request
     if (lsu_req_valid_i) begin
       mem_n[write_pointer_q] = lsu_req_i;
-      if (lsu_req_i.is_speculative_load && resolved_branch_i.valid) begin
-        if (resolved_branch_i.is_mispredict) begin
-          // missprediction: mark speculative loads as misspredicted
-          mem_n[write_pointer_q].is_speculative_load_miss = 1'b1;
-        end else begin
-          // correct prediction: the load is no longer speculative
-          mem_n[write_pointer_q].is_speculative_load = 1'b0;
-        end
-      end
       write_pointer++;
       status_cnt++;
     end

@@ -141,7 +141,10 @@ module ariane_testharness #(
   assign debug_resp_ready    = (jtag_enable[0]) ? jtag_resp_ready    : dmi_resp_ready;
   assign debug_req           = (jtag_enable[0]) ? jtag_dmi_req       : dmi_req;
   if (ariane_pkg::RVFI) begin
-    assign exit_o              = (jtag_enable[0]) ? jtag_exit          : rvfi_exit;
+    // A program under the proxy kernel ends through HTIF, reported by the
+    // SimDTM, and never writes the tohost the RVFI tracer watches
+    assign exit_o              = (jtag_enable[0]) ? jtag_exit          :
+                                 (dmi_exit[0])    ? dmi_exit           : rvfi_exit;
   end else begin
     assign exit_o              = (jtag_enable[0]) ? jtag_exit          : dmi_exit;
   end
@@ -753,8 +756,14 @@ module ariane_testharness #(
         .encap_fifo_entry_o (encap_fifo_entry_i)
     );
 
+    // The slicer drains one packet every NUM_SLICES cycles while nothing holds
+    // the encoder back, so a burst of taken branches can fill this FIFO. A packet
+    // that finds it full is dropped: only the slice stream loses it, encaps.traces
+    // is written before the FIFO.
+    localparam int unsigned ENCAP_FIFO_DEPTH = 64;
+
     fifo_v3 # (
-        .DEPTH(16),
+        .DEPTH(ENCAP_FIFO_DEPTH),
         .dtype(encap_pkg::encap_fifo_entry_s)
     ) i_fifo_encap (
         .clk_i     (clk_i),
@@ -765,10 +774,27 @@ module ariane_testharness #(
         .empty_o   (encap_fifo_empty),
         .usage_o   (),
         .data_i    (encap_fifo_entry_i),
-        .push_i    (encap_valid),
+        .push_i    (encap_valid && !encap_fifo_full),
         .data_o    (encap_fifo_entry_o),
         .pop_i     (encap_fifo_pop)
     );
+
+    // pragma translate_off
+    int unsigned encap_fifo_dropped = 0;
+    always_ff @(posedge clk_i) begin
+        if (rst_ni && encap_valid && encap_fifo_full) begin
+            if (encap_fifo_dropped == 0)
+                $warning("Instruction trace: encapsulator FIFO full (DEPTH=%0d) at cycle %0d, packet dropped from the slice stream; encaps.traces stays complete",
+                         ENCAP_FIFO_DEPTH, rvfi_to_iti.cycles);
+            encap_fifo_dropped <= encap_fifo_dropped + 1;
+        end
+    end
+    final begin
+        if (encap_fifo_dropped != 0)
+            $display("Instruction trace: %0d packet(s) dropped by the encapsulator FIFO (DEPTH=%0d)",
+                     encap_fifo_dropped, ENCAP_FIFO_DEPTH);
+    end
+    // pragma translate_on
     localparam DATA_LEN = 8;
 
     logic                           slicer_valid;

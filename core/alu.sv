@@ -142,7 +142,6 @@ module alu
   // Shifts
   // ---------
 
-  // TODO: this can probably optimized significantly
   logic                    shift_left;  // should we shift left
   logic                    shift_arithmetic;
 
@@ -319,7 +318,7 @@ module alu
       // Adder Operations
       ADD, SUB, ADDUW, SH1ADD, SH2ADD, SH3ADD: result_o = adder_result;
       // Shift Operations
-      SLL, SRL, SRA: result_o = CVA6Cfg.IS_XLEN64 ? shift_result : shift_result32;
+      SLL, SRL, SRA: result_o = (CVA6Cfg.IS_XLEN64) ? shift_result : shift_result32;
       // Comparison Operations
       SLTS, SLTU: result_o = {{CVA6Cfg.XLEN - 1{1'b0}}, less};
       default: ;  // default case to suppress unique warning
@@ -368,10 +367,10 @@ module alu
 
         // Bitwise Rotation
         ROL:
-        result_o = CVA6Cfg.IS_XLEN64 ? ((operand_a << operand_b[5:0]) | (operand_a >> (CVA6Cfg.XLEN-operand_b[5:0]))) : ((operand_a << operand_b[4:0]) | (operand_a >> (CVA6Cfg.XLEN-operand_b[4:0])));
+        result_o = (CVA6Cfg.IS_XLEN64) ? ((operand_a << operand_b[5:0]) | (operand_a >> (CVA6Cfg.XLEN-operand_b[5:0]))) : ((operand_a << operand_b[4:0]) | (operand_a >> (CVA6Cfg.XLEN-operand_b[4:0])));
 
         ROR, RORI:
-        result_o = CVA6Cfg.IS_XLEN64 ? ((operand_a >> operand_b[5:0]) | (operand_a << (CVA6Cfg.XLEN-operand_b[5:0]))) : ((operand_a >> operand_b[4:0]) | (operand_a << (CVA6Cfg.XLEN-operand_b[4:0])));
+        result_o = (CVA6Cfg.IS_XLEN64) ? ((operand_a >> operand_b[5:0]) | (operand_a << (CVA6Cfg.XLEN-operand_b[5:0]))) : ((operand_a >> operand_b[4:0]) | (operand_a << (CVA6Cfg.XLEN-operand_b[4:0])));
 
         ORCB: result_o = orcbw_result;
         REV8: result_o = rev8w_result;
@@ -394,9 +393,9 @@ module alu
     if (CVA6Cfg.ZKN && CVA6Cfg.RVB) begin
       unique case (fu_data_i.operation)
         PACK:
-        result_o = CVA6Cfg.IS_XLEN32 ? ({operand_b[15:0], operand_a[15:0]}) : ({operand_b[31:0], operand_a[31:0]});
+        result_o = (CVA6Cfg.IS_XLEN32) ? ({operand_b[15:0], operand_a[15:0]}) : ({operand_b[31:0], operand_a[31:0]});
         PACK_H:
-        result_o = CVA6Cfg.IS_XLEN32 ? ({16'b0, operand_b[7:0], operand_a[7:0]}) : ({48'b0, operand_b[7:0], operand_a[7:0]});
+        result_o = (CVA6Cfg.IS_XLEN32) ? ({16'b0, operand_b[7:0], operand_a[7:0]}) : ({48'b0, operand_b[7:0], operand_a[7:0]});
         BREV8: result_o = brev8_reversed;
         XPERM8: result_o = xperm8_result;
         XPERM4: result_o = xperm4_result;

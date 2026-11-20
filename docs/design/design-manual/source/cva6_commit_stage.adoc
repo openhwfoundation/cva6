@@ -29,9 +29,11 @@ exception) or happen in commit stage, coming from the CSR_REGFILE or
 from an interrupt. Exceptions are precise: they are considered during
 the commit only and associated with the related instruction.
 
+////
 The module is connected to:
 
 * TO BE COMPLETED
+////
 
 include::port_commit_stage.adoc[]
 
@@ -39,4 +41,4 @@ include::port_commit_stage.adoc[]
 Functionality
 ^^^^^^^^^^^^^
 
-TO BE COMPLETED
+// TO BE COMPLETED

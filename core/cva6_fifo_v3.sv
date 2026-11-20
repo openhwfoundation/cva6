@@ -13,6 +13,8 @@
 // Additional contributions by:
 //                 Angela Gonzalez - PlanV Technologies
 
+`include "utils_macros.svh"
+
 module cva6_fifo_v3 #(
     parameter bit FALL_THROUGH = 1'b0,  // fifo is in fall-through mode
     parameter bit FPGA_ALTERA = 1'b0,  // FPGA Altera optimizations enabled
@@ -74,11 +76,12 @@ module cva6_fifo_v3 #(
   // read and write queue logic
   always_comb begin : read_write_comb
     // default assignment
-    read_pointer_n  = read_pointer_q;
-    write_pointer_n = write_pointer_q;
-    status_cnt_n    = status_cnt_q;
-    if (FPGA_EN && FPGA_ALTERA) data_ft_n = data_ft_q;
-    if (FPGA_EN && FPGA_ALTERA) first_word_n = first_word_q;
+    read_pointer_n        = read_pointer_q;
+    write_pointer_n       = write_pointer_q;
+    status_cnt_n          = status_cnt_q;
+    data_ft_n             = (FPGA_EN && FPGA_ALTERA) ? data_ft_q : '0;
+    first_word_n          = (FPGA_EN && FPGA_ALTERA) ? first_word_q : '0;
+    fifo_ram_read_address = '0;
     if (FPGA_EN) begin
       fifo_ram_we            = '0;
       fifo_ram_write_address = '0;
@@ -101,7 +104,7 @@ module cva6_fifo_v3 #(
         fifo_ram_we = 1'b1;
         fifo_ram_write_address = write_pointer_q;
         fifo_ram_wdata = data_i;
-        if (FPGA_ALTERA) first_word_n = first_word_q && pop_i;
+        if (FPGA_ALTERA) first_word_n = (first_word_q && pop_i) || ((status_cnt_q == 'h1) && pop_i);
       end else begin
         // push the data onto the queue
         mem_n[write_pointer_q] = data_i;
@@ -118,7 +121,8 @@ module cva6_fifo_v3 #(
 
     if (pop_i && ~empty_o) begin
       data_ft_n = data_i;
-      if (FPGA_EN && FPGA_ALTERA) first_word_n = first_word_q && push_i;
+      if (FPGA_EN && FPGA_ALTERA)
+        first_word_n = (first_word_q && push_i) || ((status_cnt_q == 'h1) && push_i);
       // read from the queue is a default assignment
       // but increment the read pointer...
       if (read_pointer_n == FifoDepth[ADDR_DEPTH-1:0] - 1) read_pointer_n = '0;
@@ -216,16 +220,16 @@ module cva6_fifo_v3 #(
   // pragma translate_off
   initial begin
     assert (DEPTH > 0)
-    else $error("DEPTH must be greater than 0.");
+    else `ASSERT_ERROR("DEPTH must be greater than 0.");
   end
 
   full_write :
   assert property (@(posedge clk_i) disable iff (~rst_ni) (full_o |-> ~push_i))
-  else $fatal(1, "Trying to push new data although the FIFO is full.");
+  else `ASSERT_FATAL("Trying to push new data although the FIFO is full.");
 
   empty_read :
   assert property (@(posedge clk_i) disable iff (~rst_ni) (empty_o |-> ~pop_i))
-  else $fatal(1, "Trying to pop data although the FIFO is empty.");
+  else `ASSERT_FATAL("Trying to pop data although the FIFO is empty.");
   // pragma translate_on
 
 endmodule  // fifo_v3

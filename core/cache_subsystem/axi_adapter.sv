@@ -14,7 +14,6 @@
  *
  * Description: Manages communication with the AXI Bus
  */
-//import std_cache_pkg::*;
 
 module axi_adapter #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
@@ -250,6 +249,8 @@ module axi_adapter #(
       // ~> from single write
       WAIT_AW_READY: begin
         axi_req_o.aw_valid = 1'b1;
+        // Store conditional: the lock stays set on the write address channel even
+        // when the write data beat was accepted before the address.
         axi_req_o.aw.lock  = amo_i == ariane_pkg::AMO_SC;
 
         if (axi_resp_i.aw_ready) begin

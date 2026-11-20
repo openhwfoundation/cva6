@@ -456,12 +456,6 @@ plan "CVA6 Verification Master Plan";
                     endmeasure
                 endfeature
             endfeature
-            feature RV32ZIFENCEI;
-                description = "ZIFENCE.I extension";
-                measure Group FEINCE_I;
-                    source = "group instance: uvma_isacov_pkg.uvma_isacov_pkg.rv32zifencei_fence_i_cg";
-                endmeasure
-            endfeature
             feature RV32ZCB;
                 weight = 1;
                 description = "ZCB extension";
@@ -714,11 +708,6 @@ plan "CVA6 Verification Master Plan";
                 feature ZICSR_EXT;
                     measure Group ZICSR_EXT;
                         source = "group instance: uvme_cva6_pkg.uvme_cva6_pkg.illegal_zicsr_cg";
-                    endmeasure
-                endfeature
-                feature ZIFENCEI_EXT;
-                    measure Group ZIFENCEI_EXT;
-                        source = "group instance: uvme_cva6_pkg.uvme_cva6_pkg.illegal_zifencei_cg";
                     endmeasure
                 endfeature
             endfeature

@@ -7,6 +7,9 @@
 //
 // Original Author: Jean-Roch COULON - Thales
 //
+
+//pragma translate_off
+
 `ifndef READ_SYMBOL_T
 `define READ_SYMBOL_T
 import "DPI-C" function byte read_symbol (input string symbol_name, inout longint unsigned address);
@@ -37,14 +40,22 @@ module rvfi_tracer #(
 );
 
   longint unsigned TOHOST_ADDR;
+  longint unsigned GLOBAL_PATTERN_start;
+  longint unsigned GLOBAL_PATTERN_end;
+
   string binary;
   int f;
   int unsigned SIM_FINISH;
   initial begin
     TOHOST_ADDR = '0;
+    GLOBAL_PATTERN_start = '0;
+    GLOBAL_PATTERN_end = '0;
     f = $fopen($sformatf("trace_rvfi_hart_%h.dasm", HART_ID), "w");
     if (!$value$plusargs("time_out=%d", SIM_FINISH)) SIM_FINISH = 2000000;
     if (!$value$plusargs("tohost_addr=%h", TOHOST_ADDR)) TOHOST_ADDR = '0;
+    if (!$value$plusargs("GLOBAL_PATTERN_start=%h", GLOBAL_PATTERN_start)) GLOBAL_PATTERN_start = '0;
+    if (!$value$plusargs("GLOBAL_PATTERN_end=%h", GLOBAL_PATTERN_end)) GLOBAL_PATTERN_end = '0;
+
     if (TOHOST_ADDR == '0) begin
         if (!$value$plusargs("elf_file=%s", binary)) binary = "";
         if (binary != "") begin
@@ -60,7 +71,11 @@ module rvfi_tracer #(
     end
   end
 
-  final $fclose(f);
+
+  final begin
+    $display("*** [rvfi_tracer] INFO: Simulation terminated after %d cycles!\n", cycles);
+    $fclose(f);
+  end
 
   logic [31:0] cycles;
   // Generate the trace based on RVFI
@@ -111,14 +126,22 @@ module rvfi_tracer #(
       // print the instruction information if the instruction is valid or a trap is taken
       if (rvfi_i[i].valid) begin
         logic dest_is_fp;
+        if(GLOBAL_PATTERN_start != GLOBAL_PATTERN_end) begin //avoid print at reset when feature is not used
+          if (pc64 == GLOBAL_PATTERN_start) begin
+            $display("*** [rvfi_tracer] INFO: GLOBAL_PATTERN_start (0x%h) detected at %d ns, %d cycles!\n", pc64, $time, cycles);
+          end
+          if (pc64 == GLOBAL_PATTERN_end) begin
+            $display("*** [rvfi_tracer] INFO: GLOBAL_PATTERN_end (0x%h) detected at %d ns, %d cycles!\n", pc64, $time, cycles);
+          end
+        end
         // Instruction information
         if (rvfi_i[i].intr[2]) begin
            $fwrite(f, "core   INTERRUPT 0: 0x%h (0x%h) DASM(%h)\n",
              pc64, rvfi_i[i].insn, rvfi_i[i].insn);
         end
         else begin
-           $fwrite(f, "core   0: 0x%h (0x%h) DASM(%h)\n",
-             pc64, rvfi_i[i].insn, rvfi_i[i].insn);
+           $fwrite(f, "%d | core   0: 0x%h (0x%h) DASM(%h)\n",
+             cycles, pc64, rvfi_i[i].insn, rvfi_i[i].insn);
         end
         // Destination register information
         if (rvfi_i[i].insn[1:0] != 2'b11) begin
@@ -163,7 +186,6 @@ module rvfi_tracer #(
               rvfi_i[i].mem_paddr == TOHOST_ADDR &&
               rvfi_i[i].mem_wdata[0] == 1'b1) begin
             end_of_test_q <= rvfi_i[i].mem_wdata[31:0];
-            $display("*** [rvfi_tracer] INFO: Simulation terminated after %d cycles!\n", cycles);
           end
         end
         $fwrite(f, "\n");
@@ -178,9 +200,9 @@ module rvfi_tracer #(
             32'h5: cause = "LD_ACCESS_FAULT";
             32'h6: cause = "ST_ADDR_MISALIGNED";
             32'h7: cause = "ST_ACCESS_FAULT";
-            32'hb: cause = "ENV_CALL_MMODE";
             32'h8: cause = "ENV_CALL_UMODE";
             32'h9: cause = "ENV_CALL_SMODE";
+            32'hb: cause = "ENV_CALL_MMODE";
             32'hc: cause = "INSTR_PAGE_FAULT";
             32'hd: cause = "LOAD_PAGE_FAULT";
             32'hf: cause = "STORE_PAGE_FAULT";
@@ -220,3 +242,5 @@ module rvfi_tracer #(
   end
 
 endmodule // rvfi_tracer
+
+//pragma translate_on

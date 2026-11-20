@@ -1,0 +1,1217 @@
+#   Copyright (c) 2024 OpenHW Group
+#   Copyright (c) 2025 Thales DIS France SAS
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#   Author: Abdessamii Oukalrazqou
+
+mcause:
+        rv32:
+            accessible: true
+            interrupt:
+                implemented: true
+                description: Indicates whether the trap was due to an interrupt.
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 31
+                type:
+                    wlrl:
+                      - 0x0:0x1
+            exception_code:
+                implemented: true
+                description: Encodes the exception code.
+                shadow:
+                shadow_type: rw
+                msb: 30
+                lsb: 0
+                type:
+                    wlrl:
+                      - 0:8 , 11
+            fields:
+              - exception_code
+              - interrupt
+mip:
+        rv32:
+            accessible: true
+            usip:
+                implemented: false
+                description: User Software Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 0
+                lsb: 0
+            ssip:
+                implemented: false
+                description: Supervisor Software Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 1
+                lsb: 1
+            msip:
+                implemented: false
+                description: Machine Software Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 3
+                lsb: 3
+            utip:
+                implemented: false
+                description: User Timer Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 4
+                lsb: 4
+            stip:
+                implemented: false
+                description: Supervisor Timer Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 5
+                lsb: 5
+            mtip:
+                implemented: true
+                description: Machine Timer Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 7
+                type:
+                    ro_variable: [0:1]
+            ueip:
+                implemented: false
+                description: User External Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 8
+                lsb: 8
+            seip:
+                implemented: false
+                description: Supervisor External Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 9
+                lsb: 9
+            meip:
+                implemented: true
+                description: Machine External Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 11
+                lsb: 11
+                type:
+                    ro_variable: [0:1]
+            fields:
+              - usip
+              - ssip
+              - vssip
+              - msip
+              - utip
+              - stip
+              - vstip
+              - mtip
+              - ueip
+              - seip
+              - vseip
+              - meip
+              - sgeip
+              -
+                  -
+                      - 13
+                      - 31
+            vssip:
+                implemented: false
+                description: VS-level Software Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 2
+                lsb: 2
+            vstip:
+                implemented: false
+                description: VS-level Timer Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 6
+                lsb: 6
+            vseip:
+                implemented: false
+                description: VS-level External Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 10
+                lsb: 10
+            sgeip:
+                implemented: false
+                description: HS-level External Interrupt Pending.
+                shadow:
+                shadow_type: rw
+                msb: 12
+                lsb: 12
+pmpcfg2:
+        rv32:
+            accessible: true
+            pmp8cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp9cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp10cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp11cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp8cfg
+              - pmp9cfg
+              - pmp10cfg
+              - pmp11cfg
+pmpcfg3:
+        rv32:
+            accessible: true
+            pmp12cfg:
+                implemented: true
+                type:
+                   ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp13cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp14cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp15cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp12cfg
+              - pmp13cfg
+              - pmp14cfg
+              - pmp15cfg
+
+pmpcfg5:
+        rv32:
+            accessible: true
+            pmp20cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp21cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp22cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp23cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp20cfg
+              - pmp21cfg
+              - pmp22cfg
+              - pmp23cfg
+
+pmpcfg6:
+        rv32:
+            accessible: true
+            pmp24cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp25cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp26cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp27cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp24cfg
+              - pmp25cfg
+              - pmp26cfg
+              - pmp27cfg
+
+pmpcfg7:
+        rv32:
+            accessible: true
+            pmp28cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp29cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp30cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp31cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp28cfg
+              - pmp29cfg
+              - pmp30cfg
+              - pmp31cfg
+pmpcfg8:
+        rv32:
+            accessible: true
+            pmp32cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp33cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp34cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp35cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp32cfg
+              - pmp33cfg
+              - pmp34cfg
+              - pmp35cfg
+pmpcfg9:
+        rv32:
+            accessible: true
+            pmp36cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp37cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp38cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp39cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp36cfg
+              - pmp37cfg
+              - pmp38cfg
+              - pmp39cfg
+pmpcfg10:
+        rv32:
+            accessible: true
+            pmp40cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp41cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp42cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp43cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp40cfg
+              - pmp41cfg
+              - pmp42cfg
+              - pmp43cfg
+pmpcfg11:
+        rv32:
+            accessible: true
+            pmp44cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp45cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp46cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp47cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp44cfg
+              - pmp45cfg
+              - pmp46cfg
+              - pmp47cfg
+pmpcfg12:
+        rv32:
+            accessible: true
+            pmp48cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp49cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp50cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp51cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp48cfg
+              - pmp49cfg
+              - pmp50cfg
+              - pmp51cfg
+pmpcfg13:
+        rv32:
+            accessible: true
+            pmp52cfg:
+                implemented: true
+                type:
+                   ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp53cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp54cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp55cfg:
+                implemented: true
+                type:
+                   ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp52cfg
+              - pmp53cfg
+              - pmp54cfg
+              - pmp55cfg
+pmpcfg14:
+        rv32:
+            accessible: true
+            pmp56cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp57cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp58cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp59cfg:
+                implemented: true
+                type:
+                   ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp56cfg
+              - pmp57cfg
+              - pmp58cfg
+              - pmp59cfg
+pmpcfg15:
+        rv32:
+            accessible: true
+            pmp60cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 7
+                lsb: 0
+            pmp61cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 15
+                lsb: 8
+            pmp62cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 23
+                lsb: 16
+            pmp63cfg:
+                implemented: true
+                type:
+                    ro_constant :  0
+                description: pmp configuration bits
+                shadow:
+                shadow_type: rw
+                msb: 31
+                lsb: 24
+            fields:
+              - pmp60cfg
+              - pmp61cfg
+              - pmp62cfg
+              - pmp63cfg
+
+#Adjust PMPADDR NUMBER FROM 15  TO 64
+pmpaddr16:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr17:
+        rv32:
+            accessible: true
+            type:
+                    ro_constant: 0
+pmpaddr18:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+
+pmpaddr19:
+        rv32:
+            accessible: true
+            type:
+               ro_constant: 0
+
+pmpaddr20:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+
+pmpaddr21:
+        rv32:
+            accessible: true
+            type:
+
+                ro_constant: 0
+
+pmpaddr22:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr23:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr24:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr25:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr26:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+
+pmpaddr27:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr28:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr29:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr30:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+
+
+pmpaddr31:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr32:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr33:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr34:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr35:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+        rv64:
+            accessible: false
+        reset-val: 0
+        description: Physical memory protection address register
+        address: 0x3D3
+        priv_mode: M
+pmpaddr36:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr37:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr38:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr39:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr40:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr41:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr42:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr43:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr44:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr45:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr46:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr47:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr48:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr49:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+
+pmpaddr50:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr51:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr52:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr53:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr54:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr55:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr56:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr57:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr58:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr59:
+        rv32:
+            accessible: true
+            type:
+               ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr60:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr61:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr62:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+pmpaddr63:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0
+            fields: []
+            shadow:
+            shadow_type: rw
+            msb: 31
+            lsb: 0
+ # Exclude mode
+exclude :
+   key : priv_mode
+   cond : S
+exclude :
+    key : priv_mode
+    cond : U
+
+

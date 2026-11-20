@@ -42,7 +42,7 @@ static int addr_aligned(struct bounce_buffer *state)
 	/* Check if start is aligned */
 	if ((unsigned long)state->user_buffer & align_mask) {
 		print_uart("Unaligned buffer address ");
-		print_uart_int(state->user_buffer);
+		print_uart_addr((uintptr_t)state->user_buffer);
 		print_uart("align mask");
 		print_uart_int(align_mask);
 		print_uart("(unsigned long)state->user_buffer & align_mask");

@@ -11,23 +11,32 @@
 Performance model of the cva6
 """
 
-import sys
+import argparse
 import re
 
 from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict
 
-#from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 
 from isa import Instr, Reg
 
-EventKind = Enum('EventKind', [
-    'WAW', 'WAR', 'RAW',
-    'BMISS', 'BHIT',
-    'STRUCT',
-    'issue', 'done', 'commit',
-])
+EventKind = Enum(
+    "EventKind",
+    [
+        "WAW",
+        "WAR",
+        "RAW",
+        "BMISS",
+        "BHIT",
+        "STRUCT",
+        "issue",
+        "done",
+        "commit",
+    ],
+)
+
 
 def to_signed(value, xlen=32):
     signed = value
@@ -35,14 +44,17 @@ def to_signed(value, xlen=32):
         signed -= 1 << xlen
     return signed
 
+
 class Event:
     """Represents an event on an instruction"""
+
     def __init__(self, kind, cycle):
         self.kind = kind
         self.cycle = cycle
 
     def __repr__(self):
         return f"@{self.cycle}: {self.kind}"
+
 
 class Instruction(Instr):
     """Represents a RISC-V instruction with annotations"""
@@ -69,24 +81,32 @@ class Instruction(Instr):
         "Does CVA6 consider this instruction as a ret?"
         f = self.fields()
         # Strange conditions, no imm check, no rd-discard check
-        return self.is_regjump() \
-                and f.rs1 in Instruction._ret_regs \
-                and (self.is_compressed() or f.rs1 != f.rd)
+        return (
+            self.is_regjump()
+            and f.rs1 in Instruction._ret_regs
+            and (self.is_compressed() or f.rs1 != f.rd)
+        )
 
     def is_call(self):
         "Does CVA6 consider this instruction as a ret?"
         base = self.base()
         f = self.fields()
-        return base == 'C.JAL' \
-            or base == 'C.J[AL]R/C.MV/C.ADD' and f.name == 'C.JALR' \
-            or base in ['JAL', 'JALR'] and f.rd in Instruction._ret_regs
+        return (
+            base == "C.JAL"
+            or base == "C.J[AL]R/C.MV/C.ADD"
+            and f.name == "C.JALR"
+            or base in ["JAL", "JALR"]
+            and f.rd in Instruction._ret_regs
+        )
 
     def __repr__(self):
         return self.mnemo
 
+
 @dataclass
 class Entry:
     """A scoreboard entry"""
+
     instr: Instruction
     cycles_since_issue = 0
     done: bool = False
@@ -96,14 +116,18 @@ class Entry:
         addr = f"0x{self.instr.address:08X}"
         return f"{status} {addr}:`{self.instr}` for {self.cycles_since_issue}"
 
+
 @dataclass
 class LastIssue:
     """To store the last issued instruction"""
+
     instr: Instruction
     issue_cycle: int
 
+
 class IqLen:
     """Model of the instruction queue with only a size counter"""
+
     def __init__(self, fetch_size, debug=False):
         self.fetch_size = 4
         while self.fetch_size < fetch_size:
@@ -137,7 +161,7 @@ class IqLen:
         """Does the instruction queue have this instruction?"""
         length = self.len
         if self._is_crossword(instr):
-            length -= (self.fetch_size - 2)
+            length -= self.fetch_size - 2
         self._debug(f"comparing {length} to {instr.size()} ({instr})")
         return length >= instr.size()
 
@@ -168,8 +192,10 @@ class IqLen:
         if self.debug:
             print(f"iq: {message}")
 
+
 class Ras:
     "Return Address Stack"
+
     def __init__(self, depth=2, debug=False):
         self.depth = depth - 1
         self.stack = []
@@ -217,12 +243,14 @@ class Ras:
         if self.debug:
             print(f"RAS: {message}")
 
+
 class Bht:
     "Branch History Table"
 
     @dataclass
     class Entry:
         "A BTB entry"
+
         valid: bool = False
         sat_counter: int = 0
 
@@ -251,13 +279,15 @@ class Bht:
     def _index(self, addr):
         return (addr >> 1) % len(self.contents)
 
-Fu = Enum('Fu', ['ALU', 'MUL', 'BRANCH', 'LDU', 'STU'])
+
+Fu = Enum("Fu", ["ALU", "MUL", "BRANCH", "LDU", "STU"])
 
 # We have
 # - FLU gathering ALU + BRANCH (+ CSR, not significant in CoreMark)
 # - LSU for loads and stores
 # - FP gathering MUL + second ALU (+ Floating, unused in CoreMark)
 # This way we do not have more write-back ports than currently with F
+
 
 def to_fu(instr):
     if instr.is_branch() or instr.is_jump() or instr.is_regjump():
@@ -270,9 +300,11 @@ def to_fu(instr):
         return Fu.STU
     return Fu.ALU
 
+
 class FusBusy:
     "Is each functional unit busy"
-    def __init__(self, has_alu2 = False):
+
+    def __init__(self, has_alu2=False):
         self.has_alu2 = has_alu2
 
         self.alu = False
@@ -343,6 +375,7 @@ class FusBusy:
         self.alu2 = False
         self.issued_mul = False
 
+
 class Model:
     """Models the scheduling of CVA6"""
 
@@ -351,16 +384,19 @@ class Model:
     )
 
     def __init__(
-            self,
-            debug=False,
-            issue=1,
-            commit=2,
-            sb_len=8,
-            fetch_size=None,
-            has_forwarding=True,
-            has_renaming=True):
-        self.ras = Ras(debug=debug)
-        self.bht = Bht()
+        self,
+        debug=False,
+        issue=1,
+        commit=2,
+        sb_len=8,
+        fetch_size=None,
+        has_forwarding=True,
+        has_renaming=True,
+        ras_depth=2,
+        bht_entries=128,
+    ):
+        self.ras = Ras(depth=ras_depth, debug=debug)
+        self.bht = Bht(entries=bht_entries)
         self.instr_queue = []
         self.scoreboard = []
         self.fus = FusBusy(issue > 1)
@@ -395,7 +431,7 @@ class Model:
         """Predict destination address of indirect jump"""
         if instr.is_ret():
             return self.ras.read() or 0
-        return 0 # always miss, as there is no btb yet
+        return 0  # always miss, as there is no btb yet
 
     def predict_pc(self, last):
         """Predict next program counter depending on last issued instruction"""
@@ -459,7 +495,7 @@ class Model:
         if len(self.instr_queue) == 0 or len(self.scoreboard) >= self.sb_len:
             return
         can_issue = True
-        instr = self.instr_queue[0]
+        instr = self.instr_queue[-1]
         if self.find_data_hazards(instr, cycle):
             can_issue = False
         if self.find_structural_hazard(instr, cycle):
@@ -469,7 +505,7 @@ class Model:
             can_issue = False
         if can_issue:
             self.iqlen.remove(instr)
-            instr = self.instr_queue.pop(0)
+            instr = self.instr_queue.pop()
             self.log_event_on(instr, EventKind.issue, cycle)
             entry = Entry(instr)
             self.scoreboard.append(entry)
@@ -529,6 +565,7 @@ class Model:
                     mnemo = found.group(5)
                     instr = Instruction(line, address, hex_code, mnemo)
                     self.instr_queue.append(instr)
+        self.instr_queue.reverse()
 
     def run(self, cycles=None):
         """Run until completion"""
@@ -547,6 +584,7 @@ class Model:
                 break
         return cycle
 
+
 def write_trace(output_file, instructions):
     """Write cycle-annotated trace"""
     pattern = re.compile(r"\)\s*(@\s*[0-9]+)? ")
@@ -557,20 +595,22 @@ def write_trace(output_file, instructions):
         assert commit_event.kind == EventKind.commit
         cycle = commit_event.cycle
         annotated = re.sub(pattern, f") @ {cycle} ", instr.line)
-        #if EventKind.STRUCT in [e.kind for e in instr.events]:
+        # if EventKind.STRUCT in [e.kind for e in instr.events]:
         #    annotated += " #STRUCT"
-        #if EventKind.RAW in [e.kind for e in instr.events]:
+        # if EventKind.RAW in [e.kind for e in instr.events]:
         #    annotated += " #RAW"
         lines.append(f"{annotated}\n")
 
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.writelines(lines)
 
-def print_data(name, value, ts=24, sep='='):
+
+def print_data(name, value, ts=24, sep="="):
     "Prints 'name = data' with alignment of the '='"
 
-    spaces = ' ' * (ts - len(name))
+    spaces = " " * (ts - len(name))
     print(f"{name}{spaces} {sep} {value}")
+
 
 def display_scores(scores):
     """Display a 3D graph of scores against commit/issue-wide"""
@@ -584,26 +624,69 @@ def display_scores(scores):
         x.append(bx)
         y.append(by)
         z.append(0)
-        dx.append(.5)
-        dy.append(.5)
+        dx.append(0.5)
+        dy.append(0.5)
         dz.append(bz)
 
-    #fig = plt.figure()
-    #ax1 = fig.add_subplot(111, projection='3d')
-    #ax1.bar3d(x, y, z, dx, dy, dz)
-    #ax1.set_xlabel("issue")
-    #ax1.set_ylabel("commit")
-    #ax1.set_zlabel("CoreMark/MHz")
-    #plt.show()
+    # fig = plt.figure()
+    # ax1 = fig.add_subplot(111, projection='3d')
+    # ax1.bar3d(x, y, z, dx, dy, dz)
+    # ax1.set_xlabel("issue")
+    # ax1.set_ylabel("commit")
+    # ax1.set_zlabel("CoreMark/MHz")
+    # plt.show()
 
-def issue_commit_graph(input_file, n = 3):
+
+def issue_commit_graph(input_file, n=3):
     """Plot the issue/commit graph"""
 
     r = range(n + 1)
     scores = [[0 for _ in r] for _ in r]
 
     if input_file is None:
-        scores = [[0, 0, 0, 0, 0, 0], [0, 2.651936045910317, 2.651936045910317, 2.651936045910317, 2.651936045910317, 2.651936045910317], [0, 3.212779150348426, 3.6292766488711137, 3.6292766488711137, 3.6292766488711137, 3.6292766488711137], [0, 3.2550388000624966, 3.900216852056974, 3.914997572701505, 3.914997572701505, 3.914997572701505], [0, 3.2596436557555526, 3.9257869239889134, 3.9420984578510834, 3.9421606193922765, 3.9421606193922765], [0, 3.260695897718491, 3.944757614368385, 3.9623576027736505, 3.9625460150656, 3.9625460150656]] # pylint: disable=line-too-long
+        scores = [
+            [0, 0, 0, 0, 0, 0],
+            [
+                0,
+                2.651936045910317,
+                2.651936045910317,
+                2.651936045910317,
+                2.651936045910317,
+                2.651936045910317,
+            ],
+            [
+                0,
+                3.212779150348426,
+                3.6292766488711137,
+                3.6292766488711137,
+                3.6292766488711137,
+                3.6292766488711137,
+            ],
+            [
+                0,
+                3.2550388000624966,
+                3.900216852056974,
+                3.914997572701505,
+                3.914997572701505,
+                3.914997572701505,
+            ],
+            [
+                0,
+                3.2596436557555526,
+                3.9257869239889134,
+                3.9420984578510834,
+                3.9421606193922765,
+                3.9421606193922765,
+            ],
+            [
+                0,
+                3.260695897718491,
+                3.944757614368385,
+                3.9623576027736505,
+                3.9625460150656,
+                3.9625460150656,
+            ],
+        ]  # pylint: disable=line-too-long
     else:
         r = range(1, n + 1)
         for issue in r:
@@ -618,6 +701,7 @@ def issue_commit_graph(input_file, n = 3):
         print(scores)
     display_scores(scores)
 
+
 def filter_timed_part(all_instructions):
     "Keep only timed part from a trace"
     filtered = []
@@ -631,10 +715,12 @@ def filter_timed_part(all_instructions):
             filtered.append(instr)
     return filtered
 
+
 def count_cycles(retired):
     start = min(e.cycle for e in retired[0].events)
     end = max(e.cycle for e in retired[-1].events)
     return end - start
+
 
 def print_stats(instructions):
     ecount = defaultdict(lambda: 0)
@@ -652,17 +738,67 @@ def print_stats(instructions):
     for ek, count in ecount.items():
         print_data(f"{ek}/instr", f"{100 * count / n_instr:.2f}%")
 
-def main(input_file: str):
-    "Entry point"
 
-    model = Model(debug=True, issue=2, commit=2)
-    model.load_file(input_file)
+def parse_args(argv=None):
+    "Command line options, each one a parameter of Model"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("trace", help="RVFI trace (spike_dasm.log of cook.py)")
+    parser.add_argument("--issue", type=int, default=2, help="issue width")
+    parser.add_argument("--commit", type=int, default=2, help="commit width")
+    parser.add_argument("--sb-len", type=int, default=8, help="scoreboard entries")
+    parser.add_argument(
+        "--fetch-size",
+        type=int,
+        default=None,
+        help="instruction queue fetch size in bytes (default: 4 * issue)",
+    )
+    parser.add_argument("--ras-depth", type=int, default=2, help="RAS depth")
+    parser.add_argument("--bht-entries", type=int, default=128, help="BHT entries")
+    parser.add_argument(
+        "--no-forwarding", action="store_true", help="disable operand forwarding"
+    )
+    parser.add_argument(
+        "--no-renaming", action="store_true", help="disable register renaming"
+    )
+    parser.add_argument(
+        "--timed",
+        action="store_true",
+        help="statistics on the part between the two csrr minstret only",
+    )
+    parser.add_argument(
+        "--output",
+        default="annotated.log",
+        help="annotated trace (default: annotated.log)",
+    )
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="do not print the events"
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    "Entry point"
+    args = parse_args(argv)
+
+    model = Model(
+        debug=not args.quiet,
+        issue=args.issue,
+        commit=args.commit,
+        sb_len=args.sb_len,
+        fetch_size=args.fetch_size,
+        has_forwarding=not args.no_forwarding,
+        has_renaming=not args.no_renaming,
+        ras_depth=args.ras_depth,
+        bht_entries=args.bht_entries,
+    )
+    model.load_file(args.trace)
     model.run()
 
-    write_trace('annotated.log', model.retired)
+    write_trace(args.output, model.retired)
 
-    #print_stats(filter_timed_part(model.retired))
-    print_stats(model.retired)
+    retired = filter_timed_part(model.retired) if args.timed else model.retired
+    print_stats(retired)
+
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main()

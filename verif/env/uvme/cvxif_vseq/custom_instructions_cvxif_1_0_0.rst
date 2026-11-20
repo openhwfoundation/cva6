@@ -90,13 +90,13 @@ Except for 4 of them using opcode `MADD, MSUB, NMADD, NMSUB`
 
     **Pseudocode**: x[rd] = ¬(x[rs1] - x[rs2] - x[rs3])
 
-- **CUS_ADD_RS3_RTYPE**: Custom Add with RS3, rd is x10 (a0)
+- **CUS_ADD_RS3_RTYPE**: Custom Add with RS3, rd is rs3
 
-    **Format**: addi a0, rs1, rs2, rs3 -> |0000100|rs2|rs1|001|rs3|100_0011|
+    **Format**: addi rdrs3, rs1, rs2 -> |0000100|rs2|rs1|001|rs3|100_0011|
 
-    **Description**: add register rs1, rs2 to rs3, and store the result in x10 (a0).
+    **Description**: add register rs1, rs2 to rs3, and store the result in rd == rs3.
 
-    **Pseudocode**: x[10] = x[rs1] + x[rs2] + x[rs3]
+    **Pseudocode**: x[rs3] = x[rs1] + x[rs2] + x[rs3]
 
 - **CUS_CNOP** : Custom Compressed NOP
 
@@ -108,8 +108,8 @@ Except for 4 of them using opcode `MADD, MSUB, NMADD, NMSUB`
 
 - **CUS_CADD** : Custom Compressed ADD
 
-    **Format**: cus_cnop -> |111|1|rs1|rs2|00|
+    **Format**: cus_cadd -> |111|1|rs1|rs2|00|
 
-    **Description**: Extends to CUS_ADD rs1, rs2 -> x10 : Add rs1 + rs2 into x10 (a0).
+    **Description**: Extends to CUS_ADD rdrs1, rs2 -> : Add rs1 + rs2 into rd == rs1.
 
     **Pseudocode**: cus_cadd

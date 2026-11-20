@@ -98,7 +98,9 @@ task uvma_interrupt_drv_c::run_phase(uvm_phase phase);
    //Initial the interface before the CPU start
    cntxt.interrupt_vif.irq <= 'h0;
 
-   if(!cfg.enable_interrupt) begin
+   // Deterministic mode drives the lines too, and does not need the random
+   // stimulus to be enabled: a test asks for interrupts through its hooks.
+   if(!cfg.enable_interrupt && !cfg.irq_deterministic) begin
       `uvm_info(get_type_name(), "Driving Interrupt request is disabled", UVM_NONE);
       return;
    end
@@ -108,7 +110,7 @@ task uvma_interrupt_drv_c::run_phase(uvm_phase phase);
          UVMA_INTERRUPT_RESET_STATE_PRE_RESET : drv_irq_pre_reset ();
          UVMA_INTERRUPT_RESET_STATE_IN_RESET  : drv_irq_in_reset  ();
          UVMA_INTERRUPT_RESET_STATE_POST_RESET: begin
-              if (cfg.enable_interrupt) begin
+              if (cfg.enable_interrupt || cfg.irq_deterministic) begin
                  seq_item_port.get_next_item(req_item);
                  drv_irq_post_reset(req_item);
                  seq_item_port.item_done();

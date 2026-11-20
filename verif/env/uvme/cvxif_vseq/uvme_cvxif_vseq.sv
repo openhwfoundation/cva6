@@ -304,9 +304,10 @@ task uvme_cvxif_vseq_c::do_compressed_resp();
         end
       "CUS_CADD" : begin
          resp_item.compressed_resp.accept  = 1;        
-         resp_item.compressed_resp.instr   = 32'b00000000000000000001010101111011;
+         resp_item.compressed_resp.instr   = 32'b00000000000000000001000001111011;
+         resp_item.compressed_resp.instr[11:7] = req_item.compressed_req.instr[11:7];
          resp_item.compressed_resp.instr[19:15] = req_item.compressed_req.instr[11:7];
-         resp_item.compressed_resp.instr[24:20] = req_item.compressed_req.instr[6:2];   
+         resp_item.compressed_resp.instr[24:20] = req_item.compressed_req.instr[6:2];
         end
         default : begin
              resp_item.compressed_resp.accept = 0;
@@ -409,11 +410,11 @@ task uvme_cvxif_vseq_c::do_instr_result();
       "CUS_ADD_RS3_RTYPE": begin
          if (req_item.register.rs_valid == 3'b111) begin
             resp_item.result.data = req_item.register.rs[0] + req_item.register.rs[1] + req_item.register.rs[2];
-            resp_item.result.rd   = 5'hA;
+            resp_item.result.rd   = req_item.issue_req.instr[11:7];
          end
          else if (req_item.register.rs_valid == 2'b11) begin
             resp_item.result.data = req_item.register.rs[0] + req_item.register.rs[1];
-            resp_item.result.rd   = 5'hA;
+            resp_item.result.rd   = req_item.issue_req.instr[11:7];
          end
       end
       "ILLEGAL": begin

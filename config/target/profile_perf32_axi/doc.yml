@@ -1,0 +1,50 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Header of the documentation generated for this target by
+# `./cook.py docs-build`. See flows/README.md.
+#
+# `authors` lists who is responsible for it, one entry per line of
+# the header: an organisation, the people it delegates to, or both.
+authors:
+  - "Looking for a maintainer"
+
+# Category of this target in the dashboard (config/README.md): official,
+# fpga, profile or cross
+category: profile
+
+# Role of this target among the reference points of the configuration
+# matrix (config/README.md)
+role: "The highest CoreMark on RV32: superscalar with ALU bypass, private-history branch predictor of 256 entries, AXI HPDcache with 16 KiB I-cache, F, no Zcb"
+
+# Point of the configuration matrix (config/README.md). Axes:
+matrix:
+  XLEN: "32"
+  C: "C"
+  SS: "SS+byp"
+  Zc: "none"
+  Cvxif: "noX"
+  Priv: "MU"
+  MMU: "nommu"
+  Mem: "HPD-WT"
+  FP: "F"
+  ISA: "B"
+  Cnt: "Pch"
+  Trig: "off"
+  Debug: "D"
+  BP: "PH"
+  Endian: "LE"
+  Dcls: "-"
+  Ecc: "-"
+  PMP: "pmp"
+  Tval: "tval"
+  LdBuf: "2-15"
+  LdPipe: "0"
+  StPipe: "0"
+  description: "cv32a6_imafc_pmp_hpdwt_mu_nox_dbg_phbp_tval_cnt_ldp0"

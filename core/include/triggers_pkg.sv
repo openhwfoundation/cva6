@@ -57,7 +57,7 @@ package triggers_pkg;
   } mcontrol6_32_tdata1_t;
 
   typedef struct packed {
-    logic [31:28] t_type;  // type 4 for etrigger
+    logic [31:28] t_type;  // type 4 for itrigger
     logic dmode;
     logic hit;
     logic [25:13] zeroed;
@@ -94,16 +94,17 @@ package triggers_pkg;
     icount32_tdata1_t icount_type;
   } trigger_32_tdata1_type;
 
+  // NAPOT range match: the base address ends with a run of ones that sets the
+  // range size. ~(base ^ (base + 1)) keeps only the bits above that run, which
+  // are the ones compared.
   function automatic logic napot_match32(logic [31:0] base, logic [31:0] value);
     logic [31:0] mask;
-
     mask = ~(base ^ (base + 1));
     return (value & mask) == (base & mask);
   endfunction
 
   function automatic logic napot_match64(logic [63:0] base, logic [63:0] value);
     logic [63:0] mask;
-
     mask = ~(base ^ (base + 1));
     return (value & mask) == (base & mask);
   endfunction
@@ -116,8 +117,8 @@ package triggers_pkg;
     match = 1'b1;
     if (sselect == 2'd1) begin
       max_bytes = (flag) ? 4 : 2;
-      for (int b = 0; b < max_bytes; b++) begin
-        if (!sbytemask[b]) begin
+      for (int b = 0; b < 4; b++) begin
+        if (b < max_bytes && !sbytemask[b]) begin
           if (scontext[8*b+:8] != svalue[8*b+:8]) match = 1'b0;
         end
       end
@@ -133,8 +134,8 @@ package triggers_pkg;
     match = 1'b1;
     if (sselect == 2'd1) begin
       max_bytes = (flag) ? 4 : 2;
-      for (int b = 0; b < max_bytes; b++) begin
-        if (!sbytemask[b]) begin
+      for (int b = 0; b < 4; b++) begin
+        if (b < max_bytes && !sbytemask[b]) begin
           if (scontext[8*b+:8] != svalue[8*b+:8]) match = 1'b0;
         end
       end

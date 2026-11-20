@@ -34,7 +34,7 @@ module csr_buffer
     input logic csr_valid_i,
     // CSR buffer result - ISSUE_STAGE
     output logic [CVA6Cfg.XLEN-1:0] csr_result_o,
-    // commit the pending CSR OP - TO_BE_COMPLETED
+    // commit the pending CSR OP - COMMIT_STAGE
     input logic csr_commit_i,
     // CSR address to write - COMMIT_STAGE
     output logic [11:0] csr_addr_o

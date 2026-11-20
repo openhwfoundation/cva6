@@ -1031,9 +1031,10 @@ module te_packet_emitter
                 /* requires non mandatory support for jtc and branch prediction
                 case(packet_f_opt_ext_subformat_i)
                 SF_PBC: begin // subformat 0
-                    // There can be two type of payloads for this subformat:
-                    // 1. no address, branch count
-                    // 2. address, branch count
+                /*  There can be two type of payloads for this subformat:
+                    1. no address, branch count
+                    2. address, branch count
+                * /    
                 
                     // only for F0SF0 payload w/address
                     // updating latest address sent in a packet

@@ -682,8 +682,7 @@ class InstadocBlock(InstructionBlockClass):
         InstrExtList = [reg.Extension_Name for reg in self.Instructionlist]
 
         r += "////\n"
-        r += "  Copyright (c) 2024 OpenHW Group\n"
-        r += "  Copyright (c) 2024 Thales\n"
+        r += "  Copyright (c) 2025 Thales DIS France SAS\n"
         r += "  SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1\n"
         r += "  Author: Abdessamii Oukalrazqou\n"
         r += "////\n\n"
@@ -696,7 +695,7 @@ class InstadocBlock(InstructionBlockClass):
         for i, _ in enumerate(InstrNameList):
             r += "|%s | %s | %s\n"%(str(InstrExtList[i]),
                     str(InstrNameList[i]),
-                    str(InstrDescrList[i]).replace('\n',''))
+                    str(InstrDescrList[i]).replace('\n',' '))
         r += "|===\n\n"
 
         for reg in self.Instructionlist:
@@ -704,7 +703,7 @@ class InstadocBlock(InstructionBlockClass):
             if len(reg.Name) > 0:
                 r += "==== %s\n\n"%reg.key
                 r += "|===\n"
-                r += "| Name | Format | Pseudocode|Invalid_values | Exception_raised | Description| Op Name\n\n"
+                r += "| Name | Format | Pseudocode|Invalid_values | Instruction_exception | Instruction_description | Op Name\n\n"
 
                 for fieldIndex in list(range(len(reg.Name))):
                     _line = [
@@ -718,7 +717,7 @@ class InstadocBlock(InstructionBlockClass):
                     _line.append(reg.OperationName[fieldIndex])
 
                     for col in _line:
-                        r +="| %s "%col.replace('\n','')
+                        r +="| %s "%col.replace('\n',' ')
                     r += "\n"
                 r += "|===\n\n"
         return r
@@ -1273,11 +1272,7 @@ class CsrParser:
                     if isinstance(RegElement.get("address", None), str)
                     else hex(RegElement.get("address", None))
                 )
-
-                if RegElement.get("reset-val", "") != "":
-                  reset = hex(RegElement.get("reset-val", ""))
-                else:
-                  print(regName, "reset val not defined")
+                reset = hex(RegElement.get("reset-val", ""))
 
                 access = RegElement.get("priv_mode", "")
                 if Registers.get(register, {}).get("description", "") is not None:

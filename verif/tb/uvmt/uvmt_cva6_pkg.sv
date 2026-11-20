@@ -30,6 +30,7 @@
 `include "uvmt_axi_switch_intf.sv"
 `include "uvmt_default_inputs_intf.sv"
 `include "uvma_axi_intf.sv"
+`include "uvma_obi_memory_if.sv"
 
 /**
  * Encapsulates all the types and test cases for the verification of an

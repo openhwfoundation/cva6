@@ -1,0 +1,47 @@
+# Copyright 2026 Thales France
+#
+# Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+# You may obtain a copy of the License at https://solderpad.org/licenses/
+#
+# Original Author: Yannick Casamatta (yannick.casamatta@thalesgroup.com)
+
+# Please refer to flows/README.md to add target
+
+
+# ===========================================================================================
+
+# THIS FILE NEED TO BE ADAPTED to fit your environment
+
+# This is a dummy configuration file. You can modify it locally, and by default it is 
+# used by cook.py. However, it is mode convenient to use your own configuration directory 
+# by setting the CONFIG_DIR environment variable.
+
+# see flows/utils/config_loader.py
+
+# ===========================================================================================
+
+dummy1:
+    NAND2_AREA: "100"
+    FOUNDRY_PATH: "/tmp/PDK/TECH1/STDCELLS/TECHNAME"
+    LIB_NAME: "libname"
+    TECH_NAME: "techname"
+    CORNER_SYNTH: "corner_synth"
+    SCENARIO_SYNTH_NAME: "wc_timing"
+    CORNER_POWER: "corner_power"
+    SCENARIO_POWER_NAME: "wc_power"
+    LIB_VERILOG: "/tmp/PDK/TECH1/verilog/beh.v"
+    FOUNDRY_RAM_PATH: ""
+
+dummy2:
+    NAND2_AREA: "100"
+    FOUNDRY_PATH: "/tmp/PDK/TECH2/STDCELLS/TECHNAME"
+    LIB_NAME: "libname"
+    TECH_NAME: "techname"
+    CORNER_SYNTH: "corner_synth"
+    SCENARIO_SYNTH_NAME: "wc_timing"
+    CORNER_POWER: "corner_power"
+    SCENARIO_POWER_NAME: "wc_power"
+    LIB_VERILOG: "/tmp/PDK/TECH2/verilog/beh.v"
+    FOUNDRY_RAM_PATH: ""

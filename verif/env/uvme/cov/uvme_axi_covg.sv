@@ -67,35 +67,24 @@ covergroup cg_axi_w_channel(string name)
 endgroup : cg_axi_w_channel
 
 covergroup cg_axi_b_channel(string name)
-   with function sample(uvma_axi_transaction_c item, bit RVA, bit hpdcache);
+   with function sample(uvma_axi_transaction_c item);
 
    option.per_instance = 1;
    option.name         = name;
 
-   bid:   coverpoint (item.m_id){
-      bins one   = {[1:3]} iff(!hpdcache);
-      illegal_bins ILLEGAL_BINS = {2} iff(!hpdcache);
-      ignore_bins  IGN_EXID = {3} iff(!RVA && !hpdcache);
-   }
    bresp: coverpoint (item.m_resp[0]){
       bins zero  = {0};
       bins one   = {1};
       bins two   = {2};
       bins three = {3};
    }
-
-   b_axi_cross: cross bid, bresp;
 endgroup : cg_axi_b_channel
 
 covergroup cg_axi_ar_channel(string name)
-   with function sample(uvma_axi_transaction_c item, bit RVA, bit hpdcache);
+   with function sample(uvma_axi_transaction_c item, bit RVA);
 
    option.per_instance = 1;
    option.name         = name;
-
-   arid: coverpoint (item.m_id) {
-      bins ID[] = {[0:1]} iff(!hpdcache);
-   }
 
    arlen: coverpoint (item.m_len) {
       bins LEN[] = {[0:1]};
@@ -114,13 +103,7 @@ covergroup cg_axi_ar_channel(string name)
       ignore_bins IGN_EXCLUSIVE = {1} iff(!RVA);
    }
 
-   ar_axi_cross: cross arready_to_valid, arid, arlen;
-
-   ar_size_axi_cross: cross arready_to_valid, arid, arsize {
-   illegal_bins ILLEGAL_BINS = binsof(arid) intersect{0} &&
-                              binsof(arsize) intersect{[0:2]};
-   ignore_bins IGN_CROSS     = binsof(arid) intersect{1} &&  binsof(arsize) intersect{3} iff(uvme_cva6_pkg::XLEN == 32);
-   }
+   ar_axi_cross: cross arready_to_valid, arlen;
 
    ar_lock_size_axi_cross: cross arready_to_valid, arlock, arsize{
    illegal_bins ILLEGAL_BINS = binsof(arlock) intersect{1} &&
@@ -131,16 +114,10 @@ covergroup cg_axi_ar_channel(string name)
 endgroup : cg_axi_ar_channel
 
 covergroup cg_axi_r_channel(string name)
-   with function sample(uvma_axi_transaction_c item, int index, bit RVA, bit hpdcache);
+   with function sample(uvma_axi_transaction_c item, int index);
 
    option.per_instance = 1;
    option.name         = name;
-
-   rid: coverpoint (item.m_id) {
-      bins ID[] = {[0:3]} iff(!hpdcache);
-      illegal_bins ILLEGAL_BINS = {2} iff(!hpdcache);
-      ignore_bins  IGN_EXID = {3} iff(!RVA && !hpdcache);
-   }
 
    rlast: coverpoint (item.m_last[index]);
 
@@ -151,9 +128,7 @@ covergroup cg_axi_r_channel(string name)
       bins three = {3};
    }
 
-   r_axi_cross: cross rid, rlast, rresp {
-   illegal_bins ILLEGAL_BINS = binsof(rid) intersect{3} && binsof(rlast) intersect{0};
-   }
+   r_axi_cross: cross rlast, rresp;
 endgroup : cg_axi_r_channel
 
 /**
@@ -165,7 +140,6 @@ class uvme_axi_covg_c extends uvm_component;
    uvme_cva6_cntxt_c         cntxt;
    uvme_cva6_cfg_c           cfg;
    bit RVA;
-   bit HPDCache;
 
    // TLM
    uvm_tlm_analysis_fifo #(uvma_axi_transaction_c)    uvme_axi_cov_aw_req_fifo;
@@ -230,7 +204,6 @@ function void uvme_axi_covg_c::build_phase(uvm_phase phase);
    end
 
    RVA = cfg.ext_a_supported;
-   HPDCache = cfg.HPDCache_supported;
 
    uvme_axi_cov_b_resp_fifo  = new("uvme_axi_cov_b_resp_fifo"   , this);
    uvme_axi_cov_r_resp_fifo  = new("uvme_axi_cov_r_resp_fifo"   , this);
@@ -270,18 +243,18 @@ task uvme_axi_covg_c::run_phase(uvm_phase phase);
 
      if(b_item != null) begin
          `uvm_info(get_type_name(), $sformatf("WRITE RESP ITEM DETECTED"), UVM_HIGH)
-         b_axi_cg.sample(b_item, RVA, HPDCache);
+         b_axi_cg.sample(b_item);
       end
 
       if(ar_item != null) begin
          `uvm_info(get_type_name(), $sformatf("READ ADDRESS ITEM DETECTED"), UVM_HIGH)
-         ar_axi_cg.sample(ar_item, RVA, HPDCache);
+         ar_axi_cg.sample(ar_item, RVA);
       end
 
       if(r_item != null) begin
          `uvm_info(get_type_name(), $sformatf("READ DATA ITEM DETECTED"), UVM_HIGH)
          for(int i = 0; i <= r_item.m_len; i++) begin
-            r_axi_cg.sample(r_item, i, RVA, HPDCache);
+            r_axi_cg.sample(r_item, i);
          end
       end
 

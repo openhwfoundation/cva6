@@ -29,7 +29,7 @@ module pmp
 );
   // if there are no PMPs we can always grant the access.
   if (CVA6Cfg.NrPMPEntries > 0) begin : gen_pmp
-    logic [(CVA6Cfg.NrPMPEntries > 0 ? CVA6Cfg.NrPMPEntries-1 : 0):0] match;
+    logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] match;
 
     for (genvar i = 0; i < CVA6Cfg.NrPMPEntries; i++) begin
       logic [CVA6Cfg.PLEN-3:0] conf_addr_prev;

@@ -11,29 +11,56 @@ To cite this model, please head to the end of this document.
 
 ### Generate an RVFI trace
 
-To generate an RVFI trace, follow the instructions in the CVA6 repository to run a simulation.
-The RVFI trace will be in `verif/sim/out_<date>/<simulator>/<test-name>.log`.
+Run a simulation with cook.py, for instance CoreMark on cv32a65x:
+
+```bash
+./cook.py vcs-uvm-comp -t cv32a65x
+./cook.py coremark -t cv32a65x -c gcc-15
+./cook.py vcs-uvm-run -t cv32a65x -n coremark --tb-performance-mode
+```
+
+The disassembled RVFI trace is `build/<target>/simulation/sim_rtl/<test-name>/spike_dasm.log`.
 
 
 ### Running the model
 
 ```bash
-python3 model.py verif/sim/out_<date>/<simulator>/<test-name>.log
+python3 perf-model/model.py build/<target>/simulation/sim_rtl/<test-name>/spike_dasm.log
 ```
 
-The annotated trace is generated in an `annotated.log` file in the current directory.
+The annotated trace is generated in an `annotated.log` file in the current directory (`--output` to change it).
 
 It prints a lot of debug information so that you can see all the events (note: it slows down model execution).
-To disable these prints, modify the instantiation with `Model(debug=False)` in the `main` function.
+`-q` disables these prints.
 
 At the end of the simulation, the model prints statistics with the `print_stats` call in the `main` function.
-These statistics can be performed on the timed part, which is filtered with the `filter_timed_part` function.
+With `--timed`, these statistics are computed on the timed part only, which is filtered with the `filter_timed_part` function: the instructions between the two `csrr minstret`.
 Feel free to modify the `filter_timed_part` function to suit your needs.
+
+**Note:** You can use [`pypy3` (PyPy)](https://pypy.org/) instead of `python3` (CPython) to improve the execution time of the model.
 
 
 ### Exploring design space
 
-In `model.py`, the `main` function runs the model with arguments which override default values.
+The parameters of the model are command line options (`python3 perf-model/model.py --help`):
+
+| Option            | Default     | Description                             |
+| :---              | :---        | :---                                    |
+| `--issue`         | 2           | Issue width                             |
+| `--commit`        | 2           | Commit width                            |
+| `--sb-len`        | 8           | Scoreboard entries                      |
+| `--fetch-size`    | 4 * issue   | Instruction queue fetch size, in bytes  |
+| `--ras-depth`     | 2           | Return address stack depth              |
+| `--bht-entries`   | 128         | Branch history table entries            |
+| `--no-forwarding` |             | Disable operand forwarding              |
+| `--no-renaming`   |             | Disable register renaming               |
+
+For instance, the timed part of CoreMark with one commit port:
+
+```bash
+python3 perf-model/model.py -q --timed --commit 1 build/cv32a65x/simulation/sim_rtl/coremark/spike_dasm.log
+```
+
 Generic parameters are available in `Model.__init__`.
 You can add new parameters to explore here.
 
@@ -44,19 +71,14 @@ The `display_scores` function is meant to print a 3D plot if you have `matplotli
 
 ## Comparing the model and the RTL
 
-### Adapt RVFI trace generation
+### Cycle number in the RVFI trace
 
-The regular expression expects the cycle number to be in the RVFI trace.
-The value is not used by the model but it is used to compare the model and CVA6.
+`cycle_diff.py` and `profile.py` need the cycle number of each instruction.
+The model does not use it; it is used to compare the model and CVA6.
 
-To emit cycle number in RVFI trace, modify `corev_apu/tb/rvfi_tracer.sv` in CVA6 repository as below.
-
-```diff
--        $fwrite(f, "core   0: 0x%h (0x%h) DASM(%h)\n",
--          pc64, rvfi_i[i].insn, rvfi_i[i].insn);
-+        $fwrite(f, "core   0: 0x%h (0x%h) @%d DASM(%h)\n",
-+          pc64, rvfi_i[i].insn, cycles, rvfi_i[i].insn);
-```
+`corev_apu/tb/rvfi_tracer.sv` writes it before each instruction
+(`<cycle> | core   0: ...`). The `core   0: ... @<cycle>` form written by
+`annotated.log` is read as well.
 
 
 ### Calculate instruction duration
@@ -66,7 +88,7 @@ Run `cycle_diff.py` for each script.
 ```bash
 python3 perf-model/cycle_diff.py annotated.log
 mv traceout.log model.log
-python3 perf-model/cycle_diff.py verif/sim/out_<date>/<simulator>/<test-name>.log
+python3 perf-model/cycle_diff.py build/<target>/simulation/sim_rtl/<test-name>/spike_dasm.log
 ```
 
 Note: the `cycles_diff.py` script filters the "timed" part of the program.
@@ -83,16 +105,18 @@ diff -y traceout.log model.log | less
 ## RVFI-based Flamegraph Profiler
 
 This tool generates execution profile visualizations and performance metrics from CVA6 RISC-V trace logs.
-The profiler processes RVFI traces with cycle number (cf Adapt RVFI trace generation) and produces two complementary flamegraph outputs: a standard cycle-attribution and an instruction-level breakdown variant.
+The profiler processes RVFI traces with cycle number (see Cycle number in the RVFI trace) and produces two complementary flamegraph outputs: a standard cycle-attribution and an instruction-level breakdown variant.
 
 ```bash
 python perf-model/profile.py dumpfile.dump traceout.log svg_name.svg
 ```
 
 **Parameters:**
-- `dumpfile.dump`: ELF binary dump file (generated via `riscv-none-elf-objdump -h test_name.o`)
+- `dumpfile.dump`: section headers of the ELF (`riscv-none-elf-objdump -h <test-name>.elf`). One function is one `.text.<name>` section, so the test must be compiled with `-ffunction-sections`, as CoreMark is.
 - `traceout.log`: RVFI execution trace file from CVA6 simulation
 - `svg_name.svg`: Output flamegraph basename (generates `svg_name.svg` and `svg_name_with_ins.svg`)
+
+It needs the `flameprof` Python package (`pip install flameprof`).
 
 **Outputs:**
 - `svg_name.svg`: Cycle-based flamegraph showing execution hotspots by cycle attribution

@@ -13,4 +13,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check Bender up-to-date
-        uses: pulp-platform/pulp-actions/bender-up-to-date@v2.4.4
+        uses: pulp-platform/pulp-actions/bender-up-to-date@v2

@@ -1,0 +1,14 @@
+diff --git a/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_1p2_assert.sv b/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_1p2_assert.sv
+index b0e3e5bb..1e11f31c 100644
+--- a/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_1p2_assert.sv
++++ b/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_1p2_assert.sv
+@@ -96,7 +96,8 @@ module uvma_obi_memory_1p2_assert
+   wire valid_a_phase;
+   wire valid_r_phase;
+ 
+-  aid_q_t aid_q[3:0];
++  // One entry per pointer value, so that the pointers wrap with the queue.
++  aid_q_t aid_q[31:0];
+   bit [4:0] aid_wptr;
+   bit [4:0] aid_rptr;
+ 

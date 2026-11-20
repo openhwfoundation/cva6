@@ -14,13 +14,13 @@ Architecture and Modules
 
 The {ohg-config} is fully synthesizable. It has been designed mainly for ASIC designs, but FPGA synthesis is supported as well.
 
-For ASIC synthesis, the whole design is completely synchronous and uses positive-edge triggered flip-flops. The core occupies an area of about 80 kGE. The clock frequency can be more than 1GHz depending of technology.
+For ASIC synthesis, the whole design is completely synchronous and uses positive-edge triggered flip-flops. The core occupies an area of about 80 kGE. The clock frequency can be more than 1 GHz depending of technology.
 
 The {ohg-config} subsystem is composed of 8 modules.
 
 image:subsystems.png[{ohg-config} modules]
 
-Connections between modules are illustrated in the following block diagram. FRONTEND, DECODE, ISSUE, EXECUTE, COMMIT and CONTROLLER are part of the pipeline. And CACHES implements the instruction and data caches and CSRFILE contains registers.
+Connections between modules are illustrated in the following block diagram. FRONTEND, DECODE, ISSUE, EXECUTE, COMMIT and CONTROLLER are part of the pipeline. The CSRFILE contains the registers.
 
 image:{ohg-config}_subsystems.png[{ohg-config} pipeline and modules]
 
@@ -31,4 +31,7 @@ include::cva6_execute.adoc[]
 include::cva6_commit_stage.adoc[]
 include::cva6_controller.adoc[]
 include::cva6_csr_regfile.adoc[]
+
+ifeval::["{MemSubsystem}" != "config_pkg::MEM_OBI"]
 include::cva6_caches.adoc[]
+endif::[]

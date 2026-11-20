@@ -12,10 +12,30 @@
 
 #undef strcmp
 
+// Called in the measured loop of Dhrystone: first in the file, so their
+// address does not move with the size of the code below.
+int strcmp(const char* s1, const char* s2)
+{
+  unsigned char c1, c2;
+
+  do {
+    c1 = *s1++;
+    c2 = *s2++;
+  } while (c1 != 0 && c1 == c2);
+
+  return c1 - c2;
+}
+
+char* strcpy(char* dest, const char* src)
+{
+  char* d = dest;
+  while ((*d++ = *src++))
+    ;
+  return dest;
+}
+
 extern volatile uint64_t tohost;
 extern volatile uint64_t fromhost;
-
-register void *thread_pointer asm("tp");
 
 // tohost is 64 bits wide, irrespective of XLEN.  The structure expected in Spike is:
 // - tohost[63:56] == device (syscall: 0)
@@ -136,6 +156,10 @@ int __attribute__((weak)) main(int argc, char** argv)
 
 static void init_tls()
 {
+  // Clang ignores a local register variable outside of an asm operand, and a
+  // global one reserves tp in the whole file: tp is read once instead.
+  void* thread_pointer;
+  asm volatile("mv %0, tp" : "=r"(thread_pointer));
   extern char _tdata_begin, _tdata_end, _tbss_end;
   size_t tdata_size = &_tdata_end - &_tdata_begin;
   memcpy(thread_pointer, &_tdata_begin, tdata_size);
@@ -478,26 +502,6 @@ size_t strnlen(const char *s, size_t n)
   while (n-- && *p)
     p++;
   return p - s;
-}
-
-int strcmp(const char* s1, const char* s2)
-{
-  unsigned char c1, c2;
-
-  do {
-    c1 = *s1++;
-    c2 = *s2++;
-  } while (c1 != 0 && c1 == c2);
-
-  return c1 - c2;
-}
-
-char* strcpy(char* dest, const char* src)
-{
-  char* d = dest;
-  while ((*d++ = *src++))
-    ;
-  return dest;
 }
 
 long atol(const char* str)

@@ -1,0 +1,33 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_rv64_pmp_tval.yaml
+#
+#   PMP tests that only build for RV64 and check mtval, for the cv64 targets
+#   with PMP entries and TvalEn. They check that the LSU hands PMP the
+#   metadata of the access that the response answers, without translation,
+#   and that an AMO to a write-protected region raises a store access fault.
+#   The same metadata check through the MMU is in base_rv64_pmp_mmu.
+# ------------------------------------------------------------------------------
+
+custom_test_config: &custom_test_config
+  path_var: TESTS_PATH
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common -lgcc"
+  llvm_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles <path_var>/custom/common/syscalls.c <path_var>/custom/common/crt.S -I<path_var>/custom/env -I<path_var>/custom/common"
+
+testlist:
+
+  - test: pmp-lsu-transaction-no-mmu
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_no_mmu_test.S
+
+  - test: pmp-amo-access-fault
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/pmp/amo_access_fault_test.S

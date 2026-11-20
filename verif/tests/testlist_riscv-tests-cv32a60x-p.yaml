@@ -255,7 +255,7 @@ testlist:
     asm_tests: <path_var>/riscv-tests/isa/rv32mi/illegal.S
 
   - test: rv32mi-p-ma_addr
-    iterations: 0 # cv32a60x has TvalEn=0; spike needs tval_en=1 for misaligned addr test
+    iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32mi/ma_addr.S
 
@@ -280,27 +280,27 @@ testlist:
     asm_tests: <path_var>/riscv-tests/isa/rv32mi/shamt.S
 
   - test: rv32si-p-csr
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0 (M-only)
+    iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32si/csr.S
 
   - test: rv32si-p-ma_fetch
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0 (M-only)
+    iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32si/ma_fetch.S
 
   - test: rv32si-p-scall
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0 (M-only)
+    iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32si/scall.S
 
   - test: rv32si-p-wfi
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0 (M-only)
+    iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32si/wfi.S
 
   - test: rv32si-p-sbreak
-    iterations: 0 # needs supervisor mode; cv32a60x has RVS=0 (M-only)
+    iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32si/sbreak.S
 

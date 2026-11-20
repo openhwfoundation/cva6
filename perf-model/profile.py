@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from dataclasses import dataclass
 import subprocess
 import sys
@@ -10,7 +11,12 @@ import isa
 re_instr = re.compile(
     r"([a-z]+)\s+0:\s*0x00000000([0-9a-f]+)\s*\(([0-9a-fx]+)\)\s*@\s*([0-9]+)\s*(.*)"
 )
+# Cycle written before the instruction, as by corev_apu/tb/rvfi_tracer.sv
+re_prefix = re.compile(
+    r"^\s*([0-9]+)\s*\|\s*([a-z]+)\s+0:\s*0x00000000([0-9a-f]+)\s*\(([0-9a-fx]+)\)\s*(.*)"
+)
 re_mem = re.compile(r"mem\s*0x([0-9a-f]+)")
+
 
 @dataclass
 class AsmFunc:
@@ -38,14 +44,15 @@ class AsmFunc:
 
     def _from_line(line):
         return AsmFunc(
-                index = int(line[0]),
-                name = line[1][6:],
-                size = int(line[2], 16),
-                vma = int(line[3], 16),
-                lma = int(line[4], 16),
-                file_off = int(line[5], 16),
-                align = int(line[6][3:], 16),
+            index=int(line[0]),
+            name=line[1][6:],
+            size=int(line[2], 16),
+            vma=int(line[3], 16),
+            lma=int(line[4], 16),
+            file_off=int(line[5], 16),
+            align=int(line[6][3:], 16),
         )
+
 
 @dataclass
 class RvfiInstr:
@@ -57,8 +64,26 @@ class RvfiInstr:
         self.name = name
         self.mem_address = None
         if self.op.is_load() or self.op.is_store():
-            assert(next_line is not None)
+            assert next_line is not None
             self.mem_address = int(re_mem.search(next_line).group(1), 16)
+
+    def is_call(self):
+        base = self.op.base()
+        f = self.op.fields()
+        return (
+            base == "C.JAL"
+            or base == "C.J[AL]R/C.MV/C.ADD"
+            and f.name == "C.JALR"
+            or base in ["JAL", "JALR"]
+            and f.rd == isa.Reg.ra
+        )
+
+    def is_ret(self):
+        base = self.op.base()
+        f = self.op.fields()
+        return (
+            base == "C.J[AL]R/C.MV/C.ADD" and f.name == "C.JR" or base == "JALR"
+        ) and f.rs1 == isa.Reg.ra
 
     def load_trace(path):
         with open(path, "r", encoding="utf8") as f:
@@ -71,47 +96,71 @@ class RvfiInstr:
             line = l.strip()
             found = re_instr.search(line)
             if found:
-                instr = RvfiInstr(
-                    address = int(found.group(2), 16),
-                    cycle = int(found.group(4)),
-                    op = int(found.group(3), 16),
-                    line = line,
-                    name = found.group(5).split(" ")[0],
-                    next_line = lines[i+1] if i + 1 < len(lines) else None,
+                address, op, cycle, mnemo = (
+                    found.group(2),
+                    found.group(3),
+                    found.group(4),
+                    found.group(5),
                 )
-                instrs.append(instr)
+            else:
+                found = re_prefix.search(line)
+                if not found:
+                    continue
+                address, op, cycle, mnemo = (
+                    found.group(3),
+                    found.group(4),
+                    found.group(1),
+                    found.group(5),
+                )
+            instr = RvfiInstr(
+                address=int(address, 16),
+                cycle=int(cycle),
+                op=int(op, 16),
+                line=line,
+                name=mnemo.split(" ")[0],
+                next_line=lines[i + 1] if i + 1 < len(lines) else None,
+            )
+            instrs.append(instr)
         return instrs
+
 
 class CallStack:
     def __init__(self, functions):
         self.stack = []
-        self.fns = { f.start_addr(): f for f in functions }
+        self.fns = sorted(functions, key=lambda fn: fn.start_addr())
+        self.last_instr = None
 
-    def run(self, instr):
-        addr = instr.address
+    def run(self, new_instr):
+        to_return = None
 
-        f = self.fns.get(addr)
-        if f:
-            e = RawEvent(stack=self.stack_names(), cycle=instr.cycle)
-            self.stack.append(f)
-            return e
+        if self.last_instr is not None:
+            instr = self.last_instr
 
-        if len(self.stack) > 0:
-            curr = self.stack[-1]
-            if not curr.contains(addr) and any(f.contains(addr) for f in self.fns.values()):
-                e = RawEvent(stack=self.stack_names(), cycle=instr.cycle)
+            if instr.is_call():
+                to_return = RawEvent(stack=self.stack_names(), cycle=new_instr.cycle)
+                self.stack.append(self.find_fn(new_instr))
+            elif instr.is_ret():
+                to_return = RawEvent(stack=self.stack_names(), cycle=new_instr.cycle)
                 self.stack.pop()
-                return e
+        else:
+            self.stack.append(self.find_fn(new_instr))
 
-        return None
+        self.last_instr = new_instr
+        return to_return
 
     def stack_names(self):
         return [f.name for f in self.stack]
+
+    def find_fn(self, instr):
+        i = bisect_right(self.fns, instr.address, key=lambda fn: fn.start_addr())
+        return self.fns[i - 1]
+
 
 @dataclass
 class RawEvent:
     stack: list
     cycle: int
+
 
 @dataclass
 class Event:
@@ -119,7 +168,8 @@ class Event:
     instr: RvfiInstr
     duration: int
     icount: int
-    executed_ins : dict
+    executed_ins: dict
+
 
 def run_all(fns, instrs):
     events = []
@@ -133,26 +183,30 @@ def run_all(fns, instrs):
         count, tot_duration = executed_ins.get(instr.name, (0, 0))
         count += 1
         tot_duration += instr.cycle - last_instr_cycle
-        executed_ins[instr.name] = count, tot_duration  
+        executed_ins[instr.name] = count, tot_duration
         last_instr_cycle = instr.cycle
 
         event = cs.run(instr)
         if event:
-            events.append(Event(
-                stack = event.stack,
-                instr = instr,
-                duration = event.cycle - last_event_cycle,
-                icount = i - last_event_i,
-                executed_ins = executed_ins,
-            ))
+            events.append(
+                Event(
+                    stack=event.stack,
+                    instr=instr,
+                    duration=event.cycle - last_event_cycle,
+                    icount=i - last_event_i,
+                    executed_ins=executed_ins,
+                )
+            )
             last_event_cycle = event.cycle
             last_event_i = i
             executed_ins = {}
 
     return events
 
+
 def fake_file(func):
     return ("", 1, func)
+
 
 class Stat:
     def __init__(self):
@@ -167,12 +221,13 @@ class Stat:
         return self.icount / self.tt if self.tt > 0 else 0.0
 
     def build(self):
-        callers = { fake_file(func): t for func, t in self.callers.items() }
+        callers = {fake_file(func): t for func, t in self.callers.items()}
         return (self.cc, self.nc, self.tt, self.ct, callers)
 
     def add_caller(self, caller, c_cc, c_nc, c_tt, c_ct):
-        (cc, nc, tt, ct) = self.callers[caller] if caller in self.callers else \
-                           (0, 0, 0, 0)
+        cc, nc, tt, ct = (
+            self.callers[caller] if caller in self.callers else (0, 0, 0, 0)
+        )
 
         cc += c_cc
         nc += c_nc
@@ -181,17 +236,17 @@ class Stat:
 
         self.callers[caller] = (cc, nc, tt, ct)
 
+
 def put_stat(d, name):
     if not name in d:
         d[name] = Stat()
+
 
 def build_stats(events, inst_analysis=False):
     stats = {}
     last_stack = []
 
     for event in events:
-        if len(event.stack) == 0:
-            continue
         stack = event.stack
         # Current function, in the which event.duration has been spent
         func = stack[-1]
@@ -247,13 +302,14 @@ def build_stats(events, inst_analysis=False):
 
     return stats
 
-    #{ func: (cc, nc, tt, ct, callers) }
+    # { func: (cc, nc, tt, ct, callers) }
     # func = file_name, line_number, func_name
     # cc = prim_calls = number of calls if not already in call stack (non-recurse calls)?
     # nc = number of calls
     # tt = tottime = time spent in this function alone (not callees)
     # ct = cumtime = time spent in the function plus all functions that this function called
     # callers/clist = { cfunc: t } = { name: (cc, nc, tt, ct) }
+
 
 def format_stack_change(old_stack, new_stack):
     if len(old_stack) > len(new_stack):
@@ -262,14 +318,17 @@ def format_stack_change(old_stack, new_stack):
         return f"CALL {new_stack[-1]} (in {old_stack})"
     return None
 
-def render(stats, svg_path, threshold=0):
-    stats = { fake_file(func): stat.build() for func, stat in stats.items() }
 
-    with open(svg_path, 'w') as f:
+def render(stats, svg_path, threshold=0):
+    stats = {fake_file(func): stat.build() for func, stat in stats.items()}
+
+    with open(svg_path, "w") as f:
         flameprof.render(stats, f, width=3000, threshold=threshold)
+
 
 def filter_events(events, func_name):
     return [e for e in events if func_name not in e.stack]
+
 
 if __name__ == "__main__":
     assert len(sys.argv) == 4
@@ -285,8 +344,11 @@ if __name__ == "__main__":
 
     i_event = 0
     for instr in instructions:
-        if i_event < len(events)-1 and events[i_event].instr is instr:
-            print(">>>", format_stack_change(events[i_event].stack, events[i_event+1].stack))
+        if i_event < len(events) - 1 and events[i_event].instr is instr:
+            print(
+                ">>>",
+                format_stack_change(events[i_event].stack, events[i_event + 1].stack),
+            )
             i_event += 1
         print(instr.line)
 

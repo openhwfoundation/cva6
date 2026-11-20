@@ -53,7 +53,7 @@ module cvxif_compressed_if_driver #(
       is_compressed_o = compressed_resp_i.accept ? 1'b0 : is_compressed_i;
       if (~stall_i) begin
         // Propagate stall from macro decoder or wait for compressed ready if compressed transaction is happening.
-        stall_o = (compressed_valid_o && ~compressed_ready_i);
+        stall_o = ~compressed_ready_i;
       end
     end
     if (flush_i) begin

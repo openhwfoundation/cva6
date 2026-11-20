@@ -34,7 +34,10 @@ cm_jalt_target:
 
     li s0, 1
 
-    # cm.jalt links to the instruction following the compressed jump.
+    # cm.jalt links to the instruction following the 16-bit jump: ra must be
+    # exactly after_cm_jalt, not pc+4.
+    la t1, after_cm_jalt
+    bne ra, t1, fail
     ret
 
 .balign 4
@@ -57,7 +60,7 @@ write_tohost:
 1:
     j 1b
 
-.section .riscv.jvt, "a", @progbits
+.section .riscv.jvt, "ax"
 .align 6
 __jvt_base$:
     # Entries 0 through 63 are unused by this test.

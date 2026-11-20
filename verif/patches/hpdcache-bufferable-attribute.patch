@@ -1,0 +1,412 @@
+diff --git a/rtl/include/hpdcache_typedef.svh b/rtl/include/hpdcache_typedef.svh
+index b133834..0cd0c54 100644
+--- a/rtl/include/hpdcache_typedef.svh
++++ b/rtl/include/hpdcache_typedef.svh
+@@ -22,6 +22,7 @@
+         hpdcache_pkg::hpdcache_mem_command_e  mem_req_command; \
+         hpdcache_pkg::hpdcache_mem_atomic_e   mem_req_atomic; \
+         logic                                 mem_req_cacheable; \
++        logic                                 mem_req_bufferable; \
+     }
+ 
+ `define HPDCACHE_DECL_MEM_RESP_R_T(__id_t, __data_t) \
+diff --git a/rtl/src/hpdcache.sv b/rtl/src/hpdcache.sv
+index 8aaf453..5b634f1 100644
+--- a/rtl/src/hpdcache.sv
++++ b/rtl/src/hpdcache.sv
+@@ -224,6 +224,7 @@ import hpdcache_pkg::*;
+     logic                  miss_mshr_alloc_is_prefetch;
+     logic                  miss_mshr_alloc_wback;
+     logic                  miss_mshr_alloc_dirty;
++    logic                  miss_mshr_alloc_bufferable;
+ 
+     logic                  wbuf_flush_all;
+     logic                  wbuf_write;
+@@ -232,6 +233,7 @@ import hpdcache_pkg::*;
+     wbuf_data_t            wbuf_write_data;
+     wbuf_be_t              wbuf_write_be;
+     logic                  wbuf_write_uncacheable;
++    logic                  wbuf_write_bufferable;
+     logic                  wbuf_read_hit;
+     logic                  wbuf_read_flush_hit;
+     hpdcache_req_addr_t    wbuf_rtab_addr;
+@@ -249,6 +251,7 @@ import hpdcache_pkg::*;
+     hpdcache_req_data_t    uc_req_data;
+     hpdcache_req_be_t      uc_req_be;
+     logic                  uc_req_uncacheable;
++    logic                  uc_req_bufferable;
+     hpdcache_req_sid_t     uc_req_sid;
+     hpdcache_req_tid_t     uc_req_tid;
+     logic                  uc_req_need_rsp;
+@@ -503,6 +506,7 @@ import hpdcache_pkg::*;
+         .st2_mshr_alloc_is_prefetch_o       (miss_mshr_alloc_is_prefetch),
+         .st2_mshr_alloc_wback_o             (miss_mshr_alloc_wback),
+         .st2_mshr_alloc_dirty_o             (miss_mshr_alloc_dirty),
++        .st2_mshr_alloc_bufferable_o        (miss_mshr_alloc_bufferable),
+ 
+         .refill_req_valid_i                 (refill_req_valid),
+         .refill_req_ready_o                 (refill_req_ready),
+@@ -549,6 +553,7 @@ import hpdcache_pkg::*;
+         .wbuf_write_data_o                  (wbuf_write_data),
+         .wbuf_write_be_o                    (wbuf_write_be),
+         .wbuf_write_uncacheable_o           (wbuf_write_uncacheable),
++        .wbuf_write_bufferable_o            (wbuf_write_bufferable),
+         .wbuf_read_hit_i                    (wbuf_read_hit),
+         .wbuf_read_flush_hit_o              (wbuf_read_flush_hit),
+         .wbuf_rtab_addr_o                   (wbuf_rtab_addr),
+@@ -569,6 +574,7 @@ import hpdcache_pkg::*;
+         .uc_req_data_o                      (uc_req_data),
+         .uc_req_be_o                        (uc_req_be),
+         .uc_req_uc_o                        (uc_req_uncacheable),
++        .uc_req_bufferable_o                (uc_req_bufferable),
+         .uc_req_sid_o                       (uc_req_sid),
+         .uc_req_tid_o                       (uc_req_tid),
+         .uc_req_need_rsp_o                  (uc_req_need_rsp),
+@@ -683,6 +689,7 @@ import hpdcache_pkg::*;
+             .write_data_i                       (wbuf_write_data),
+             .write_be_i                         (wbuf_write_be),
+             .write_uc_i                         (wbuf_write_uncacheable),
++            .write_bufferable_i                 (wbuf_write_bufferable),
+ 
+             .read_addr_i                        (wbuf_write_addr),
+             .read_hit_o                         (wbuf_read_hit),
+@@ -778,6 +785,7 @@ import hpdcache_pkg::*;
+         .mshr_alloc_is_prefetch_i           (miss_mshr_alloc_is_prefetch),
+         .mshr_alloc_wback_i                 (miss_mshr_alloc_wback),
+         .mshr_alloc_dirty_i                 (miss_mshr_alloc_dirty),
++        .mshr_alloc_bufferable_i            (miss_mshr_alloc_bufferable),
+         .mshr_alloc_wdata_i                 (miss_mshr_alloc_wdata),
+         .mshr_alloc_be_i                    (miss_mshr_alloc_be),
+ 
+@@ -850,6 +858,7 @@ import hpdcache_pkg::*;
+         .req_data_i                    (uc_req_data),
+         .req_be_i                      (uc_req_be),
+         .req_uc_i                      (uc_req_uncacheable),
++        .req_bufferable_i              (uc_req_bufferable),
+         .req_sid_i                     (uc_req_sid),
+         .req_tid_i                     (uc_req_tid),
+         .req_need_rsp_i                (uc_req_need_rsp),
+diff --git a/rtl/src/hpdcache_ctrl.sv b/rtl/src/hpdcache_ctrl.sv
+index cad3fa9..db45f1c 100644
+--- a/rtl/src/hpdcache_ctrl.sv
++++ b/rtl/src/hpdcache_ctrl.sv
+@@ -92,6 +92,7 @@ import hpdcache_pkg::*;
+     output logic                  st2_mshr_alloc_is_prefetch_o,
+     output logic                  st2_mshr_alloc_wback_o,
+     output logic                  st2_mshr_alloc_dirty_o,
++    output logic                  st2_mshr_alloc_bufferable_o,
+ 
+     //      Refill interface
+     input  logic                  refill_req_valid_i,
+@@ -142,6 +143,7 @@ import hpdcache_pkg::*;
+     output wbuf_data_t            wbuf_write_data_o,
+     output wbuf_be_t              wbuf_write_be_o,
+     output logic                  wbuf_write_uncacheable_o,
++    output logic                  wbuf_write_bufferable_o,
+     input  logic                  wbuf_read_hit_i,
+     output logic                  wbuf_read_flush_hit_o,
+     output hpdcache_req_addr_t    wbuf_rtab_addr_o,
+@@ -163,6 +165,7 @@ import hpdcache_pkg::*;
+     output hpdcache_req_data_t    uc_req_data_o,
+     output hpdcache_req_be_t      uc_req_be_o,
+     output logic                  uc_req_uc_o,
++    output logic                  uc_req_bufferable_o,
+     output hpdcache_req_sid_t     uc_req_sid_o,
+     output hpdcache_req_tid_t     uc_req_tid_o,
+     output logic                  uc_req_need_rsp_o,
+@@ -292,6 +295,7 @@ import hpdcache_pkg::*;
+     logic                    st2_mshr_alloc_is_prefetch_q;
+     logic                    st2_mshr_alloc_wback_q, st2_mshr_alloc_wback_d;
+     logic                    st2_mshr_alloc_dirty_q, st2_mshr_alloc_dirty_d;
++    logic                    st2_mshr_alloc_bufferable_q;
+     logic                    st2_mshr_alloc_need_rsp_q, st2_mshr_alloc_need_rsp_d;
+     hpdcache_req_addr_t      st2_mshr_alloc_addr_q;
+     hpdcache_req_sid_t       st2_mshr_alloc_sid_q;
+@@ -912,6 +916,7 @@ import hpdcache_pkg::*;
+             st2_mshr_alloc_is_prefetch_q <= '0;
+             st2_mshr_alloc_wback_q       <= '0;
+             st2_mshr_alloc_dirty_q       <= '0;
++            st2_mshr_alloc_bufferable_q  <= '0;
+             st2_mshr_alloc_victim_way_q  <= '0;
+             st2_flush_alloc_nline_q <= '0;
+             st2_flush_alloc_way_q   <= '0;
+@@ -933,6 +938,7 @@ import hpdcache_pkg::*;
+                 st2_mshr_alloc_is_prefetch_q <= st1_req_is_cmo_prefetch;
+                 st2_mshr_alloc_wback_q       <= st2_mshr_alloc_wback_d;
+                 st2_mshr_alloc_dirty_q       <= st2_mshr_alloc_dirty_d;
++                st2_mshr_alloc_bufferable_q  <= st1_req.req.pma.bufferable;
+                 st2_mshr_alloc_victim_way_q  <= st1_dir_victim_way;
+             end
+ 
+@@ -1151,6 +1157,7 @@ import hpdcache_pkg::*;
+     assign wbuf_write_addr_o = st1_req_addr;
+     assign wbuf_write_data_o = st1_req.req.wdata;
+     assign wbuf_write_be_o   = st1_req.req.be;
++    assign wbuf_write_bufferable_o = st1_req.req.pma.bufferable;
+     assign wbuf_flush_all_o  = st1_wbuf_flush_all | wbuf_flush_i;
+     //  }}}
+ 
+@@ -1172,6 +1179,7 @@ import hpdcache_pkg::*;
+     assign st2_mshr_alloc_is_prefetch_o = st2_mshr_alloc_is_prefetch_q;
+     assign st2_mshr_alloc_wback_o       = st2_mshr_alloc_wback_q;
+     assign st2_mshr_alloc_dirty_o       = st2_mshr_alloc_dirty_q;
++    assign st2_mshr_alloc_bufferable_o  = st2_mshr_alloc_bufferable_q;
+     //  }}}
+ 
+     //  Uncacheable request handler outputs
+@@ -1184,6 +1192,7 @@ import hpdcache_pkg::*;
+     assign uc_req_data_o             = st1_req.req.wdata;
+     assign uc_req_be_o               = st1_req.req.be;
+     assign uc_req_uc_o               = st1_req_is_uncacheable;
++    assign uc_req_bufferable_o       = st1_req.req.pma.bufferable;
+     assign uc_req_sid_o              = st1_req.req.sid;
+     assign uc_req_tid_o              = st1_req.req.tid;
+     assign uc_req_need_rsp_o         = st1_req.req.need_rsp;
+diff --git a/rtl/src/hpdcache_flush.sv b/rtl/src/hpdcache_flush.sv
+index 293dd39..86202e5 100644
+--- a/rtl/src/hpdcache_flush.sv
++++ b/rtl/src/hpdcache_flush.sv
+@@ -322,7 +322,9 @@ import hpdcache_pkg::*;
+         mem_req_id: hpdcache_mem_id_t'(flush_dir_free_ptr),
+         mem_req_command: HPDCACHE_MEM_WRITE,
+         mem_req_atomic: HPDCACHE_MEM_ATOMIC_ADD, /* NOP */
+-        mem_req_cacheable: 1'b1
++        mem_req_cacheable: 1'b1,
++        //  only a write-back cacheline can be dirty
++        mem_req_bufferable: 1'b1
+     };
+     hpdcache_fifo_reg #(
+         .FIFO_DEPTH     (2),
+diff --git a/rtl/src/hpdcache_miss_handler.sv b/rtl/src/hpdcache_miss_handler.sv
+index 4730dfb..d11656c 100644
+--- a/rtl/src/hpdcache_miss_handler.sv
++++ b/rtl/src/hpdcache_miss_handler.sv
+@@ -101,6 +101,7 @@ import hpdcache_pkg::*;
+     input  logic                  mshr_alloc_is_prefetch_i,
+     input  logic                  mshr_alloc_wback_i,
+     input  logic                  mshr_alloc_dirty_i,
++    input  logic                  mshr_alloc_bufferable_i,
+     input  hpdcache_req_data_t    mshr_alloc_wdata_i,
+     input  hpdcache_req_be_t      mshr_alloc_be_i,
+ 
+@@ -181,6 +182,7 @@ import hpdcache_pkg::*;
+     miss_req_fsm_e           miss_req_fsm_q, miss_req_fsm_d;
+     mshr_way_t               mshr_alloc_way_q, mshr_alloc_way_d;
+     hpdcache_nline_t         mshr_alloc_nline_q;
++    logic                    mshr_alloc_bufferable_q;
+ 
+     refill_fsm_e             refill_fsm_q, refill_fsm_d;
+     hpdcache_set_t           refill_set_q;
+@@ -286,6 +288,7 @@ import hpdcache_pkg::*;
+     assign mem_req_o.mem_req_command = HPDCACHE_MEM_READ;
+     assign mem_req_o.mem_req_atomic = HPDCACHE_MEM_ATOMIC_ADD;
+     assign mem_req_o.mem_req_cacheable = 1'b1;
++    assign mem_req_o.mem_req_bufferable = mshr_alloc_bufferable_q;
+ 
+     if ((HPDcacheCfg.u.mshrSets > 1) && (HPDcacheCfg.u.mshrWays > 1))
+     begin : gen_mem_id_mshr_sets_and_ways_gt_1
+@@ -305,10 +308,12 @@ import hpdcache_pkg::*;
+         if (!rst_ni) begin
+             mshr_alloc_way_q <= '0;
+             mshr_alloc_nline_q <= '0;
++            mshr_alloc_bufferable_q <= 1'b0;
+         end else begin
+             if (mshr_alloc) begin
+                 mshr_alloc_way_q <= mshr_alloc_way_d;
+                 mshr_alloc_nline_q <= mshr_alloc_nline_i;
++                mshr_alloc_bufferable_q <= mshr_alloc_bufferable_i;
+             end
+         end
+     end
+diff --git a/rtl/src/hpdcache_pkg.sv b/rtl/src/hpdcache_pkg.sv
+index 82e1fb8..0d7867b 100644
+--- a/rtl/src/hpdcache_pkg.sv
++++ b/rtl/src/hpdcache_pkg.sv
+@@ -79,6 +79,11 @@ package hpdcache_pkg;
+     //      {{{
+     typedef struct packed
+     {
++        //  The memory may buffer the write (bufferable attribute of the memory
++        //  interface): with uncacheable cleared it marks a write-back region,
++        //  with uncacheable set a non-cacheable region whose writes may be
++        //  acknowledged before they reach their destination.
++        logic bufferable;
+         logic uncacheable;
+         logic io; //  FIXME: for future use
+ 
+diff --git a/rtl/src/hpdcache_uncached.sv b/rtl/src/hpdcache_uncached.sv
+index 9b722d2..b487e4f 100644
+--- a/rtl/src/hpdcache_uncached.sv
++++ b/rtl/src/hpdcache_uncached.sv
+@@ -57,6 +57,7 @@ import hpdcache_pkg::*;
+     input  hpdcache_req_data_t    req_data_i,
+     input  hpdcache_req_be_t      req_be_i,
+     input  logic                  req_uc_i,
++    input  logic                  req_bufferable_i,
+     input  hpdcache_req_sid_t     req_sid_i,
+     input  hpdcache_req_tid_t     req_tid_i,
+     input  logic                  req_need_rsp_i,
+@@ -207,6 +208,7 @@ import hpdcache_pkg::*;
+     hpdcache_req_data_t   req_data_q;
+     hpdcache_req_be_t     req_be_q;
+     logic                 req_uc_q;
++    logic                 req_bufferable_q;
+     hpdcache_req_sid_t    req_sid_q;
+     hpdcache_req_tid_t    req_tid_q;
+     logic                 req_need_rsp_q;
+@@ -637,6 +639,7 @@ import hpdcache_pkg::*;
+         mem_req_read_o.mem_req_size      = req_size_q;
+         mem_req_read_o.mem_req_id        = mem_read_id_i;
+         mem_req_read_o.mem_req_cacheable = 1'b0;
++        mem_req_read_o.mem_req_bufferable = req_bufferable_q;
+         mem_req_read_o.mem_req_command   = HPDCACHE_MEM_READ;
+         mem_req_read_o.mem_req_atomic    = HPDCACHE_MEM_ATOMIC_ADD;
+ 
+@@ -666,6 +669,7 @@ import hpdcache_pkg::*;
+         mem_req_write_o.mem_req_size      = req_size_q;
+         mem_req_write_o.mem_req_id        = mem_write_id_i;
+         mem_req_write_o.mem_req_cacheable = 1'b0;
++        mem_req_write_o.mem_req_bufferable = req_bufferable_q;
+         unique case (1'b1)
+             req_op_q.is_amo_sc: begin
+                 mem_req_write_o.mem_req_command = HPDCACHE_MEM_ATOMIC;
+@@ -852,6 +856,7 @@ import hpdcache_pkg::*;
+             req_addr_q <= '0;
+             req_size_q <= '0;
+             req_uc_q <= 1'b0;
++            req_bufferable_q <= 1'b0;
+             req_need_rsp_q <= 1'b0;
+             req_hit_way_q <= '0;
+             req_old_data_q <= '0;
+@@ -860,6 +865,7 @@ import hpdcache_pkg::*;
+             req_addr_q <= req_addr_i;
+             req_size_q <= req_size_i;
+             req_uc_q <= req_uc_i;
++            req_bufferable_q <= req_bufferable_i;
+             req_need_rsp_q <= req_need_rsp_i;
+             req_hit_way_q <= req_hit_way_i;
+             req_old_data_q <= req_old_data_i;
+diff --git a/rtl/src/hpdcache_wbuf.sv b/rtl/src/hpdcache_wbuf.sv
+index d61a30c..afcd391 100644
+--- a/rtl/src/hpdcache_wbuf.sv
++++ b/rtl/src/hpdcache_wbuf.sv
+@@ -74,6 +74,7 @@ import hpdcache_pkg::*;
+     input  wbuf_data_t            write_data_i,
+     input  wbuf_be_t              write_be_i,  // byte-enable
+     input  logic                  write_uc_i,  // uncacheable write
++    input  logic                  write_bufferable_i,  // bufferable write
+ 
+     //  Read hit interface
+     input  wbuf_addr_t            read_addr_i,
+@@ -136,6 +137,7 @@ import hpdcache_pkg::*;
+         wbuf_timecnt_t  cnt;
+         wbuf_tag_t      tag;
+         logic           uc;
++        logic           bufferable;
+     } wbuf_dir_entry_t;
+ 
+     typedef struct packed {
+@@ -152,6 +154,7 @@ import hpdcache_pkg::*;
+         wbuf_tag_t      meta_tag;
+         wbuf_dir_ptr_t  meta_id;
+         logic           meta_uc;
++        logic           meta_bufferable;
+     } wbuf_send_meta_t;
+ 
+     function automatic void wbuf_data_write(
+@@ -479,6 +482,7 @@ import hpdcache_pkg::*;
+                         wbuf_dir_d[i].cnt = 0;
+                         wbuf_dir_d[i].ptr = wbuf_data_free_ptr;
+                         wbuf_dir_d[i].uc  = write_uc_i;
++                        wbuf_dir_d[i].bufferable = write_bufferable_i;
+ 
+                         wbuf_data_w_init = 1'b1;
+                         wbuf_data_w = 1'b1;
+@@ -582,6 +586,7 @@ import hpdcache_pkg::*;
+         assign wbuf_meta_pend[i].meta_tag = wbuf_dir_q[i].tag;
+         assign wbuf_meta_pend[i].meta_id = i;
+         assign wbuf_meta_pend[i].meta_uc = wbuf_dir_q[i].uc;
++        assign wbuf_meta_pend[i].meta_bufferable = wbuf_dir_q[i].bufferable;
+         assign wbuf_meta_pend_data_ptr[i] = wbuf_dir_q[i].ptr;
+     end
+ 
+@@ -667,6 +672,7 @@ import hpdcache_pkg::*;
+     assign mem_req_write_o.mem_req_command = HPDCACHE_MEM_WRITE;
+     assign mem_req_write_o.mem_req_atomic = HPDCACHE_MEM_ATOMIC_ADD;
+     assign mem_req_write_o.mem_req_cacheable = ~wbuf_meta_send_q.meta_uc;
++    assign mem_req_write_o.mem_req_bufferable = wbuf_meta_send_q.meta_bufferable;
+ 
+     assign mem_req_write_data_o.mem_req_w_last = 1'b1;
+ 
+diff --git a/rtl/src/hwpf_stride/hwpf_stride.sv b/rtl/src/hwpf_stride/hwpf_stride.sv
+index ef8953e..1004ad8 100644
+--- a/rtl/src/hwpf_stride/hwpf_stride.sv
++++ b/rtl/src/hwpf_stride/hwpf_stride.sv
+@@ -146,6 +146,7 @@ import hpdcache_pkg::*;
+            hpdcache_req_o.need_rsp        = 1'b1,
+            hpdcache_req_o.phys_indexed    = 1'b1,
+            hpdcache_req_o.addr_tag        = hpdcache_req_tag,
++           hpdcache_req_o.pma.bufferable  = 1'b0,
+            hpdcache_req_o.pma.uncacheable = 1'b0,
+            hpdcache_req_o.pma.io          = 1'b0;
+     //  }}}
+diff --git a/rtl/src/utils/hpdcache_mem_to_axi_read.sv b/rtl/src/utils/hpdcache_mem_to_axi_read.sv
+index ccbe49c..0364f31 100644
+--- a/rtl/src/utils/hpdcache_mem_to_axi_read.sv
++++ b/rtl/src/utils/hpdcache_mem_to_axi_read.sv
+@@ -56,11 +56,14 @@ import hpdcache_pkg::*;
+     assign  lock  = (req_i.mem_req_command == HPDCACHE_MEM_ATOMIC) &&
+                     (req_i.mem_req_atomic  == HPDCACHE_MEM_ATOMIC_LDEX);
+ 
+-    assign  cache = req_i.mem_req_cacheable ?
+-                    axi_pkg::CACHE_BUFFERABLE |
++    //  Memory type of the request: write-back (cacheable and bufferable), write-through
++    //  (cacheable), normal non-cacheable bufferable (bufferable) or non-bufferable. An
++    //  exclusive load is normal non-cacheable non-bufferable, as the exclusive store.
++    assign  cache = lock ? axi_pkg::CACHE_MODIFIABLE :
+                     axi_pkg::CACHE_MODIFIABLE |
+-                    axi_pkg::CACHE_RD_ALLOC   |
+-                    axi_pkg::CACHE_WR_ALLOC   : axi_pkg::CACHE_MODIFIABLE;
++                    (req_i.mem_req_bufferable ? axi_pkg::CACHE_BUFFERABLE : '0) |
++                    (req_i.mem_req_cacheable  ? axi_pkg::CACHE_RD_ALLOC |
++                                                axi_pkg::CACHE_WR_ALLOC : '0);
+ 
+     always_comb
+     begin : resp_decode_comb
+diff --git a/rtl/src/utils/hpdcache_mem_to_axi_write.sv b/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+index 098bff4..c9123c6 100644
+--- a/rtl/src/utils/hpdcache_mem_to_axi_write.sv
++++ b/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+@@ -102,11 +102,14 @@ import hpdcache_pkg::*;
+         endcase
+     end
+ 
+-    assign  cache = (req_i.mem_req_cacheable && !lock) ?
+-                        axi_pkg::CACHE_BUFFERABLE |
+-                        axi_pkg::CACHE_MODIFIABLE |
+-                        axi_pkg::CACHE_RD_ALLOC   |
+-                        axi_pkg::CACHE_WR_ALLOC   : axi_pkg::CACHE_MODIFIABLE;
++    //  Memory type of the request: write-back (cacheable and bufferable), write-through
++    //  (cacheable), normal non-cacheable bufferable (bufferable) or non-bufferable. An
++    //  exclusive store is normal non-cacheable non-bufferable.
++    assign  cache = lock ? axi_pkg::CACHE_MODIFIABLE :
++                    axi_pkg::CACHE_MODIFIABLE |
++                    (req_i.mem_req_bufferable ? axi_pkg::CACHE_BUFFERABLE : '0) |
++                    (req_i.mem_req_cacheable  ? axi_pkg::CACHE_RD_ALLOC |
++                                                axi_pkg::CACHE_WR_ALLOC : '0);
+ 
+     always_comb
+     begin : resp_decode_comb
+diff --git a/rtl/tb/include/hpdcache_test_defs.h b/rtl/tb/include/hpdcache_test_defs.h
+index b52dfe2..bfe5b20 100644
+--- a/rtl/tb/include/hpdcache_test_defs.h
++++ b/rtl/tb/include/hpdcache_test_defs.h
+@@ -143,7 +143,7 @@
+ 
+ #define HPDCACHE_REQ_OP_WIDTH 5
+ #define HPDCACHE_REQ_SIZE_WIDTH 3
+-#define HPDCACHE_REQ_PMA_WIDTH 5
++#define HPDCACHE_REQ_PMA_WIDTH 6
+ #define HPDCACHE_REQ_NEED_RSP_WIDTH 1
+ #define HPDCACHE_REQ_PHYS_INDEXED_WIDTH 1
+ #define HPDCACHE_RSP_ERROR_WIDTH 1

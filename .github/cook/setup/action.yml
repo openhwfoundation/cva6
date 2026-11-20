@@ -1,0 +1,102 @@
+# Copyright 2026 OpenHW Foundation
+# SPDX-License-Identifier: Apache-2.0
+name: Setup CVA6 Cook environment
+description: GCC and Verilator with vendor Spike libraries and disassembler for RTL-only jobs
+inputs:
+  verilator-version:
+    description: Verilator release to build
+    default: '5.050'
+runs:
+  using: composite
+  steps:
+    - name: Resolve tools
+      id: tools
+      shell: bash
+      env:
+        VERSION: ${{ inputs.verilator-version }}
+      run: |
+        set -euo pipefail
+        case "$VERSION" in 5.050) ;; *) echo 'Unsupported CI Verilator release'; exit 1 ;; esac
+        echo "corev=$(git -C verif/core-v-verif rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        {
+          echo "RISCV=$GITHUB_WORKSPACE/tools/riscv-toolchain"
+          echo "SPIKE_INSTALL_DIR=$GITHUB_WORKSPACE/tools/spike"
+          echo "VERILATOR_INSTALL_DIR=$GITHUB_WORKSPACE/tools/verilator-$VERSION"
+          echo "CV_SW_PREFIX=riscv32-unknown-elf-"
+        } >> "$GITHUB_ENV"
+        {
+          echo "$GITHUB_WORKSPACE/tools/verilator-$VERSION/bin"
+          echo "$GITHUB_WORKSPACE/tools/spike/bin"
+        } >> "$GITHUB_PATH"
+    - uses: actions/cache/restore@v6
+      id: gcc
+      with:
+        path: tools/riscv-toolchain
+        # Change with the toolchain URL of the install step.
+        key: cook-smoke-ubuntu24-gcc13.2.0-embecosm10-v1
+    - uses: actions/cache/restore@v6
+      id: spike
+      with:
+        path: tools/spike
+        key: cook-smoke-ubuntu24-spike-v1-${{ hashFiles('verif/regress/install-spike.sh') }}-${{ steps.tools.outputs.corev }}
+    - uses: actions/cache/restore@v6
+      id: verilator
+      with:
+        path: tools/verilator-${{ inputs.verilator-version }}
+        key: cook-smoke-ubuntu24-verilator-${{ inputs.verilator-version }}-v1
+    - name: Install system dependencies and missing tools
+      shell: bash
+      env:
+        GCC_HIT: ${{ steps.gcc.outputs.cache-hit }}
+        SPIKE_HIT: ${{ steps.spike.outputs.cache-hit }}
+        VERILATOR_HIT: ${{ steps.verilator.outputs.cache-hit }}
+        VERSION: ${{ inputs.verilator-version }}
+      run: |
+        set -eo pipefail
+        sudo apt-get update
+        sudo apt-get install -y autoconf automake autotools-dev curl git libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex libfl-dev texinfo gperf libtool patchutils bc zlib1g-dev device-tree-compiler libboost-regex-dev libboost-system-dev help2man
+        if [ "$GCC_HIT" != true ]; then
+          mkdir -p "$RISCV"
+          curl --fail --location --retry 3 --max-time 600 \
+            https://buildbot.embecosm.com/job/riscv32-gcc-ubuntu2204-release/10/artifact/riscv32-embecosm-ubuntu2204-gcc13.2.0.tar.gz \
+            -o "$RUNNER_TEMP/riscv-gcc.tar.gz"
+          sha256sum "$RUNNER_TEMP/riscv-gcc.tar.gz"
+          tar -xf "$RUNNER_TEMP/riscv-gcc.tar.gz" --strip-components=1 -C "$RISCV"
+        fi
+        "$RISCV/bin/${CV_SW_PREFIX}gcc" --version
+        if [ "$VERILATOR_HIT" != true ]; then
+          unset VERILATOR_ROOT
+          git clone --depth 1 --branch "v$VERSION" https://github.com/verilator/verilator.git "$RUNNER_TEMP/verilator-$VERSION"
+          (
+            cd "$RUNNER_TEMP/verilator-$VERSION"
+            autoconf
+            ./configure --prefix="$VERILATOR_INSTALL_DIR"
+            make -j"${NUM_JOBS:-2}"
+            make install
+          )
+        fi
+        "$VERILATOR_INSTALL_DIR/bin/verilator" --version
+        test -f "$VERILATOR_INSTALL_DIR/share/verilator/include/vltstd/svdpi.h"
+        if [ "$SPIKE_HIT" != true ]; then
+          source verif/regress/install-spike.sh
+        fi
+        export LD_LIBRARY_PATH="$SPIKE_INSTALL_DIR/lib:$RISCV/lib:${LD_LIBRARY_PATH:-}"
+        echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+        "$VERILATOR_INSTALL_DIR/bin/verilator" --version
+        test -x "$SPIKE_INSTALL_DIR/bin/spike-dasm"
+    # Save only after successful setup, independently of later smoke failures.
+    - uses: actions/cache/save@v6
+      if: steps.gcc.outputs.cache-hit != 'true'
+      with:
+        path: tools/riscv-toolchain
+        key: ${{ steps.gcc.outputs.cache-primary-key }}
+    - uses: actions/cache/save@v6
+      if: steps.spike.outputs.cache-hit != 'true'
+      with:
+        path: tools/spike
+        key: ${{ steps.spike.outputs.cache-primary-key }}
+    - uses: actions/cache/save@v6
+      if: steps.verilator.outputs.cache-hit != 'true'
+      with:
+        path: tools/verilator-${{ inputs.verilator-version }}
+        key: ${{ steps.verilator.outputs.cache-primary-key }}

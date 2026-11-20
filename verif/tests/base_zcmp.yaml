@@ -1,0 +1,85 @@
+# ------------------------------------------------------------------------------
+#   Copyright 2026 Thales France
+#
+#   Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0
+#   You may obtain a copy of the License at https://solderpad.org/licenses/
+# ------------------------------------------------------------------------------
+#   base_zcmp.yaml
+#
+#   Zcmp tests, for the targets with RVZCMP set.
+#
+#   The targets build with a march that has zcmt but not zcmp, and the
+#   assembler rejects the Zcmp mnemonics without it, so every test here sets
+#   its own march, and the integer ABI that goes with it (the target may use
+#   a floating-point one).
+#
+#   cm_push_pop_all, cm_mv_all and cm_popret_all go through every encoding:
+#   all register lists and stack adjustments for cm.push, cm.pop, cm.popret and
+#   cm.popretz, all register pairs for cm.mva01s and cm.mvsa01. The others are
+#   directed tests of specific Zcmp corner cases.
+# ------------------------------------------------------------------------------
+
+zcmp_config: &zcmp_config
+  path_var: TESTS_PATH
+  march: rv32imc_zicsr_zba_zbb_zbs_zbc_zcmp_zcmt_zifencei
+  mabi: ilp32
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/riscv-tests/isa/macros/scalar/ -I<path_var>/riscv-tests/env/p/ -I<path_var>/riscv-tests/riscv-target/spike/ -I<path_var>/custom/env"
+
+zcmp_legacy_config: &zcmp_legacy_config
+  path_var: TESTS_PATH
+  march: rv32imc_zicsr_zba_zbb_zbs_zbc_zcmp_zcmt_zifencei
+  mabi: ilp32
+  gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -T<path_var>/custom/Zcmp/link.ld -I<path_var>/custom/Zcmp -I<path_var>/custom/env"
+
+testlist:
+  - test: cm_push_pop_all
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_push_pop_all.S
+
+  - test: cm_mv_all
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_mv_all.S
+
+  - test: cm_popret_all
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_popret_all.S
+
+  - test: cm_reserved_rlist
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_reserved_rlist_test.S
+
+  - test: cm_mva01s_equal_regs
+    iterations: 1
+    <<: *zcmp_config
+    asm_tests: <path_var>/custom/Zcmp/cm_mva01s_equal_regs_test.S
+
+  - test: cm_push_pop
+    iterations: 1
+    <<: *zcmp_legacy_config
+    asm_tests: <path_var>/custom/Zcmp/cm_push_pop_test.S
+
+  - test: cm_popret
+    iterations: 1
+    <<: *zcmp_legacy_config
+    asm_tests: <path_var>/custom/Zcmp/cm_popret_test.S
+
+  - test: cm_popretz
+    iterations: 1
+    <<: *zcmp_legacy_config
+    asm_tests: <path_var>/custom/Zcmp/cm_popretz_test.S
+
+  - test: cm_mva01s
+    iterations: 1
+    <<: *zcmp_legacy_config
+    asm_tests: <path_var>/custom/Zcmp/cm_mva01s_test.S
+
+  - test: cm_mvsa01
+    iterations: 1
+    <<: *zcmp_legacy_config
+    asm_tests: <path_var>/custom/Zcmp/cm_mvsa01_test.S

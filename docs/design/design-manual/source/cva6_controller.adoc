@@ -16,11 +16,13 @@ CONTROLLER Module
 Description
 ^^^^^^^^^^^
 
+////
 The CONTROLLER module implements ... TO BE COMPLETED
 
 The module is connected to:
 
 * TO BE COMPLETED
+////
 
 include::port_controller.adoc[]
 
@@ -28,4 +30,4 @@ include::port_controller.adoc[]
 Functionality
 ^^^^^^^^^^^^^
 
-TO BE COMPLETED
+// TO BE COMPLETED

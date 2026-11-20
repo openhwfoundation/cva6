@@ -1,0 +1,1946 @@
+# Copyright 2024 Thales DIS France SAS
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Original Author: Zbigniew CHAMSKI - Thales
+
+hart_ids: [0]
+hart0: &hart0
+  ISA: RV32IMCZicsr_Zcb_Zba_Zbb_Zbc_Zbs_Xcvxif
+  User_Spec_Version: '2.3'
+  supported_xlen: [32]
+  physical_addr_sz: 32
+  pmp_granularity: 8
+  misa:
+   reset-val: 0x40001106 # B: bit 1, C: bit 2, I = bit 8, M = bit 12, Z = bit 25
+   rv32:
+     accessible: true
+     mxl:
+       implemented: true
+       type:
+           warl:
+              dependency_fields: []
+              legal:
+                - mxl[1:0] in [0x1]
+              wr_illegal:
+                - unchanged
+     extensions:
+       implemented: true
+       type:
+         ro_constant: 0x0001106
+  mvendorid:
+   reset-val: 0x00000602
+   rv32:
+     accessible: true
+     type:
+       ro_constant: 0x00000602
+   rv64:
+     accessible: false
+  mtvec:
+   reset-val: 0x80010000
+   rv32:
+     accessible: true
+     base:
+       implemented: true
+       type:
+         warl:
+           dependency_fields: []
+           legal:
+             # The 30 bits of 'base' are suffixed with 2'b00
+             # ==> all values are legal, alignment 4 bytes is implied
+             - base[29:0] in [0x00000000:0x3FFFFFFF]
+           wr_illegal:
+             - Unchanged
+     mode:
+       implemented: true
+       type:
+         warl:
+           dependency_fields: []
+           legal:
+             # Only Direct mode.
+             - mode[1:0] in [0x0]
+           wr_illegal:
+             - Unchanged
+  sstatus:
+   reset-val: 0x0
+   rv32:
+     accessible: false
+   rv64:
+     accessible: false
+  vsstatus:
+   reset-val: 0x0
+   rv32:
+     accessible: false
+   rv64:
+     accessible: false
+  mstatus:
+   reset-val: 0x00001800 # .mpp = 0x3
+   rv32:
+     accessible: true
+     uie:
+      implemented: false
+     sie:
+      implemented: false
+     mie:
+      implemented: true
+     upie:
+      implemented: false
+     spie:
+      implemented: false
+     ube:
+      implemented: false
+     mpie:
+      implemented: true
+     spp:
+      implemented: false
+     mpp:
+      implemented: true
+      type:
+        warl:
+          dependency_fields: []
+          legal:
+            - mpp[1:0] in [0x3]
+          wr_illegal:
+            - Unchanged
+     fs:
+      implemented: false
+     xs:
+      implemented: false
+     mprv:
+      implemented: false
+     sum:
+      implemented: false
+     mxr:
+      implemented: false
+     tvm:
+      implemented: false
+     tw:
+      implemented: false
+     tsr:
+      implemented: false
+     sd:
+      implemented: false
+   rv64:
+     accessible: false
+  mip:
+   reset-val: 0
+   rv32:
+     accessible: true
+     usip:
+      implemented: false
+     ssip:
+      implemented: false
+     msip:
+      implemented: false
+     utip:
+      implemented: false
+     stip:
+      implemented: false
+     mtip:
+      implemented: true
+      type:
+        ro_variable: true
+     ueip:
+      implemented: false
+     seip:
+      implemented: false
+     meip:
+      implemented: true
+      type:
+        ro_variable: true
+   rv64:
+     accessible: false
+  hip:
+   reset-val: 0
+   rv32:
+     accessible: false
+     vssip:
+      implemented: false
+     vstip:
+      implemented: false
+     vseip:
+      implemented: false
+     sgeip:
+      implemented: false
+   rv64:
+     accessible: false
+  mie:
+   reset-val: 0
+   rv32:
+     accessible: true
+     usie:
+      implemented: false
+     ssie:
+      implemented: false
+     msie:
+      implemented: false
+     utie:
+      implemented: false
+     stie:
+      implemented: false
+     mtie:
+      implemented: true
+     ueie:
+      implemented: false
+     seie:
+      implemented: false
+     meie:
+      implemented: true
+   rv64:
+     accessible: false
+  hie:
+   reset-val: 0
+   rv32:
+     accessible: false
+     vssie:
+      implemented: false
+     vstie:
+      implemented: false
+     vseie:
+      implemented: false
+     sgeie:
+      implemented: false
+   rv64:
+     accessible: false
+  mepc:
+   reset-val: 0x0
+   rv32:
+     accessible: true
+   rv64:
+     accessible: false
+  mtval:
+   reset-val: 0x0
+   rv32:
+     accessible: true
+     type:
+       ro_constant: 0x0
+   rv64:
+     accessible: false 
+  mcause:
+   reset-val: 0
+   rv32:
+     accessible: true
+     interrupt:
+       implemented: true
+     exception_code:
+       implemented: true
+   rv64:
+     accessible: false
+  marchid:
+   rv32:
+     accessible: true
+     type:
+       ro_constant: 0x00000003
+   rv64:
+     accessible: false
+   reset-val: 0x00000003
+  mhartid:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x00
+  mconfigptr:
+    rv32:
+      accessible: true
+      type:
+         ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mscratch:
+    rv32:
+      accessible: true
+      type:
+         warl:
+            dependency_fields: []
+            legal:
+              - mscratch[31:0] in [0x00000000:0xFFFFFFFF]
+            wr_illegal:
+              - unchanged
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter3:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter4:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter5:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter6:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter7:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter8:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter9:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter10:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter11:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter12:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter13:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter14:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter15:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter16:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter17:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter18:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter19:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter20:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter21:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter22:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter23:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter24:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter25:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter26:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter27:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter28:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter29:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter30:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter31:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter3h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter4h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter5h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter6h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter7h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter8h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter9h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter10h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter11h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter12h:
+    rv32:
+       accessible: true
+       type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter13h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter14h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter15h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter16h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter17h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter18h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter19h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter20h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter21h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter22h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter23h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter24h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter25h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter26h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter27h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter28h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter29h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter30h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmcounter31h:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mcountinhibit:
+    rv32:
+      accessible: false
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent3:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent4:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent5:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent6:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent7:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent8:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent9:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent10:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent11:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent12:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent13:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent14:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent15:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent16:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent17:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent18:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent19:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent20:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent21:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent22:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent23:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent24:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent25:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent26:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent27:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent28:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent29:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent30:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mhpmevent31:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0x0
+  mimpid:
+    rv32:
+      accessible: true
+      type:
+        ro_constant: 0x0
+    rv64:
+      accessible: false
+    reset-val: 0
+  mcounteren:
+    rv32:
+      accessible: false
+    rv64:
+      accessible: false
+    reset-val: 0
+  pmpcfg0:
+        rv32:
+            accessible: true
+            pmp0cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp1cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp2cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp3cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg1:
+        rv32:
+            accessible: true
+            pmp4cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp5cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp6cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp7cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg2:
+        rv32:
+            accessible: true
+            pmp8cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp9cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp10cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp11cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg3:
+        rv32:
+            accessible: true
+            pmp12cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp13cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp14cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp15cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg4:
+        rv32:
+            accessible: true
+            pmp16cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp17cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp18cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp19cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg5:
+        rv32:
+            accessible: true
+            pmp20cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp21cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp22cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp23cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg6:
+        rv32:
+            accessible: true
+            pmp24cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp25cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp26cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp27cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg7:
+        rv32:
+            accessible: true
+            pmp28cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp29cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp30cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp31cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg8:
+        rv32:
+            accessible: true
+            pmp32cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp33cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp34cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp35cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg9:
+        rv32:
+            accessible: true
+            pmp36cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp37cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp38cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp39cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg10:
+        rv32:
+            accessible: true
+            pmp40cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp41cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp42cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp43cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg11:
+        rv32:
+            accessible: true
+            pmp44cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp45cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp46cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp47cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg12:
+        rv32:
+            accessible: true
+            pmp48cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp49cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp50cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp51cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg13:
+        rv32:
+            accessible: true
+            pmp52cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp53cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp54cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp55cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg14:
+        rv32:
+            accessible: true
+            pmp56cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp57cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp58cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp59cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpcfg15:
+        rv32:
+            accessible: true
+            pmp60cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp61cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp62cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+            pmp63cfg:
+                implemented: true
+                type:
+                    ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  mcycle:
+        rv32:
+            accessible: true
+            type:
+                warl:
+                    dependency_fields: []
+                    legal:
+                      - mcycle[31:0] in [0x00000000:0xFFFFFFFF]
+                    wr_illegal:
+                      - unchanged
+        rv64:
+            accessible: false
+        reset-val: 0
+  minstret:
+        rv32:
+            accessible: true
+            type:
+                warl:
+                    dependency_fields: []
+                    legal:
+                      - minstret[31:0] in [0x00000000:0xFFFFFFFF]
+                    wr_illegal:
+                      - unchanged
+        rv64:
+            accessible: false
+        reset-val: 0
+  mcycleh:
+        rv32:
+            accessible: true
+            type:
+                warl:
+                    dependency_fields: []
+                    legal:
+                      - mcycleh[31:0] in [0x00000000:0xFFFFFFFF]
+                    wr_illegal:
+                      - unchanged
+        rv64:
+            accessible: false
+        reset-val: 0
+  minstreth:
+        rv32:
+            accessible: true
+            type:
+                warl:
+                    dependency_fields: []
+                    legal:
+                      - minstreth[31:0] in [0x00000000:0xFFFFFFFF]
+                    wr_illegal:
+                      - unchanged
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr0:
+        rv32:
+            accessible: true            
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr1:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr2:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr3:
+        rv32:
+            accessible: true            
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr4:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr5:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr6:
+        rv32:
+            accessible: true
+            type:
+               ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr7:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr8:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr9:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr10:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr11:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr12:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr13:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr14:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr15:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0
+  pmpaddr16:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr17:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr18:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr19:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr20:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr21:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr22:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr23:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr24:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr25:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr26:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr27:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr28:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr29:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr30:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr31:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr32:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr33:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr34:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr35:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr36:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr37:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr38:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr39:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr40:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr41:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr42:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr43:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr44:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr45:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr46:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr47:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr48:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr49:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr50:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr51:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr52:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr53:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr54:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr55:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr56:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr57:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr58:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr59:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr60:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr61:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr62:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  pmpaddr63:
+        rv32:
+            accessible: true
+            type:
+                ro_constant: 0x0
+        rv64:
+            accessible: false
+        reset-val: 0 
+  fcsr:
+      rv64:
+          accessible: false
+      rv32:
+          accessible: false
+          fflags:
+            implemented: false
+            type:
+                warl:
+                    dependency_fields: []
+                    legal:
+                      - fflags[4:0] in [0x00:0x1F]
+                    wr_illegal:
+                      - Unchanged
+          frm:
+            implemented: false
+            type:
+                warl:
+                    dependency_fields: []
+                    legal:
+                      - frm[2:0] in [0x0:0x7]
+                    wr_illegal:
+                      - Unchanged
+  time:
+        rv32:
+            accessible: false
+            type:
+                ro_variable: true
+        rv64:
+            accessible: false
+        reset-val: 0
+  timeh:
+        rv32:
+            accessible: false
+            type:
+                ro_variable: true
+        rv64:
+            accessible: false
+        reset-val: 0

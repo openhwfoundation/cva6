@@ -9,6 +9,10 @@ on:
         description: 'Is the workflow successful?'
         required: true
         type: boolean
+      source_branch:
+        description: "To know which dashboard should be used in url"
+        required: false
+        type: string
 
 permissions:
   pull-requests: write
@@ -24,7 +28,7 @@ jobs:
             const pr = inputs.pr_number
             const success = inputs.success == 'true'
             const status_text = success ? ":heavy_check_mark: successful" : ":x: failed"
-            const url = `https://riscv-ci.pages.thales-invia.fr/dashboard/dashboard_cva6_${pr}.html`
+            const url = `https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/#pr=${pr}`
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,

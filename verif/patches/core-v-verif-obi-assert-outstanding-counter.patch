@@ -1,0 +1,27 @@
+diff --git a/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_assert.sv b/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_assert.sv
+index 993d1532..f03e5eff 100644
+--- a/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_assert.sv
++++ b/lib/uvm_agents/uvma_obi_memory/src/uvma_obi_memory_assert.sv
+@@ -160,17 +160,18 @@ module uvma_obi_memory_assert
+   c_gnt_deassert_no_req : cover property(p_gnt_deassert_no_req);
+ 
+   // R-5 ensure that rvalid is never asserted before or coincident to its address phase
+-  // Model outstanding accepted addresses
+-  bit [3:0] outstanding_trn_cnt;
++  // Model outstanding accepted addresses. OBI does not bound the number of
++  // outstanding transactions, so the counter is wide enough not to wrap.
++  int unsigned outstanding_trn_cnt;
+   always @(posedge clk or negedge reset_n) begin
+     if (!reset_n) begin
+       outstanding_trn_cnt <= 0;
+     end
+     else begin
+       if (valid_a_phase && !valid_r_phase)
+-        outstanding_trn_cnt <= outstanding_trn_cnt + 4'h1;
++        outstanding_trn_cnt <= outstanding_trn_cnt + 1;
+       else if (!valid_a_phase && valid_r_phase)
+-        outstanding_trn_cnt <= outstanding_trn_cnt - 4'h1;
++        outstanding_trn_cnt <= outstanding_trn_cnt - 1;
+     end
+   end
+ 

@@ -26,15 +26,13 @@ module decoder
     parameter type branchpredict_sbe_t = logic,
     parameter type exception_t = logic,
     parameter type irq_ctrl_t = logic,
-    parameter type scoreboard_entry_t = logic,
-    parameter type interrupts_t = logic,
-    parameter interrupts_t INTERRUPTS = '0
+    parameter type scoreboard_entry_t = logic
 ) (
     // Debug (async) request - SUBSYSTEM
     input logic debug_req_i,
     // PC from fetch stage - FRONTEND
     input logic [CVA6Cfg.VLEN-1:0] pc_i,
-    // Is a compressed instruction - compressed_decoder
+    // Is a compressed instruction - cvxif decoder
     input logic is_compressed_i,
     // Compressed form of instruction - FRONTEND
     input logic [15:0] compressed_instr_i,
@@ -56,6 +54,8 @@ module decoder
     input branchpredict_sbe_t branch_predict_i,
     // If an exception occurred in fetch stage - FRONTEND
     input exception_t ex_i,
+    // Exception request - TRIGGER MODULE
+    input logic [CVA6Cfg.XLEN-1:0] sdtrig_decoder_action_i,
     // Level sensitive (async) interrupts - SUBSYSTEM
     input logic [1:0] irq_i,
     // Interrupt control status - CSR_REGFILE
@@ -72,8 +72,6 @@ module decoder
     input riscv::xs_t vfs_i,
     // Floating-point dynamic rounding mode - CSR_REGFILE
     input logic [2:0] frm_i,
-    // Vector extension status - CSR_REGFILE
-    input riscv::xs_t vs_i,
     // Trap virtual memory - CSR_REGFILE
     input logic tvm_i,
     // Timeout wait - CSR_REGFILE
@@ -101,9 +99,7 @@ module decoder
     // Instruction - ISSUE_STAGE
     output logic [31:0] orig_instr_o,
     // Is a control flow instruction - ISSUE_STAGE
-    output logic is_control_flow_instr_o,
-    // Exception request - TRIGGER MODULE
-    input logic [CVA6Cfg.XLEN-1:0] sdtrig_decoder_action_i
+    output logic is_control_flow_instr_o
 );
   logic illegal_instr;
   logic illegal_instr_bm;
@@ -140,38 +136,6 @@ module decoder
   logic [CVA6Cfg.XLEN-1:0] imm_u_type;
   logic [CVA6Cfg.XLEN-1:0] imm_uj_type;
 
-  // ---------------------------------------
-  // Accelerator instructions' first-pass decoder
-  // ---------------------------------------
-  logic is_accel;
-  scoreboard_entry_t acc_instruction;
-  logic acc_illegal_instr;
-  logic acc_is_control_flow_instr;
-
-  if (CVA6Cfg.EnableAccelerator) begin : gen_accel_decoder
-    // This module is responsible for a light-weight decoding of accelerator instructions,
-    // identifying them, but also whether they read/write scalar registers.
-    // Accelerators are supposed to define this module.
-    cva6_accel_first_pass_decoder #(
-        .CVA6Cfg(CVA6Cfg),
-        .scoreboard_entry_t(scoreboard_entry_t)
-    ) i_accel_decoder (
-        .instruction_i(instruction_i),
-        .fs_i(fs_i),
-        .vs_i(vs_i),
-        .is_accel_o(is_accel),
-        .instruction_o(acc_instruction),
-        .illegal_instr_o(acc_illegal_instr),
-        .is_control_flow_instr_o(acc_is_control_flow_instr)
-    );
-  end : gen_accel_decoder
-  else begin
-    assign is_accel                  = 1'b0;
-    assign acc_instruction           = '0;
-    assign acc_illegal_instr         = 1'b1;  // this should never propagate
-    assign acc_is_control_flow_instr = 1'b0;
-  end
-
   always_comb begin : decoder
 
     imm_select                             = NOIMM;
@@ -181,6 +145,7 @@ module decoder
     illegal_instr_bm                       = 1'b0;
     illegal_instr_zic                      = 1'b0;
     virtual_illegal_instr                  = 1'b0;
+    tinst                                  = 32'h0;
     instruction_o.pc                       = pc_i;
     instruction_o.trans_id                 = '0;
     instruction_o.fu                       = NONE;
@@ -195,19 +160,17 @@ module decoder
     instruction_o.is_double_rd_macro_instr = is_double_rd_macro_instr_i;
     instruction_o.use_zimm                 = 1'b0;
     instruction_o.bp                       = branch_predict_i;
-    instruction_o.vfp                      = 1'b0;
     instruction_o.is_zcmt                  = is_zcmt_i;
     ecall                                  = 1'b0;
     ebreak                                 = 1'b0;
     check_fprm                             = 1'b0;
-    tinst                                  = 32'h0;
 
     if (~ex_i.valid) begin
       case (instr.rtype.opcode)
         riscv::OpcodeSystem: begin
           instruction_o.fu = CSR;
           instruction_o.rs1 = instr.itype.rs1;
-          instruction_o.rs2 = instr.rtype.rs2;   //TODO: needs to be checked if better way is available
+          instruction_o.rs2 = instr.rtype.rs2;   //IMPROVEMENT: needs to be checked if better way is available
           instruction_o.rd = instr.itype.rd;
 
           unique case (instr.itype.funct3)
@@ -467,9 +430,14 @@ module decoder
           case (instr.stype.funct3)
             // FENCE
             // Currently implemented as a whole DCache flush boldly ignoring other things
-            3'b000: instruction_o.op = ariane_pkg::FENCE;
+            3'b000:  instruction_o.op = ariane_pkg::FENCE;
             // FENCE.I
-            3'b001: instruction_o.op = ariane_pkg::FENCE_I;
+            3'b001:
+            if (CVA6Cfg.RVZifencei) begin
+              instruction_o.op = ariane_pkg::FENCE_I;
+            end else begin
+              illegal_instr = 1'b1;
+            end
             // CBO - optional
             3'b010: begin
               if (CVA6Cfg.RVZiCbom) begin
@@ -488,7 +456,10 @@ module decoder
                 endcase
 
                 if (instruction_o.op == ariane_pkg::CBO_INVAL) begin
-                  // CBO.INVAL permission checks
+                  // CBO.INVAL permission checks. The mode that matters is the
+                  // virtualization state, not hu: menvcfg governs everything
+                  // below M, senvcfg the non-virtual U-mode, and henvcfg plus
+                  // senvcfg the virtual modes.
                   if ((priv_lvl_i != riscv::PRIV_LVL_M &&
                        mcbie_i == riscv::CBIE_ILLEGAL) ||
                       (!v_i && CVA6Cfg.RVU &&
@@ -515,9 +486,9 @@ module decoder
                         (priv_lvl_i == riscv::PRIV_LVL_U &&
                          (hcbie_i == riscv::CBIE_FLUSH ||
                           scbie_i == riscv::CBIE_FLUSH))))) begin
-                    // Execute CBO.INVAL as a flush.
                     instruction_o.op = ariane_pkg::CBO_FLUSH;
                   end
+                  // otherwise: normal invalidate
                 end
 
                 // CBCFE controls genuine CBO.CLEAN/CBO.FLUSH instructions.
@@ -548,8 +519,6 @@ module decoder
                 };
               end
             end
-
-
             default: illegal_instr = 1'b1;
           endcase
         end
@@ -1072,7 +1041,7 @@ module decoder
               2'b01:   illegal_instr = illegal_instr_non_bm & illegal_instr_zic;
               2'b10:   illegal_instr = illegal_instr_non_bm & illegal_instr_bm;
               2'b11:   illegal_instr = illegal_instr_non_bm & illegal_instr_bm & illegal_instr_zic;
-              default: ;  // TODO: Check that default case is not synthesized.
+              default: ;
             endcase
           end
         end
@@ -1752,21 +1721,6 @@ module decoder
                                  instr.rtype.opcode == riscv::OpcodeNmsub ? RS3 : MUX_RD_RS3;
       end
     end
-
-    // Accelerator instructions.
-    // These can overwrite the previous decoding entirely.
-    if (CVA6Cfg.EnableAccelerator) begin // only generate decoder if accelerators are enabled (static)
-      if (is_accel) begin
-        instruction_o.fu        = acc_instruction.fu;
-        instruction_o.vfp       = acc_instruction.vfp;
-        instruction_o.rs1       = acc_instruction.rs1;
-        instruction_o.rs2       = acc_instruction.rs2;
-        instruction_o.rd        = acc_instruction.rd;
-        instruction_o.op        = acc_instruction.op;
-        illegal_instr           = acc_illegal_instr;
-        is_control_flow_instr_o = acc_is_control_flow_instr;
-      end
-    end
   end
 
   // --------------------------------
@@ -1790,7 +1744,7 @@ module decoder
     };  // JAL, AUIPC, sign extended to 64 bit
     //  if zcmt then xlen jump address assign to immediate
     if (CVA6Cfg.RVZCMT && is_zcmt_i) begin
-      imm_uj_type = {{CVA6Cfg.XLEN - 32{jump_address_i[31]}}, jump_address_i[31:0]};
+      imm_uj_type = jump_address_i;
     end else begin
       imm_uj_type = {
         {CVA6Cfg.XLEN - 20{instruction_i[31]}},
@@ -1839,18 +1793,40 @@ module decoder
         instruction_o.use_imm = 1'b0;
       end
     endcase
-
-    if (CVA6Cfg.EnableAccelerator) begin
-      if (is_accel) begin
-        instruction_o.result  = acc_instruction.result;
-        instruction_o.use_imm = acc_instruction.use_imm;
-      end
-    end
   end
 
   // ---------------------
   // Exception handling
   // ---------------------
+  // Declared locally rather than passed as parameters, to work around a VCS
+  // bug: a type parameter and a value parameter of that type read as all
+  // zeroes.
+  typedef struct packed {
+    logic [CVA6Cfg.XLEN-1:0] S_SW;
+    logic [CVA6Cfg.XLEN-1:0] VS_SW;
+    logic [CVA6Cfg.XLEN-1:0] M_SW;
+    logic [CVA6Cfg.XLEN-1:0] S_TIMER;
+    logic [CVA6Cfg.XLEN-1:0] VS_TIMER;
+    logic [CVA6Cfg.XLEN-1:0] M_TIMER;
+    logic [CVA6Cfg.XLEN-1:0] S_EXT;
+    logic [CVA6Cfg.XLEN-1:0] VS_EXT;
+    logic [CVA6Cfg.XLEN-1:0] M_EXT;
+    logic [CVA6Cfg.XLEN-1:0] HS_EXT;
+  } interrupts_t;
+
+  localparam interrupts_t INTERRUPTS = '{
+      S_SW: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_S_SOFT),
+      VS_SW: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_VS_SOFT),
+      M_SW: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_M_SOFT),
+      S_TIMER: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_S_TIMER),
+      VS_TIMER: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_VS_TIMER),
+      M_TIMER: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_M_TIMER),
+      S_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_S_EXT),
+      VS_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_VS_EXT),
+      M_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_M_EXT),
+      HS_EXT: (CVA6Cfg.XLEN'(1) << (CVA6Cfg.XLEN - 1)) | CVA6Cfg.XLEN'(riscv::IRQ_HS_EXT)
+  };
+
   logic [CVA6Cfg.XLEN-1:0] interrupt_cause;
 
   // this instruction has already executed if the exception is valid
@@ -1859,16 +1835,14 @@ module decoder
   always_comb begin : exception_handling
     interrupt_cause = '0;
     instruction_o.ex = ex_i;
-    orig_instr_o = '0;
-
+    orig_instr_o = (is_compressed_i) ? {{CVA6Cfg.XLEN-16{1'b0}}, compressed_instr_i} : {{CVA6Cfg.XLEN-32{1'b0}}, instruction_i};
     if ((CVA6Cfg.SdtrigMcontrol6ExecAddr || CVA6Cfg.SdtrigMcontrol6ExecData) && (sdtrig_decoder_action_i != '0)) begin
-      // this exception is valid
+      // An mcontrol6 execute trigger matched this instruction. It takes
+      // precedence over whatever the fetch stage reported, the trigger being
+      // defined to fire before the instruction is allowed to execute.
       instruction_o.ex.valid = 1'b1;
-      // set cause
       instruction_o.ex.cause = sdtrig_decoder_action_i;
-      // set tval
       instruction_o.ex.tval  = (CVA6Cfg.TvalEn) ? instruction_o.pc : '0;
-      // set gva bit
       if (CVA6Cfg.RVH) instruction_o.ex.gva = v_i;
       else instruction_o.ex.gva = 1'b0;
     end  // look if we didn't already get an exception in any previous
@@ -1876,8 +1850,6 @@ module decoder
     else if (~ex_i.valid) begin
       // if we didn't already get an exception save the instruction here as we may need it
       // in the commit stage if we got a access exception to one of the CSR registers
-      if (CVA6Cfg.CvxifEn || CVA6Cfg.RVF || CVA6Cfg.ZKN)
-        orig_instr_o = (is_compressed_i) ? {{CVA6Cfg.XLEN-16{1'b0}}, compressed_instr_i} : {{CVA6Cfg.XLEN-32{1'b0}}, instruction_i};
       if (CVA6Cfg.TvalEn)
         instruction_o.ex.tval  = (is_compressed_i) ? {{CVA6Cfg.XLEN-16{1'b0}}, compressed_instr_i} : {{CVA6Cfg.XLEN-32{1'b0}}, instruction_i};
       else instruction_o.ex.tval = '0;
@@ -1904,7 +1876,8 @@ module decoder
           instruction_o.ex.cause = (CVA6Cfg.RVH && v_i) ? riscv::ENV_CALL_VSMODE : riscv::ENV_CALL_SMODE;
         end else if (priv_lvl_i == riscv::PRIV_LVL_U && CVA6Cfg.RVU) begin
           instruction_o.ex.cause = riscv::ENV_CALL_UMODE;
-        end else if (priv_lvl_i == riscv::PRIV_LVL_M) begin
+          // we are in M-mode
+        end else begin
           instruction_o.ex.cause = riscv::ENV_CALL_MMODE;
         end
         if (CVA6Cfg.TvalEn) instruction_o.ex.tval = '0;
@@ -1979,7 +1952,7 @@ module decoder
       // However, if bit i in mideleg is set, interrupts are considered to be globally enabled if the hart’s current privilege
       // mode equals the delegated privilege mode (S or U) and that mode’s interrupt enable bit
       // (SIE or UIE in mstatus) is set, or if the current privilege mode is less than the delegated privilege mode.
-      if (irq_ctrl_i.mideleg[interrupt_cause[$clog2(CVA6Cfg.XLEN)-1:0]]) begin
+      if (CVA6Cfg.RVS && irq_ctrl_i.mideleg[interrupt_cause[$clog2(CVA6Cfg.XLEN)-1:0]]) begin
         if (CVA6Cfg.RVH) begin : hyp_int_gen
           if (v_i && irq_ctrl_i.hideleg[interrupt_cause[$clog2(CVA6Cfg.XLEN)-1:0]]) begin
             if ((irq_ctrl_i.sie && priv_lvl_i == riscv::PRIV_LVL_S) || priv_lvl_i == riscv::PRIV_LVL_U) begin
@@ -2007,8 +1980,8 @@ module decoder
       end
     end
 
-    // a debug request has precendece over everything else
-    if ((CVA6Cfg.DebugEn && debug_req_i && !debug_mode_i)) begin
+    // a debug request has precedence over everything else
+    if (CVA6Cfg.DebugEn && debug_req_i && !debug_mode_i) begin
       instruction_o.ex.valid = 1'b1;
       instruction_o.ex.cause = riscv::DEBUG_REQUEST;
     end

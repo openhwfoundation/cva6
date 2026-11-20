@@ -13,13 +13,13 @@ It encapsulates the following functional units: ALU, Branch Unit, CSR buffer, Mu
 The module is connected to:
 
 * ID_STAGE module provides scoreboard entry.
-* 
+*
 
 [[ex_stage-functionality]]
 Functionality
 ^^^^^^^^^^^^^
 
-TO BE COMPLETED
+// TO BE COMPLETED
 
 [[ex_stage-submodules]]
 Submodules
@@ -145,6 +145,6 @@ include::port_lsu_bypass.adoc[]
 CVXIF_fu
 ++++++++
 
-TO BE COMPLETED
+// TO BE COMPLETED
 
 include::port_cvxif_fu.adoc[]

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2025 Thales DIS design services SAS
 #
 # Licensed under the Solderpad Hardware Licence, Version 2.0 (the "License");
@@ -7,50 +8,56 @@
 #
 # Author: Maxime Colson - Thales
 
-if [ "$#" -eq 1 ]; then
-  ELF_ARG="$1"
-elif [ "$#" -gt 1 ]; then
-  echo "Usage: $0 <elf_executable>"
-  exit 1
-else 
-  ELF_ARG="../tests/custom/ITI/test_iti_asm.o"
-fi
-# where are the tools
-if ! [ -n "$RISCV" ]; then
-  echo "Error: RISCV variable undefined"
-  return
-fi
+# Usage: bash verif/regress/iti_test.sh
+# Run from the repository root, in the cook.py environment.
+#
+# Compiles the ITI test and runs it on the TestHarness with cook.py. The
+# simulation directory, holding iti.traces and encaps.traces, is printed on
+# the last line, and the ELF is <compile dir>/iti_test.elf.
+#
+# Environment:
+#   ITI_TARGET     AXI target of the TestHarness (default: profile_perf32_axi)
+#   ITI_TOOLCHAIN  toolchain of $CONFIG_DIR/compiler.yml (default: gcc-15)
+#   ITI_SIMULATOR  verilator or vcs (default: verilator)
 
-if ! [ -n "$DV_SIMULATORS" ]; then
-  DV_SIMULATORS=vcs-testharness
-fi
+set -e
 
-# install the required tools
-if [[ "$DV_SIMULATORS" == *"veri-testharness"* ]]; then
-  source ./verif/regress/install-verilator.sh
-fi
-source ./verif/regress/install-spike.sh
+target=${ITI_TARGET:-profile_perf32_axi}
+toolchain=${ITI_TOOLCHAIN:-gcc-15}
+simulator=${ITI_SIMULATOR:-verilator}
+test_name=iti_test
+build="build/$target"
+tests="verif/tests/custom"
 
-# setup sim env
-source ./verif/sim/setup-env.sh
+# cook.py exits 0 on failure: the verdict is in the report of the recipe.
+check_report() {
+    if ! grep -q "^status: pass" "$1/cook_report.yml" 2>/dev/null; then
+        echo "Error: $2 failed, see $1/cook_report.yml" >&2
+        exit 1
+    fi
+}
 
-echo "$SPIKE_INSTALL_DIR$"
+./cook.py sw-compile -t "$target" -c "$toolchain" --out "$test_name" \
+    --linker "config/target/$target/link.ld" \
+    --options g --options static --options mcmodel=medany \
+    --options fvisibility=hidden --options nostartfiles \
+    --inc "$tests/env" --inc "$tests/common" \
+    "$tests/ITI/test_iti_asm.c" "$tests/ITI/iti_asm.S" \
+    "$tests/common/syscalls.c" "$tests/common/crt.S"
+check_report "$build/compile/$test_name" sw-compile
 
-if ! [ -n "$UVM_VERBOSITY" ]; then
-    export UVM_VERBOSITY=UVM_NONE
-fi
+./cook.py "$simulator-testharness-comp" -t "$target"
+check_report "$build/elab/sim_rtl_${simulator}_testharness" \
+    "$simulator-testharness-comp"
 
-export DV_OPTS="$DV_OPTS --issrun_opts=+debug_disable=1+UVM_VERBOSITY=$UVM_VERBOSITY"
+sim_dir="$build/simulation/sim_rtl_${simulator}_testharness/$test_name"
+./cook.py "$simulator-testharness-run" -t "$target" -n "$test_name"
+check_report "$sim_dir" "$simulator-testharness-run"
 
-CC_OPTS="-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -g ../tests/custom/common/syscalls.c ../tests/custom/common/crt.S ../tests/custom/ITI/iti_asm.S -I../tests/custom/env -I../tests/custom/common -lgcc"
-
-cd verif/sim/
-
-make -C ../.. clean
-make clean_all
-python3 cva6.py --elf_tests "$ELF_ARG" --target cv32a60x --iss_yaml cva6.yaml --iss=$DV_SIMULATORS --linker=../../config/gen_from_riscv_config/cv32a60x/linker/link.ld $DV_OPTS
-#python3 cva6.py --c_tests ../tests/custom/ITI/test_iti_asm.c --iss_yaml cva6.yaml --target cv32a60x --iss=$DV_SIMULATORS --linker=../../config/gen_from_riscv_config/cv32a65x/linker/link.ld --gcc_opts="$CC_OPTS" $DV_OPTS
-make -C ../.. clean
-make clean_all
-
-cd -
+for f in iti.traces encaps.traces; do
+    if [ ! -f "$sim_dir/$f" ]; then
+        echo "Error: $sim_dir/$f does not exist" >&2
+        exit 1
+    fi
+done
+realpath "$sim_dir"
