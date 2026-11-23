@@ -77,3 +77,8 @@ testlist:
     <<: *common_test_config
     iterations: 1
     asm_tests: <path_var>/custom/pmp/lsu_tor_test.S
+
+  - test: mmode_unlocked_priority_test
+    <<: *common_test_config
+    iterations: 1
+    asm_tests: <path_var>/custom/pmp/mmode_unlocked_priority_test.S
