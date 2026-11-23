@@ -1,0 +1,26 @@
+# Copyright 2026 CVA6 contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: CLINT timer writes
+on:
+  pull_request:
+    branches: [main, master_candidate]
+  push:
+    branches: [master_candidate]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  clint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Verilator
+        run: sudo apt-get update && sudo apt-get install -y verilator
+      - name: Test RV32 and RV64 timer writes
+        run: sh corev_apu/clint/tb/run.sh
