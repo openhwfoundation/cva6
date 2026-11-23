@@ -267,6 +267,7 @@ CVA6Cfg.NrCommitPorts
   logic en_ld_st_translation_d, en_ld_st_translation_q;
   logic en_ld_st_g_translation_d, en_ld_st_g_translation_q;
   logic mprv;
+  logic mprv_v;
   logic mret;  // return from M-mode exception
   logic sret;  // return from S-mode exception
   logic dret;  // return from debug mode
@@ -2422,8 +2423,9 @@ CVA6Cfg.NrCommitPorts
     if (CVA6Cfg.RVH) begin
       if (mprv && (mstatus_q.mpv == 1'b0) && (config_pkg::vm_mode_t'(satp_q.mode) == CVA6Cfg.MODE_SV) && (mstatus_q.mpp != riscv::PRIV_LVL_M)) begin
         en_ld_st_translation_d = 1'b1;
-      end else if (mprv && (mstatus_q.mpv == 1'b1)) begin
-        if (satp_mode_is_sv) begin
+      end else if (mprv_v) begin
+        // MPV=1: vsatp controls the VS stage of the load or store
+        if (config_pkg::vm_mode_t'(vsatp_q.mode) == CVA6Cfg.MODE_SV) begin
           en_ld_st_translation_d = 1'b1;
         end else begin
           en_ld_st_translation_d = 1'b0;
@@ -2432,7 +2434,7 @@ CVA6Cfg.NrCommitPorts
         en_ld_st_translation_d = en_translation_o;
       end
 
-      if (mprv && (mstatus_q.mpv == 1'b1)) begin
+      if (mprv_v) begin
         if (config_pkg::vm_mode_t'(hgatp_q.mode) == CVA6Cfg.MODE_SV) begin
           en_ld_st_g_translation_d = 1'b1;
         end else begin
@@ -2445,7 +2447,7 @@ CVA6Cfg.NrCommitPorts
       if (csr_hs_ld_st_inst_i) ld_st_priv_lvl_o = riscv::priv_lvl_t'(hstatus_q.spvp);
       else ld_st_priv_lvl_o = (mprv) ? mstatus_q.mpp : priv_lvl_o;
 
-      ld_st_v_o = ((mprv ? mstatus_q.mpv : v_q) || (csr_hs_ld_st_inst_i));
+      ld_st_v_o = ((mprv ? mprv_v : v_q) || (csr_hs_ld_st_inst_i));
 
       en_ld_st_translation_o = (en_ld_st_translation_q && !csr_hs_ld_st_inst_i) || (config_pkg::vm_mode_t'(vsatp_q.mode) == CVA6Cfg.MODE_SV && csr_hs_ld_st_inst_i);
 
@@ -2935,6 +2937,9 @@ CVA6Cfg.NrCommitPorts
   end else begin
     assign mprv = mstatus_q.mprv;
   end
+  // MPRV with MPV=1 gives a VS-level or VU-level access. With MPP=M, the access is an
+  // M-level access with no translation, also when MPV=1.
+  assign mprv_v = CVA6Cfg.RVH && mprv && mstatus_q.mpv && (mstatus_q.mpp != riscv::PRIV_LVL_M);
   assign debug_mode_o = debug_mode;
   assign single_step_o = CVA6Cfg.DebugEn ? dcsr_q.step : 1'b0;
   assign mcountinhibit_o = {{29 - MHPMCounterNum{1'b0}}, mcountinhibit_q};

@@ -15,6 +15,11 @@
 #       write rules and trap causes in and around V=1.
 #     - mstatus-wpri-h: reserved mstatus fields read as zero, MPV and GVA
 #       being writable.
+#     - mprv-mpv-vsatp: with MPRV=1 and MPV=1, vsatp controls the VS stage
+#       of a load.
+#     - mprv-mpv-mpp-m: with MPRV=1 and MPP=M, a load or store is not
+#       translated, also when MPV=1.
+#     - mprv-mpv-all-cases: each row of the MPRV table, with SUM and MXR.
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -70,3 +75,18 @@ testlist:
     path_var: TESTS_PATH
     gcc_opts: "-static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -I<path_var>/custom/env/"
     asm_tests: <path_var>/custom/sv39h/hypervisor_insn.S
+
+  - test: mprv-mpv-vsatp
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/issues/mprv-mpv-vsatp-rv64.S
+
+  - test: mprv-mpv-mpp-m
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/issues/mprv-mpv-mpp-m-rv64.S
+
+  - test: mprv-mpv-all-cases
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/issues/mprv-mpv-all-cases-rv64.S
