@@ -328,38 +328,54 @@ module decoder
                   7'b011_0000: begin
                     if (instr.rtype.rs2 == 5'b0) begin
                       instruction_o.op = ariane_pkg::HLV_B;
-                    end
-                    if (instr.rtype.rs2 == 5'b1) begin
+                    end else if (instr.rtype.rs2 == 5'b1) begin
                       instruction_o.op = ariane_pkg::HLV_BU;
+                    end else begin
+                      illegal_instr = 1'b1;
                     end
                   end
                   7'b011_0010: begin
                     if (instr.rtype.rs2 == 5'b0) begin
                       instruction_o.op = ariane_pkg::HLV_H;
-                    end
-                    if (instr.rtype.rs2 == 5'b1) begin
+                    end else if (instr.rtype.rs2 == 5'b1) begin
                       instruction_o.op = ariane_pkg::HLV_HU;
-                    end
-                    if (instr.rtype.rs2 == 5'b11) begin
+                    end else if (instr.rtype.rs2 == 5'b11) begin
                       instruction_o.op = ariane_pkg::HLVX_HU;
+                    end else begin
+                      illegal_instr = 1'b1;
                     end
                   end
                   7'b011_0100: begin
                     if (instr.rtype.rs2 == 5'b0) begin
                       instruction_o.op = ariane_pkg::HLV_W;
-                    end
-                    if (instr.rtype.rs2 == 5'b1) begin
+                    end else if (instr.rtype.rs2 == 5'b1) begin
                       instruction_o.op = ariane_pkg::HLV_WU;
-                    end
-                    if (instr.rtype.rs2 == 5'b11) begin
+                    end else if (instr.rtype.rs2 == 5'b11) begin
                       instruction_o.op = ariane_pkg::HLVX_WU;
+                    end else begin
+                      illegal_instr = 1'b1;
                     end
                   end
-                  7'b011_0001: instruction_o.op = ariane_pkg::HSV_B;
-                  7'b011_0011: instruction_o.op = ariane_pkg::HSV_H;
-                  7'b011_0101: instruction_o.op = ariane_pkg::HSV_W;
-                  7'b011_0110: instruction_o.op = ariane_pkg::HLV_D;
-                  7'b011_0111: instruction_o.op = ariane_pkg::HSV_D;
+                  7'b011_0001: begin
+                    if (instr.rtype.rd != 5'b0) illegal_instr = 1'b1;
+                    instruction_o.op = ariane_pkg::HSV_B;
+                  end
+                  7'b011_0011: begin
+                    if (instr.rtype.rd != 5'b0) illegal_instr = 1'b1;
+                    instruction_o.op = ariane_pkg::HSV_H;
+                  end
+                  7'b011_0101: begin
+                    if (instr.rtype.rd != 5'b0) illegal_instr = 1'b1;
+                    instruction_o.op = ariane_pkg::HSV_W;
+                  end
+                  7'b011_0110: begin
+                    if (instr.rtype.rs2 != 5'b0) illegal_instr = 1'b1;
+                    instruction_o.op = ariane_pkg::HLV_D;
+                  end
+                  7'b011_0111: begin
+                    if (instr.rtype.rd != 5'b0) illegal_instr = 1'b1;
+                    instruction_o.op = ariane_pkg::HSV_D;
+                  end
                   default: illegal_instr = 1'b1;
 
                 endcase
@@ -445,6 +461,8 @@ module decoder
                 instruction_o.rs1[4:0] = instr.itype.rs1;
                 // not used - zero
                 instruction_o.rs2[4:0] = '0;
+                // CBO instructions do not have a destination register
+                if (instr.itype.rd != 5'b0) illegal_instr = 1'b1;
                 unique case (instr.itype.imm)
                   // CBO.INVAL
                   12'b000000000000: instruction_o.op = ariane_pkg::CBO_INVAL;
@@ -1156,7 +1174,7 @@ module decoder
                   instruction_o.op = ariane_pkg::BSETI;
                 else if (CVA6Cfg.ZKN && CVA6Cfg.IS_XLEN32 && instr.instr[31:20] == 12'b000010001111)
                   instruction_o.op = ariane_pkg::ZIP;
-                else if (CVA6Cfg.ZKN && instr.instr[31:24] == 8'b00110001) begin
+                else if (CVA6Cfg.ZKN && instr.instr[31:24] == 8'b00110001 && instr.instr[23:20] <= 4'b1010) begin
                   instruction_o.op = ariane_pkg::AES64KS1I;
                   instruction_o.fu = AES;
                 end else if (CVA6Cfg.ZKN && instr.instr[31:20] == 12'b001100000000) begin
