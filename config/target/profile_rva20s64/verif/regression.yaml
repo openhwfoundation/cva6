@@ -57,3 +57,9 @@ testlist:
     iterations: 1
     <<: *common_test_config
     asm_tests: <path_var>/riscv-tests/isa/rv32ui/jal.S
+
+  - test: lr-misaligned
+    iterations: 1
+    no_post_compare: true
+    <<: *common_test_config
+    asm_tests: <path_var>/custom/amo/lr_misaligned.S
