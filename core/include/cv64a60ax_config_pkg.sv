@@ -22,7 +22,7 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 39;
-  localparam CVA6ConfigAxiDataWidth = 128;
+  localparam CVA6ConfigAxiDataWidth = 64;
   localparam CVA6ConfigDataUserWidth = 12;
 
 
