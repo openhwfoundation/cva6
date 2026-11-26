@@ -11,7 +11,8 @@
 #   PMP tests that only build for RV64 and check mtval, for the cv64 targets
 #   with PMP entries and TvalEn. They check that the LSU hands PMP the
 #   metadata of the access that the response answers, without translation,
-#   and that an AMO to a write-protected region raises a store access fault.
+#   that an AMO to a write-protected region raises a store access fault, and
+#   that a misaligned exception is not replaced by a PMP access fault.
 #   The same metadata check through the MMU is in base_rv64_pmp_mmu.
 # ------------------------------------------------------------------------------
 
@@ -31,3 +32,8 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/pmp/amo_access_fault_test.S
+
+  - test: pmp-misaligned-priority-no-mmu
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/pmp/misaligned_priority_no_mmu_test.S

@@ -8,9 +8,10 @@
 # ------------------------------------------------------------------------------
 #   base_rv64_pmp_mmu_tval.yaml
 #
-#   PMP test that needs an MMU and checks mtval, for the cv64 targets with PMP
+#   PMP tests that need an MMU and check mtval, for the cv64 targets with PMP
 #   entries, an MMU and TvalEn: the LSU hands PMP the metadata of the access
-#   that the MMU response answers, on DTLB-miss and DTLB-hit stores.
+#   that the MMU response answers, on DTLB-miss and DTLB-hit stores, and a
+#   page fault or a misaligned exception is not replaced by a PMP access fault.
 # ------------------------------------------------------------------------------
 
 custom_test_config: &custom_test_config
@@ -23,3 +24,13 @@ testlist:
     iterations: 1
     <<: *custom_test_config
     asm_tests: <path_var>/custom/pmp/lsu_pipeline_store_test.S
+
+  - test: pmp-page-fault-priority
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/pmp/page_fault_priority_test.S
+
+  - test: pmp-misaligned-priority
+    iterations: 1
+    <<: *custom_test_config
+    asm_tests: <path_var>/custom/pmp/misaligned_priority_mmu_test.S

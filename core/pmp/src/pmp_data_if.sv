@@ -137,12 +137,9 @@ module pmp_data_if
       pmp_access_type = riscv::ACCESS_READ;
     end
 
-    // If translation is not enabled, check the paddr immediately against PMPs
-    // A misaligned exception has higher priority than an access fault, so don't
-    // overwrite it (RISC-V privilege spec, simultaneous trap cause priority).
-    if (lsu_valid_i && !data_allow_o &&
-        !(lsu_exception_i.valid &&
-          (lsu_exception_i.cause inside {riscv::LD_ADDR_MISALIGNED, riscv::ST_ADDR_MISALIGNED}))) begin
+    // The PMP check of the final physical address applies only when the access has
+    // no exception yet: misaligned and address translation exceptions have a higher priority.
+    if (lsu_valid_i && !data_allow_o && !lsu_exception_i.valid) begin
       lsu_exception_o.valid = 1'b1;
 
       if (CVA6Cfg.TvalEn) begin
