@@ -15,7 +15,7 @@ import yaml
 
 from flows.recipes.vcs_generator_run import vcs_generator_run
 from flows.utils.recipe_report import RecipeReport
-from flows.utils.autocompletion import autocompletion_testlist
+from flows.utils.autocompletion import autocompletion_target, autocompletion_testlist
 
 app = typer.Typer()
 
@@ -27,11 +27,19 @@ app = typer.Typer()
 
 @app.command()
 def vcs_generator_run_testlist(
+    target: str = typer.Option(
+        ...,
+        "--target",
+        "-t",
+        help="CVA6 user configuration (the generator elaborated for it)",
+        autocompletion=autocompletion_target,
+    ),
     testlist: str = typer.Option(
         ...,
         "--testlist",
         "-l",
-        help="Testlist (YML file) in verif/tests",
+        help="riscv-dv testlist (YML file), e.g. "
+        "config/target/<target>/verif/generated_test.yaml",
         autocompletion=autocompletion_testlist,
     ),
     test_name: list[str] = typer.Option(
@@ -40,7 +48,11 @@ def vcs_generator_run_testlist(
         "-n",
         help="Single test in the given testlist",
     ),
-    seed: int = typer.Option(None, help="randomized if not provided"),
+    seed: int = typer.Option(
+        None,
+        help="Seed of the first iteration of each test, incremented per "
+        "iteration (randomized if not provided)",
+    ),
     batch_size: int = typer.Option(1, help="Number of tests to generate per run batch"),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
@@ -57,9 +69,10 @@ def vcs_generator_run_testlist(
     # each other
     report = RecipeReport(
         "vcs-generator-run-testlist",
-        out_dir=repo_dir / "build" / "cv32a65x" / "dv_generated" / Path(testlist).stem,
+        out_dir=repo_dir / "build" / target / "dv_generated" / Path(testlist).stem,
         title="VCS DESIGN RUN GENERATOR TESTLIST",
         context={
+            "target": target,
             "testlist": testlist,
             "test_name": test_name,
             "seed": seed,
@@ -70,7 +83,7 @@ def vcs_generator_run_testlist(
     results = report.metric("Generation results")
 
     # Per-test output dirs of the vcs-generator-run sub-recipe
-    dv_generated_dir = repo_dir / "build" / "cv32a65x" / "dv_generated"
+    dv_generated_dir = repo_dir / "build" / target / "dv_generated"
 
     data = {"testlist": []}
 
@@ -116,13 +129,14 @@ def vcs_generator_run_testlist(
             opts = shlex.split(gen_opts_str)
 
             vcs_generator_run(
+                target=target,
                 test_name=test["test"],
                 gen_test=gen_test,
                 iterations=iterations,
                 batch_size=batch_size,
                 extensions=[],
                 directed_instrs=[],
-                type_instr="",
+                type_instr=[],
                 seed=seed,
                 verbose=False,
                 tvec_alignment=8,

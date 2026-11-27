@@ -1,5 +1,8 @@
 # Quick start
 
+Tutorials by use (integration, simulation, software, synthesis, FPGA,
+development): see the [tutorials](../tutorials/README.md).
+
 Worked examples, from a fresh clone to a design running on a board. Each
 one is a sequence to copy, with what it produces and where. The reference
 of every option is in [README.md](README.md), writing a new flow is in
@@ -51,6 +54,10 @@ sudo apt-get install cmake help2man device-tree-compiler   # Debian based
 export NUM_JOBS=8
 ./verif/regress/install-spike.sh
 ```
+
+Verilator, for the TestHarness recipes, is installed (patched) by
+`./verif/regress/install-verilator.sh`, in `tools/verilator-<version>`:
+point `VERILATOR_INSTALL_DIR` of `setenv.sh` at it.
 
 **5. Clone the external test suites and patch the submodules**
 
@@ -192,13 +199,14 @@ recorded in the report of each run.
 ### Random tests
 
 ```bash
-# 1. Elaborate the generator
-./cook.py vcs-generator-comp
+# 1. Elaborate the generator and the UVM testbench (with Spike tandem)
+./cook.py vcs-generator-comp -t cv32a60x
+./cook.py vcs-uvm-comp -t cv32a60x --tandem-enabled
 
-# 2. Generate and run, in batches, against Spike
+# 2. Generate, compile and run, in batches, against Spike
 ./cook.py macro-vcs-generator-testlist \
   -t cv32a60x \
-  -l verif/tests/<generator-testlist>.yaml \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
   -c llvm-22 \
   --batch-size 8 \
   --trace-mode compact \

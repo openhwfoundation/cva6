@@ -101,28 +101,18 @@ module clint #(
                     msip_n[$unsigned(address[AddrSelWidth-1+2:2])] = wdata[32*address[2]];
                 end
 
-                [MTIMECMP_BASE:MTIMECMP_BASE+8*NR_CORES]: begin
-                    if (CVA6Cfg.IS_XLEN32) begin
-                        if (be[3:0] == 4'hf)
-                            mtimecmp_n[$unsigned(address[AddrSelWidth-1+3:3])][31:0] = wdata[31:0];
-                        else
-                            mtimecmp_n[$unsigned(address[AddrSelWidth-1+3:3])][63:32] = wdata[63:32];
-                            
-                    end else begin
-                        mtimecmp_n[$unsigned(address[AddrSelWidth-1+3:3])] = wdata;
+                [MTIMECMP_BASE:MTIMECMP_BASE+8*NR_CORES-1]: begin
+                    for (int i = 0; i < $bits(be); i++) begin
+                        if (be[i])
+                            mtimecmp_n[$unsigned(address[AddrSelWidth-1+3:3])][8*i +: 8] =
+                                wdata[8*i +: 8];
                     end
-                end              
+                end
 
-                [MTIME_BASE:MTIME_BASE+4]: begin
-                    if (CVA6Cfg.IS_XLEN32) begin
-                        if (address[2:0] == 3'h0)
-                            mtime_n[31:0] = wdata[31:0];
-                        else begin
-                            if (address[2:0] == 3'h4)
-                                mtime_n[63:32] = wdata[63:32];
-                        end
-                    end else begin
-                        mtime_n = wdata;
+                [MTIME_BASE:MTIME_BASE+7]: begin
+                    for (int i = 0; i < $bits(be); i++) begin
+                        if (be[i])
+                            mtime_n[8*i +: 8] = wdata[8*i +: 8];
                     end
                 end
                 default:;
@@ -143,7 +133,7 @@ module clint #(
                         rdata = msip_q[$unsigned(address[AddrSelWidth-1+2:2])];
                 end
 
-                [MTIMECMP_BASE:MTIMECMP_BASE+8*NR_CORES]: begin
+                [MTIMECMP_BASE:MTIMECMP_BASE+8*NR_CORES-1]: begin
                     if (CVA6Cfg.IS_XLEN32) begin
                         if (address[2:0] == 3'h0)
                             rdata[31:0] = mtimecmp_q[$unsigned(address[AddrSelWidth-1+3:3])][31:0];
@@ -157,7 +147,7 @@ module clint #(
                     end
                 end
 
-                [MTIME_BASE:MTIME_BASE+4]: begin
+                [MTIME_BASE:MTIME_BASE+7]: begin
                     if (CVA6Cfg.IS_XLEN32) begin
                         if (address[2:0] == 3'h0)
                             rdata[31:0] = mtime_q[31:0];

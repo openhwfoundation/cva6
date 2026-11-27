@@ -1,6 +1,7 @@
 # Contributing
 
 New motivated Contributors are always welcome.
+If you are new to open-source projects, please have a look at the Eclipse Foundation's [How To Contribute](https://www.eclipse.org/contribute/) page.
 
 Note that Contributors are required to be covered by an [Eclipse Contributor Agreement](https://www.eclipse.org/legal/ECA.php).
 If a pull request has been open with no ECA for more than 24 hours, we consider it as either an automated pull request, which is not allowed, or an unmotivated pull request, which is rejected.
@@ -55,6 +56,12 @@ Here are some guidelines to help the CVA6 team accept new contributions of major
         - When the contribution is disabled: the line and condition code coverage shall not be impacted.
         - When the contribution is enabled: in relevant cases.
         - You can issue a "do not merge" pull request to test your contribution.
+        - Before you open the pull request, run at least the open-source regression, on every target. It needs no licence and no FPGA board:
+          ```
+          ./cook.py full-regression --open-source -j 16
+          ```
+          It checks the formatting (Verible, Black, Pylint), the lint (slang and Verilator) and the Yosys synthesis of every target, runs hello-world on the Verilator TestHarness, and builds the documentation. The result is in `artifacts/reports/pipeline_report.html`.
+        - If you have the commercial tools (VCS, Spyglass, Design Compiler, Vivado), run the full regression instead: `./cook.py full-regression -j 16`. See [tutorials/developer/ci_checks.md](tutorials/developer/ci_checks.md).
         - RTL code located in `core` directory is formatted with `verible-verilog-format`. See [Verible command to be executed](#verible).
     * Your contribution shall come with its own regression test to integrate in the CI flow.
         - So that we can detect quickly if future updates break your contribution.

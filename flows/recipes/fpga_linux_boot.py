@@ -18,11 +18,8 @@ watches the console until the kernel identifies itself. The system image
 is not built here; it comes from the CVA6 SDK (see the FPGA section of
 the repository README for the SD card preparation).
 
-Replaces `corev_apu/fpga/scripts/check_fpga_boot.sh` and `linux_boot.py`.
-Three behaviours change, all of them defects of the originals: the boot
-has a wall clock deadline instead of relying on the CI job timeout, a
-missing bitstream is an error instead of a silent success (the shell
-script exited 0 when the file was absent), and the verdict is taken on
+The boot has a wall clock deadline instead of relying on the CI job
+timeout, a missing bitstream is an error, and the verdict is taken on
 the whole transcript rather than on its last line only.
 """
 

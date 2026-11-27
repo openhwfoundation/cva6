@@ -495,7 +495,7 @@ class Model:
         if len(self.instr_queue) == 0 or len(self.scoreboard) >= self.sb_len:
             return
         can_issue = True
-        instr = self.instr_queue[0]
+        instr = self.instr_queue[-1]
         if self.find_data_hazards(instr, cycle):
             can_issue = False
         if self.find_structural_hazard(instr, cycle):
@@ -505,7 +505,7 @@ class Model:
             can_issue = False
         if can_issue:
             self.iqlen.remove(instr)
-            instr = self.instr_queue.pop(0)
+            instr = self.instr_queue.pop()
             self.log_event_on(instr, EventKind.issue, cycle)
             entry = Entry(instr)
             self.scoreboard.append(entry)
@@ -565,6 +565,7 @@ class Model:
                     mnemo = found.group(5)
                     instr = Instruction(line, address, hex_code, mnemo)
                     self.instr_queue.append(instr)
+        self.instr_queue.reverse()
 
     def run(self, cycles=None):
         """Run until completion"""

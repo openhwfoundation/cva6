@@ -16,7 +16,7 @@ slang:
     seq-no-match: 4
 verilator:
   warning:
-    LITENDIAN: 63
+    ASCRANGE: 92
     WIDTHCONCAT: 2
-    WIDTHEXPAND: 98
-    WIDTHTRUNC: 54
+    WIDTHEXPAND: 106
+    WIDTHTRUNC: 65

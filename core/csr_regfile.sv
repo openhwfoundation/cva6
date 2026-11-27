@@ -1395,6 +1395,9 @@ CVA6Cfg.NrCommitPorts
         riscv::CSR_VSTVEC: begin
           if (CVA6Cfg.RVH) begin
             vstvec_d = {csr_wdata[CVA6Cfg.XLEN-1:2], 1'b0, csr_wdata[0]};
+            // Vectored mode: BASE is 256-byte aligned, as the interrupt entry
+            // writes the cause in bits [7:2]
+            if (csr_wdata[0]) vstvec_d[7:2] = '0;
           end else begin
             update_access_exception = 1'b1;
           end
@@ -1482,8 +1485,12 @@ CVA6Cfg.NrCommitPorts
         end
 
         riscv::CSR_STVEC:
-        if (CVA6Cfg.RVS) stvec_d = {csr_wdata[CVA6Cfg.XLEN-1:2], 1'b0, csr_wdata[0]};
-        else update_access_exception = 1'b1;
+        if (CVA6Cfg.RVS) begin
+          stvec_d = {csr_wdata[CVA6Cfg.XLEN-1:2], 1'b0, csr_wdata[0]};
+          // Vectored mode: BASE is 256-byte aligned, as the interrupt entry
+          // writes the cause in bits [7:2]
+          if (csr_wdata[0]) stvec_d[7:2] = '0;
+        end else update_access_exception = 1'b1;
         riscv::CSR_SCOUNTEREN:
         if (CVA6Cfg.RVS) scounteren_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
         else update_access_exception = 1'b1;
@@ -1563,7 +1570,9 @@ CVA6Cfg.NrCommitPorts
                (1 << riscv::ENV_CALL_UMODE) |
                (1 << riscv::INSTR_PAGE_FAULT) |
                (1 << riscv::LOAD_PAGE_FAULT) |
-               (1 << riscv::STORE_PAGE_FAULT);
+               (1 << riscv::STORE_PAGE_FAULT) |
+               (1 << riscv::SOFTWARE_CHECK) |
+               (1 << riscv::HARDWARE_ERROR);
             hedeleg_d = (hedeleg_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;

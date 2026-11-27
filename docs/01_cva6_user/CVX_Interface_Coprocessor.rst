@@ -395,31 +395,18 @@ For example, 123 in decimal = 0x7B in hexadecimal = 0x123 in binary-coded decima
 
     Example:
 
-    .. code-block::
-
-        cd ~/cva6/verif/sim
-        export DV_SIMULATORS=veri-testharness
-        TRACE_FAST=1 python3 cva6.py --target cv64a6_imafdc_sv39 \
-          --iss=$DV_SIMULATORS --iss_yaml=cva6.yaml \
-          --asm_tests ../tests/custom/cv_xif/cvxif_bcd.S \
-          --linker=../tests/custom/common/test.ld \
-          --gcc_opts="-static -mcmodel=medany \
-            -fvisibility=hidden -nostdlib \
-            -nostartfiles -g ../tests/custom/common/syscalls.c \
-            ../tests/custom/common/crt.S -lgcc \
-            -I../tests/custom/env -I../tests/custom/common"
-
-    Check verilog build errors in verif/sim/out_*/veri-testharness_sim/cvxif_bcd.cv64a6_imafdc_sv39.log.iss.
-
-    Check instruction trace of the execution in verif/sim/out_*/veri-testharness_sim/cvxif_bcd.cv64a6_imafdc_sv39.log.
-
-    View the simulated waveform output using:
+    Add a ``cvxif_bcd`` entry to verif/tests/testlist_cvxif.yaml, copied from the ``cvxif_add_nop`` one, then compile it and run it on a target with the coprocessor (``CvxifEn``), for instance:
 
     .. code-block::
 
-        gtkwave verif/sim/out_*/veri-testharness_sim/cvxif_bcd.cv64a6_imafdc_sv39.vcd
+        ./cook.py sw-compile-testlist -t cv32a65x -c gcc-15 \
+          -l verif/tests/testlist_cvxif.yaml -n cvxif_bcd
+        ./cook.py vcs-uvm-comp -t cv32a65x --trace-mode fast
+        ./cook.py vcs-uvm-run -t cv32a65x -n cvxif_bcd --trace-mode fast
 
-    The signals in TOP.ariane_testharness.i_ariane.cvxif_req/resp should be useful.
+    The log, the instruction trace and the waveforms are written to build/cv32a65x/simulation/sim_rtl/cvxif_bcd/. See flows/README.md for the other simulators.
+
+    The signals in cvxif_req/cvxif_resp of the core should be useful.
 
 How to program a CV-X-IF coprocessor
 ------------------------------------
