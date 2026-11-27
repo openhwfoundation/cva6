@@ -414,6 +414,18 @@ testlist:
     mabi: ilp32
     <<: *common_test_config_4
     asm_tests: <path_var>/custom/sv32/vm_pte_pmp_check_level_0.S
+  - test: rv32_vm_pte_pmp_fault_store_level_1_u
+    iterations: 1
+    march: rv32izicsr
+    mabi: ilp32
+    <<: *common_test_config_3
+    asm_tests: <path_var>/custom/sv32/vm_pte_pmp_fault_store_level_1.S
+  - test: rv32_vm_pte_pmp_fault_store_level_1_s
+    iterations: 1
+    march: rv32izicsr
+    mabi: ilp32
+    <<: *common_test_config_4
+    asm_tests: <path_var>/custom/sv32/vm_pte_pmp_fault_store_level_1.S
 
   - test: rv32_vm_bare_mode_level_1_u
     iterations: 1
