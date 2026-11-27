@@ -240,11 +240,14 @@ module load_unit
 
   // directly forward exception fields (valid bit is set below)
   // A load address trigger reports its own cause and the faulting address.
-  //  An error on the response takes precedence over the MMU and trigger causes.
+  //  An error on the response takes precedence over the MMU and trigger causes,
+  //  but only on a response that retires its load (data_rvalid): the response
+  //  of a flushed load is dropped, and its error must not change the cause of
+  //  an exception retired in the same cycle.
   assign ex_s1_src = ex_s1_held_q ? ex_s1_held_ex_q : ex_i;
-  assign ex_o.cause = ypb_load_rsp_i.err                ? riscv::HARDWARE_ERROR :
-                      (sdtrig_load_action_i != '0)      ? sdtrig_load_action_i  :
-                                                          ex_s1_src.cause;
+  assign ex_o.cause = (data_rvalid && ypb_load_rsp_i.err) ? riscv::HARDWARE_ERROR :
+                      (sdtrig_load_action_i != '0)        ? sdtrig_load_action_i  :
+                                                            ex_s1_src.cause;
   //  On a response tval is the virtual address of the load that the response
   //  answers, held in the load buffer, as the load that caused it may have left
   //  lsu_ctrl_i long ago: the hardware error and the load data trigger report

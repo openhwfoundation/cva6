@@ -1,6 +1,7 @@
 # Contributing
 
 New motivated Contributors are always welcome.
+If you are new to open-source projects, please have a look at the Eclipse Foundation's [How To Contribute](https://www.eclipse.org/contribute/) page.
 
 Note that Contributors are required to be covered by an [Eclipse Contributor Agreement](https://www.eclipse.org/legal/ECA.php).
 If a pull request has been open with no ECA for more than 24 hours, we consider it as either an automated pull request, which is not allowed, or an unmotivated pull request, which is rejected.
