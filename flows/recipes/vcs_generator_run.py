@@ -17,8 +17,13 @@ import yaml
 from flows.utils.manifest import require_prerequisite
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.run_cmd import run_cmd
+from flows.utils.autocompletion import autocompletion_target
 
 app = typer.Typer()
+
+# UVM messages, not the "UVM_ERROR :    0" lines of the report summary
+UVM_ERROR = r"^UVM_(ERROR|FATAL)(?! :)"
+UVM_WARNING = r"^UVM_WARNING(?! :)"
 
 
 class SeedGen:
@@ -82,6 +87,13 @@ class InstrType(str, Enum):
 
 @app.command()
 def vcs_generator_run(
+    target: str = typer.Option(
+        ...,
+        "--target",
+        "-t",
+        help="CVA6 user configuration (the generator elaborated for it)",
+        autocompletion=autocompletion_target,
+    ),
     test_name: str = typer.Option(..., "--testname", "-n", help="Test name to run"),
     type_instr: list[InstrType] = typer.Option(
         [],
@@ -113,7 +125,11 @@ def vcs_generator_run(
         0, help="Unsupported instruction ratio"
     ),
     num_of_sub_program: int = typer.Option(0, help="Number of sub-programs"),
-    seed: int = typer.Option(None, help="randomized if not provided"),
+    seed: int = typer.Option(
+        None,
+        help="Seed of the first batch, incremented per iteration "
+        "(randomized if not provided)",
+    ),
     tvec_alignment: int = typer.Option(8, help="tvec_alignment value (int)"),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable UVM_HIGH verbosity"
@@ -121,7 +137,8 @@ def vcs_generator_run(
     opts: list[str] = typer.Option(
         [],
         "--options",
-        help="Directed instruction streams (e.g. -d 'cva6_load_store_rand_instr_stream_c,10')",
+        help="Generator plusargs replacing every option above "
+        "(e.g. --options +instr_cnt=500)",
     ),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
@@ -134,7 +151,7 @@ def vcs_generator_run(
         "vcs-generator-run",
         title="DV SIMULATE GENERATOR",
         context={
-            "target": "cv32a65x",
+            "target": target,
             "test_name": test_name,
             "type_instr": type_instr,
             "gen_test": gen_test,
@@ -154,28 +171,34 @@ def vcs_generator_run(
         quiet=quiet,
     )
 
-    # Seed Initialisation
-    seed_gen = SeedGen(None, seed, None)
+    # Seed Initialisation: --seed is the seed of the first iteration, so
+    # that several iterations still get different programs
+    seed_gen = SeedGen(seed, None, None)
 
     # ==========================================================
     # PATHS
     # ==========================================================
 
     repo_dir = Path.cwd()
-    build_dir = repo_dir / "build" / "dv"
-    simv_path = build_dir / "simv"
-    output_dir = repo_dir / "build" / "cv32a65x" / "dv_generated" / test_name
+    simv_path = repo_dir / "build" / target / "dv_generator" / "simv"
+    # sw-compile-testlist resolves the TESTS_GEN_PATH path_var of the
+    # testlists to build/<target>/dv_generated
+    dv_generated_dir = repo_dir / "build" / target / "dv_generated"
+    output_dir = dv_generated_dir / test_name
     report.set_out_dir(output_dir)
 
     require_prerequisite(
         simv_path,
         "compiled random test generator (simv)",
-        "./cook.py vcs-generator-comp",
+        f"./cook.py vcs-generator-comp -t {target}",
         report=report,
     )
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     asm_dir = output_dir / "asm_tests"
+    # Programs of a previous generation must not pass for this one
+    if asm_dir.exists():
+        for old in asm_dir.glob(f"{test_name}_*.S"):
+            old.unlink()
     asm_dir.mkdir(parents=True, exist_ok=True)
 
     # ==========================================================
@@ -236,7 +259,8 @@ def vcs_generator_run(
             f"+num_of_tests={test_cnt}",
             f"+start_idx={i * batch_size}",
             f"+asm_file_name={asm_dir}/{test_name}",
-            f"-l {output_dir}/sim_{test_name}_{i}.log",
+            "-l",
+            str(output_dir / f"sim_{test_name}_{i}.log"),
             f"+ntb_random_seed={rand_seed}",
         ]
 
@@ -251,28 +275,37 @@ def vcs_generator_run(
         # LAUNCH SIMV
         # ==========================================================
 
+        # Run in the output dir: simv drops ucli.key and simv_start_maps_*
+        # in its working directory
+        batch_log = output_dir / f"run_batch_{i}.log"
         run_cmd(
             cmd=sim_cmd,
             report=report,
-            cwd=repo_dir,
+            cwd=output_dir,
             env=None,
-            error_patterns=[r"\[ERROR\]", r"^UVM_ERROR", r"Fatal"],
-            warning_patterns=[r"\[WARNING\]", r"^UVM_WARNING"],
-            log_file=output_dir / f"run_batch_{i}.log",
+            error_patterns=[r"\[ERROR\]", UVM_ERROR, r"Fatal"],
+            warning_patterns=[r"\[WARNING\]", UVM_WARNING],
+            log_file=batch_log,
             timeout=3600,
-            check=False,
+            check=True,
             capture_output=False,
+        )
+        report.analyze_log(
+            batch_log,
+            name=f"run_batch_{i}.log analysis",
+            error_patterns=[UVM_ERROR, r"^Error-"],
+            warning_patterns=[UVM_WARNING],
+            env_patterns=[
+                r"(license|licence).*(error|fail|unable|denied|expired)",
+                r"unable to checkout",
+            ],
         )
 
     # ==========================================================
     # Seed Files
     # ==========================================================
     if sim_seed:
-        dv_generated_dir = repo_dir / "build" / "cv32a65x" / "dv_generated"
         seedlist_path = dv_generated_dir / "seedlist.yaml"
-
-        dv_generated_dir.mkdir(parents=True, exist_ok=True)
-
         with open(seedlist_path, "a", encoding="utf-8") as seedlist_file:
             yaml.dump(sim_seed, seedlist_file, default_flow_style=False)
 
@@ -281,25 +314,6 @@ def vcs_generator_run(
         seed_path = output_dir / "seed.yaml"
         with open(seed_path, "w", encoding="utf-8") as seed_file:
             yaml.dump(sim_seed, seed_file, default_flow_style=False)
-
-    # ==========================================================
-    # Clean
-    # ==========================================================
-    report.step("Clean")
-
-    target_dir = repo_dir
-
-    # Remove simv_start_maps_
-    for map_file in target_dir.glob("simv_start_maps_*.txt"):
-        if map_file.is_file():
-            map_file.unlink()
-            report.info(f"File {map_file} deleted")
-
-    # Remove ucli.key
-    ucli_file = target_dir / "ucli.key"
-    if ucli_file.exists():
-        ucli_file.unlink()
-        report.info(f"File {ucli_file} deleted")
 
     # ==========================================================
     # List
@@ -311,8 +325,11 @@ def vcs_generator_run(
         if file.exists():
             report.info(f"> {file}")
             generated.append(str(file.relative_to(repo_dir)))
+        else:
+            report.error(f"{file.relative_to(repo_dir)} not generated")
 
-    report.success("Instruction generation complete")
+    if not report.failed:
+        report.success("Instruction generation complete")
 
     # ==========================================================
     # BUILD REPORT

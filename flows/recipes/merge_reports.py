@@ -136,8 +136,10 @@ def _read_target_config(repo_dir, target):
 
     # MEM_OBI has no cache: each memory port is an OBI bus, so a
     # CacheWritePolicy is still declared there but drives nothing
-    mem_obi = enums.get("MemSubsystem") == "MEM_OBI"
-    labels.append({"text": "OBI" if mem_obi else "AXI", "group": "bus"})
+    mem_subsystem = enums.get("MemSubsystem")
+    mem_obi = mem_subsystem == "MEM_OBI"
+    bus = {"MEM_OBI": "OBI", "MEM_HPDCACHE_L15": "L1.5"}.get(mem_subsystem, "AXI")
+    labels.append({"text": bus, "group": "bus"})
     if not mem_obi:
         policy = CFG_CACHE_WRITE_POLICY.get(enums.get("CacheWritePolicy", ""))
         if policy:

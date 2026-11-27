@@ -150,7 +150,7 @@ module fpu_wrap
       fpu_dstfmt_d    = fpnew_pkg::FP32;
       fpu_ifmt_d      = fpnew_pkg::INT32;
       fpu_rm_d        = fpu_rm_i;
-      fpu_vec_op_d    = fu_data_i.fu == FPU_VEC;
+      fpu_vec_op_d    = CVA6Cfg.XFVec && (fu_data_i.fu == FPU_VEC);
       fpu_tag_d       = fu_data_i.trans_id;
       vec_replication = fpu_rm_i[0];  // replication bit is sent via rm field
       replicate_c     = 1'b0;
@@ -170,7 +170,7 @@ module fpu_wrap
         2'b01:   fpu_dstfmt_d = fpu_vec_op_d ? fpnew_pkg::FP16ALT : fpnew_pkg::FP64;
         // FP16 or FP16ALT (scalar)
         2'b10: begin
-          if (!fpu_vec_op_d && fpu_rm_i == 3'b101) fpu_dstfmt_d = fpnew_pkg::FP16ALT;
+          if (CVA6Cfg.XF16ALT && !fpu_vec_op_d && fpu_rm_i == 3'b101) fpu_dstfmt_d = fpnew_pkg::FP16ALT;
           else fpu_dstfmt_d = fpnew_pkg::FP16;
         end
         // FP8
@@ -223,7 +223,7 @@ module fpu_wrap
         FCVT_F2I: begin
           fpu_op_d = fpnew_pkg::F2I;
           // Vectorial Ops encoded in R bit
-          if (fpu_vec_op_d) begin
+          if (CVA6Cfg.XFVec && fpu_vec_op_d) begin
             fpu_op_mod_d    = fpu_rm_i[0];
             vec_replication = 1'b0;  // no replication, R bit used for op
             unique case (fpu_fmt_i)
@@ -242,7 +242,7 @@ module fpu_wrap
         FCVT_I2F: begin
           fpu_op_d = fpnew_pkg::I2F;
           // Vectorial Ops encoded in R bit
-          if (fpu_vec_op_d) begin
+          if (CVA6Cfg.XFVec && fpu_vec_op_d) begin
             fpu_op_mod_d    = fpu_rm_i[0];
             vec_replication = 1'b0;  // no replication, R bit used for op
             unique case (fpu_fmt_i)
@@ -261,7 +261,7 @@ module fpu_wrap
         FCVT_F2F: begin
           fpu_op_d = fpnew_pkg::F2F;
           // Vectorial ops encoded in lowest two imm bits
-          if (fpu_vec_op_d) begin
+          if (CVA6Cfg.XFVec && fpu_vec_op_d) begin
             vec_replication = 1'b0;  // no replication for casts (not needed)
             unique case (operand_c_i[1:0])
               2'b00: fpu_srcfmt_d = fpnew_pkg::FP32;
@@ -275,8 +275,8 @@ module fpu_wrap
               3'b000:  fpu_srcfmt_d = fpnew_pkg::FP32;
               3'b001:  fpu_srcfmt_d = fpnew_pkg::FP64;
               3'b010:  fpu_srcfmt_d = fpnew_pkg::FP16;
-              3'b110:  fpu_srcfmt_d = fpnew_pkg::FP16ALT;
-              3'b011:  fpu_srcfmt_d = fpnew_pkg::FP8;
+              3'b110:  if (CVA6Cfg.XF16ALT) fpu_srcfmt_d = fpnew_pkg::FP16ALT;
+              3'b011:  if (CVA6Cfg.XF8) fpu_srcfmt_d = fpnew_pkg::FP8;
               default: ;  // Do nothing
             endcase
           end

@@ -11,6 +11,7 @@
 
 from pathlib import Path
 import random
+import shlex
 from enum import Enum
 import yaml
 import typer
@@ -211,6 +212,10 @@ def uvm_run_testlist(
         if iterations == 0:
             continue
 
+        # Plusargs of this test only (`run_opts` key of the testlist entry),
+        # after the global --run_opts
+        test_run_opts = list(run_opts) + shlex.split(test.get("run_opts", ""))
+
         for i in range(iterations):
             iter_test_name = f"{test['test']}_{i}"
             child_report = sim_root / iter_test_name / "cook_report.yml"
@@ -229,7 +234,7 @@ def uvm_run_testlist(
                         interactive_gui=interactive_gui,
                         stats=stats,
                         sim_profile=sim_profile,
-                        run_opts=run_opts,
+                        run_opts=test_run_opts,
                         irq_delay=[],
                         uvm_seed=uvm_seed,
                         sim_timeout=sim_timeout,
@@ -254,7 +259,7 @@ def uvm_run_testlist(
                         tb_performance_mode=tb_performance_mode,
                         interactive_gui=interactive_gui,
                         stats=stats,
-                        run_opts=run_opts,
+                        run_opts=test_run_opts,
                         irq_delay=[],
                         uvm_seed=uvm_seed,
                         sim_timeout=sim_timeout,

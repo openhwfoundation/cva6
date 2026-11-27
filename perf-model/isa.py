@@ -119,7 +119,7 @@ class Rtype:
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
 
 
 class Itype:
@@ -129,7 +129,7 @@ class Itype:
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(instr.bin >> 20, 11)
 
 
@@ -140,7 +140,7 @@ class Stype:
         self.rs2 = (instr.bin >> 20) & 31
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(((instr.bin >> 25) << 5) | ((instr.bin >> 7) & 31), 11)
 
 
@@ -151,7 +151,7 @@ class Btype:
         self.rs2 = (instr.bin >> 20) & 31
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(
             ((instr.bin >> 31) << 12)
             | (((instr.bin >> 7) & 1) << 11)
@@ -168,7 +168,7 @@ class Utype:
         self.imm_31_12 = instr.bin >> 12
         self.imm_4_0 = (instr.bin >> 7) & 31
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = self.imm_31_12 << 12
 
 
@@ -177,7 +177,7 @@ class Jtype:
 
     def __init__(self, instr):
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
         self.imm = sign_ext(
             ((instr.bin >> 31) << 20)
             | (((instr.bin >> 12) & 0xFF) << 12)
@@ -203,7 +203,7 @@ class MOItype:
         self.rs1 = (instr.bin >> 15) & 31
         self.funct3 = (instr.bin >> 12) & 7
         self.rd = (instr.bin >> 7) & 31
-        self.opcode = instr.bin & 63
+        self.opcode = instr.bin & 127
 
 
 class CRtype:
@@ -277,20 +277,18 @@ class CItype:
     constgen = ["C.LI", "C.LUI"]
     regimm = ["C.ADDI", "C.ADDIW", "C.ADDI16SP", "C.SLLI"]
 
-    Woffset = (
-        lambda i: (((i >> 12) & 1) << 5) | (((i >> 4) & 7) << 2) | (((i >> 2) & 3) << 6)
+    Woffset = lambda i: (
+        (((i >> 12) & 1) << 5) | (((i >> 4) & 7) << 2) | (((i >> 2) & 3) << 6)
     )
-    Doffset = (
-        lambda i: (((i >> 12) & 1) << 5) | (((i >> 5) & 3) << 3) | (((i >> 2) & 7) << 6)
+    Doffset = lambda i: (
+        (((i >> 12) & 1) << 5) | (((i >> 5) & 3) << 3) | (((i >> 2) & 7) << 6)
     )
-    Qoffset = (
-        lambda i: (((i >> 12) & 1) << 5)
-        | (((i >> 6) & 1) << 4)
-        | (((i >> 2) & 15) << 6)
+    Qoffset = lambda i: (
+        (((i >> 12) & 1) << 5) | (((i >> 6) & 1) << 4) | (((i >> 2) & 15) << 6)
     )
     imm = lambda i: (((i >> 12) & 1) << 5) | ((i >> 2) & 31)
-    immsp = (
-        lambda i: (((i >> 12) & 1) << 9)
+    immsp = lambda i: (
+        (((i >> 12) & 1) << 9)
         | (((i >> 6) & 1) << 4)
         | (((i >> 5) & 1) << 6)
         | (((i >> 3) & 3) << 7)
@@ -350,12 +348,12 @@ class CIWtype:
             self.rs1 = Reg.sp
 
 
-CLS_Woffset = (
-    lambda i: (((i >> 10) & 7) << 3) | (((i >> 6) & 1) << 2) | (((i >> 5) & 1) << 6)
+CLS_Woffset = lambda i: (
+    (((i >> 10) & 7) << 3) | (((i >> 6) & 1) << 2) | (((i >> 5) & 1) << 6)
 )
 CLS_Doffset = lambda i: (((i >> 10) & 7) << 3) | (((i >> 5) & 3) << 6)
-CLS_Qoffset = (
-    lambda i: (((i >> 11) & 3) << 4) | (((i >> 10) & 1) << 8) | (((i >> 5) & 3) << 6)
+CLS_Qoffset = lambda i: (
+    (((i >> 11) & 3) << 4) | (((i >> 10) & 1) << 8) | (((i >> 5) & 3) << 6)
 )
 
 
@@ -457,14 +455,14 @@ class CJtype:
         self.jump_target = (instr.bin >> 2) & 0x7FF
         self.op = instr.bin & 3
 
-    offset = (
-        lambda i: (((i >> 12) & 1) << 11)
-        | (((i << 11) & 1) << 4)
+    offset = lambda i: (
+        (((i >> 12) & 1) << 11)
+        | (((i >> 11) & 1) << 4)
         | (((i >> 9) & 3) << 8)
         | (((i >> 8) & 1) << 10)
         | (((i >> 7) & 1) << 6)
         | (((i >> 6) & 1) << 7)
-        | (((i >> 3) & 1) << 1)
+        | (((i >> 3) & 7) << 1)
         | (((i >> 2) & 1) << 5)
     )
 

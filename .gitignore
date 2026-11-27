@@ -28,7 +28,6 @@ uart
 work-ver/*
 corev_apu/fpga/work-fpga
 corev_apu/fpga/reports/
-corev_apu/fpga/scripts/add_sources.tcl
 corev_apu/fpga/ariane.xpr
 corev_apu/fpga/ariane.cache/
 corev_apu/fpga/ariane.hw/

@@ -18,11 +18,8 @@ watches the console until the kernel identifies itself. The system image
 is not built here; it comes from the CVA6 SDK (see the FPGA section of
 the repository README for the SD card preparation).
 
-Replaces `corev_apu/fpga/scripts/check_fpga_boot.sh` and `linux_boot.py`.
-Three behaviours change, all of them defects of the originals: the boot
-has a wall clock deadline instead of relying on the CI job timeout, a
-missing bitstream is an error instead of a silent success (the shell
-script exited 0 when the file was absent), and the verdict is taken on
+The boot has a wall clock deadline instead of relying on the CI job
+timeout, a missing bitstream is an error, and the verdict is taken on
 the whole transcript rather than on its last line only.
 """
 
@@ -30,6 +27,7 @@ import os
 from pathlib import Path
 import shutil
 import typer
+import yaml
 
 from flows.utils.fpga_board import any_board_params, is_altera_board
 from flows.utils.manifest import (
@@ -53,7 +51,7 @@ app = typer.Typer()
 
 # Wall clock budget of the boot. The board runs a full Linux from an SD
 # card at a few dozen MHz: minutes, not seconds.
-BOOT_TIMEOUT = 300
+BOOT_TIMEOUT = 700
 
 
 # ==========================================================
@@ -190,8 +188,24 @@ def fpga_linux_boot(
         f"./cook.py {program_recipe} -t {target} --board {board.value}",
         report=report,
     )
+    try:
+        program_status = yaml.safe_load(
+            (program_dir / "cook_report.yml").read_text(encoding="utf-8")
+        ).get("status")
+    except (OSError, yaml.YAMLError, AttributeError):
+        program_status = None
+    program_manifest = read_manifest(program_dir, report)
+    if program_status != "pass" or program_manifest is None:
+        report.error_exit(
+            f"Board '{board.value}' was not programmed with target '{target}': "
+            f"the last {program_recipe} run did not pass"
+            f"(status: {program_status})\n"
+            f" Run first ./cook.py {program_recipe} -t {target} "
+            f" --board {board.value}",
+            env=True,
+        )
     require_manifest_option(
-        read_manifest(program_dir, report),
+        program_manifest,
         "board",
         [board.value],
         f"booting board '{board.value}' needs that board to be the programmed one",

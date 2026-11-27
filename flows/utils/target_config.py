@@ -48,7 +48,8 @@ from flows.utils.rtl_config import parse_rtl_cfg
 #
 # - TOP_ELABORATE: top module wrapping the core, elaborated by the tools
 #   that read the RTL standalone.
-#       dc-shell-synth, spyglass-design-read, spyglass-run
+#       rtl-lint, yosys-synth, dc-shell-synth, spyglass-design-read,
+#       spyglass-run
 #
 # - DUT_HIER: path of the core instance *inside the UVM testbench*, used
 #   to scope an SDF annotation (`-sdf` of the simulators) onto the
@@ -62,7 +63,14 @@ TOP_SYNTHESIS = "cva6_top"
 _TOP_ELABORATE = {
     Cva6Hier.obi: "cva6_example_obi",
     Cva6Hier.axi: "cva6_example_axi",
+    Cva6Hier.l15: "cva6_example_l15",
 }
+
+# Flavours each testbench can drive. A recipe bound to a testbench passes
+# its tuple to read_config_or_exit_testbench_cfg(supported=...), which
+# refuses any other flavour: l15 (OpenPiton L1.5) has no CVA6 testbench.
+UVM_HIERS = (Cva6Hier.obi, Cva6Hier.axi)
+TESTHARNESS_HIERS = (Cva6Hier.axi,)
 
 _DUT_HIER = {
     Cva6Hier.obi: (
@@ -71,12 +79,14 @@ _DUT_HIER = {
     Cva6Hier.axi: "uvmt_cva6_tb.cva6_dut_wrap.cva6_tb_wrapper_i.cva6.i_cva6",
 }
 
-# Both tables must cover the whole enum: the lookups below then cannot
-# fail, so they need no report and no error path. Adding a flavour to
-# Cva6Hier without its derived names breaks the import, at the first
-# cook.py invocation, instead of failing inside a recipe.
+# Both tables must cover the flavours they can be asked for: the lookups
+# below then cannot fail, so they need no report and no error path.
+# TOP_ELABORATE covers the whole enum; DUT_HIER covers UVM_HIERS, the
+# only flavours a UVM recipe can obtain. Adding a flavour to Cva6Hier
+# without its derived names breaks the import, at the first cook.py
+# invocation, instead of failing inside a recipe.
 assert set(_TOP_ELABORATE) == set(Cva6Hier), "missing TOP_ELABORATE entry"
-assert set(_DUT_HIER) == set(Cva6Hier), "missing DUT_HIER entry"
+assert set(_DUT_HIER) == set(UVM_HIERS), "DUT_HIER must cover UVM_HIERS"
 
 
 def top_elaborate(cva6_hier):
@@ -95,7 +105,8 @@ def dut_hier(cva6_hier):
     """
     Return the path of the core instance inside the UVM testbench.
 
-    Total over Cva6Hier, like top_elaborate(): cannot fail.
+    Total over UVM_HIERS: cannot fail for a flavour returned by
+    read_config_or_exit_testbench_cfg(supported=UVM_HIERS).
     """
     return _DUT_HIER[cva6_hier]
 
@@ -158,10 +169,11 @@ def _load_target_yaml(target, filename, report, or_exit):
 HIER_OF_MEM_SUBSYSTEM = {
     "config_pkg::MEM_OBI": Cva6Hier.obi,
     "config_pkg::MEM_HPDCACHE_AXI": Cva6Hier.axi,
+    "config_pkg::MEM_HPDCACHE_L15": Cva6Hier.l15,
 }
 
 
-def read_config_or_exit_testbench_cfg(target, report, record=True):
+def read_config_or_exit_testbench_cfg(target, report, record=True, supported=None):
     """
     Return the testbench hierarchy flavour of `target` as a Cva6Hier.
 
@@ -170,8 +182,11 @@ def read_config_or_exit_testbench_cfg(target, report, record=True):
     contradict the design it elaborates.
 
     Args:
-        record: also record the value in the report context and print it
-                as the "Testbench parameters" table (the usual case)
+        record:    also record the value in the report context and print it
+                   as the "Testbench parameters" table (the usual case)
+        supported: flavours the calling recipe can handle (UVM_HIERS,
+                   TESTHARNESS_HIERS); any other one aborts with an
+                   environment error. None accepts every flavour.
     """
     path = target_dir(target) / "testbench_cfg.yml"
     cfg = _load_target_yaml(target, "testbench_cfg.yml", report, or_exit=True)
@@ -185,8 +200,9 @@ def read_config_or_exit_testbench_cfg(target, report, record=True):
             f"expected one of {[h.value for h in Cva6Hier]}",
             env=True,
         )
-    # The testbench flavour must follow the memory subsystem: the OBI testbench
-    # drives the memory ports of MEM_OBI, the AXI one the bus of the caches.
+    # The testbench flavour must follow the memory subsystem: the OBI flavour
+    # drives the memory ports of MEM_OBI, the AXI one the bus of the caches,
+    # the L15 one their OpenPiton L1.5 port.
     rtl_path = target_dir(target) / "rtl_cfg_pkg.sv"
     if rtl_path.exists():
         mem_subsystem = parse_rtl_cfg(rtl_path).get("MemSubsystem")
@@ -204,6 +220,13 @@ def read_config_or_exit_testbench_cfg(target, report, record=True):
                 f"hier {expected.value!r}",
                 env=True,
             )
+    if supported is not None and cva6_hier not in supported:
+        report.error_exit(
+            f"{target} has hier {cva6_hier.value!r} ({top_elaborate(cva6_hier)}) "
+            f"in {path}: this recipe only supports "
+            f"{[h.value for h in supported]}",
+            env=True,
+        )
     if record:
         report.add_context({"cva6_hier": cva6_hier.value}, table="Testbench parameters")
     return cva6_hier
@@ -282,7 +305,7 @@ def flist_substitutions(target, repo_dir=None):
     """
     Return the (placeholder, value) pairs used inside a CVA6 filelist.
 
-    A filelist is written with the placeholders the Makefile flow exports;
+    A filelist is written with placeholders (`${CVA6_REPO_DIR}`, ...);
     expanding them is what lets `read_config_or_exit_flist` follow the
     `-F` includes and hand absolute paths to the tools.
 
@@ -420,3 +443,43 @@ def read_config_or_exit_doc(target, report):
     if isinstance(authors, str):
         report.error_exit(f"'authors' of {path} must be a list, not a string", env=True)
     return cfg
+
+
+def require_flist_files(files, flist_name, report):
+    """Abort the recipe when a source of a filelist doesn't exist"""
+    missing = [f for f in files if not Path(f).exists()]
+    if missing:
+        report.warning(
+            f"{len(missing)} source file(s) of {flist_name} not found \n"
+            + "\n".join(f"{f}" for f in missing)
+        )
+
+
+def require_core_files_in_flist(
+    target, fpga_files, excluded, flist_name, report, repo_dir=None
+):
+    """Abort when a source of the core filelist is neither in the FPGA filelist nor excluded."""
+    repo_dir = Path(repo_dir) if repo_dir else Path.cwd()
+    core_files = read_config_or_exit_flist(
+        target, report, filename="Flist.cva6", repo_dir=repo_dir
+    )
+    in_fpga = {Path(f).resolve() for f in fpga_files}
+    skipped = {(repo_dir / e).resolve() for e in excluded}
+    missing = [f for f in core_files if Path(f).resolve() not in in_fpga | skipped]
+    if missing:
+        report.warning(
+            f"{len(missing)} source file(s) of the core fileslist missing from {flist_name}:\n"
+            + "\n".join(f"{f}" for f in missing)
+            + "\n Add them to the FPGA filelist, or to FPGA_CORE_EXCLUDED if the FPGA"
+            "build must leave them out."
+        )
+
+
+def warn_if_fpga_disabled(target, report, repo_dir=None):
+    "Warn when 'target' is built for fpga without FpgaEn =1"
+    if read_config_or_exit_rtl_cfg(target, report, repo_dir).get("FpgaEn"):
+        return True
+    report.warning(
+        f"Target {target} has FpgaEn = 0 (config/target/{target}/rtl_cfg_pkg.sv)\n"
+    )
+    return False

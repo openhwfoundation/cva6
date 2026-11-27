@@ -207,10 +207,12 @@ diverged.
 
 A lookup that *cannot* fail belongs to the second group, and should stay
 there rather than take a `report` for an unreachable branch: make it
-total and assert it at import time. `top_elaborate()` and `dut_hier()`
-are total over `Cva6Hier` for that reason, so adding a flavour without
-its derived names breaks the very first `cook.py` call instead of
-failing inside a recipe.
+total and assert it at import time. `top_elaborate()` is total over
+`Cva6Hier` and `dut_hier()` over `UVM_HIERS` (the flavours the UVM
+recipes accept through `read_config_or_exit_testbench_cfg(...,
+supported=UVM_HIERS)`; `l15` has no UVM testbench) for that reason, so
+adding a flavour without its derived names breaks the very first
+`cook.py` call instead of failing inside a recipe.
 
 Recipes must not raise `typer.Exit` directly: `error_exit()` for early
 aborts, `end()` as the single exit point.
@@ -313,7 +315,7 @@ when it is missing (see
 
 | Function | Reads | Returns |
 |---|---|---|
-| `read_config_or_exit_testbench_cfg` | `testbench_cfg.yml` | the `Cva6Hier` flavour |
+| `read_config_or_exit_testbench_cfg` | `testbench_cfg.yml` | the `Cva6Hier` flavour (`obi`/`axi`/`l15`), checked against `MemSubsystem`; `supported=` refuses the flavours a testbench cannot drive |
 | `read_config_or_exit_isa` | `isa.yml` | the `(march, mabi)` pair |
 | `read_config_or_exit_flist` | `Flist.cva6*` | the source files, includes followed |
 | `read_config_or_exit_rtl_cfg` | `rtl_cfg_pkg.sv` | the RTL parameters, resolved |
@@ -379,6 +381,12 @@ build/
 │   │           ├── spike_dasm.log  # the same, disassembled
 │   │           ├── trace.fsdb   # waveforms (--trace-mode gui/compact)
 │   │           └── cook_report.yml
+│   ├── dv_generator/            # riscv-dv generator (vcs-generator-comp)
+│   │   ├── simv
+│   │   └── cook_manifest.yml    # core setting of the generator
+│   ├── dv_generated/            # Generated programs (TESTS_GEN_PATH)
+│   │   ├── <test>/asm_tests/<test>_<i>.S
+│   │   └── seedlist.yaml
 │   ├── synthesis/               # Synthesis results
 │   │   ├── build_config.yaml
 │   │   └── ...
@@ -490,7 +498,7 @@ framework provides `flows/utils/manifest.py`:
 | `vcs-uvm-gui` | FSDB trace of the test | `vcs-uvm-run --trace-mode gui/fast` |
 | `*-uvm-comp` in a gate mode | synthesized netlist | `dc-shell-synth` |
 | `spyglass-run` | design read setup | `spyglass-design-read` |
-| `vcs-generator-run` | generator `simv` | `vcs-generator-comp` |
+| `vcs-generator-run` | generator `simv` of the target | `vcs-generator-comp -t <target>` |
 | `vivado-fpga-build` | bootloader of the board | `fpga-bootrom` |
 | `quartus-fpga-build` | bootloader of the board | `fpga-bootrom` |
 | `vivado-fpga-program` | bitstream of the board | `vivado-fpga-build` |

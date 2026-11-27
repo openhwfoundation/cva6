@@ -5,7 +5,7 @@ set -e
 ZEPHYR_BINARY=build/zephyr/zephyr.bin
 
 usage(){
-    echo "Usage: $1 </dev/sd*> </path/to/zephyrproject/zephyr/>";
+    echo "Usage: $1 </dev/sd*> <zephyr.bin | /path/to/zephyrproject/zephyr/>";
     exit 1;
 }
 
@@ -17,7 +17,11 @@ if [ -z $2 ]; then
     usage $0
 fi
 
-ZEPHYR_BINARY="$2/${ZEPHYR_BINARY}";
+if [ -f "$2" ]; then
+    ZEPHYR_BINARY="$2";
+else
+    ZEPHYR_BINARY="$2/${ZEPHYR_BINARY}";
+fi
 
 SDDEVICE=$1
 

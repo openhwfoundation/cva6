@@ -380,7 +380,6 @@ def vcs_uvm_run(
         f"+irq_ipi_addr={irq_ipi_addr}",
         f"+irq_ipi_delay={irq_ipi_delay}",
         f"+GLOBAL_PATTERN_end={add_end_window}",
-        "--gui",
     ]
 
     if interactive_gui:
@@ -452,9 +451,12 @@ def vcs_uvm_run(
         report=report,
         cwd=elab_dir,
         env=None,
-        error_patterns=["(ERROR:|^Error-|UVM_ERROR|UVM_FATAL|^Fatal-)"],
-        warning_patterns=["(WARNING:|^Warning-|UVM_WARNING)"],
-        highlight_patterns=None,
+        error_patterns=[
+            "(ERROR:|^Error-|UVM_ERROR|UVM_FATAL|^Fatal-)",
+            "ASSERT FAILED",
+        ],
+        warning_patterns=["(WARNING:|^Warning-|UVM_WARNING)", "Timing violation"],
+        highlight_patterns=["INFO: GLOBAL_PATTERN"],
         log_file=log_file,
         timeout=sim_timeout,
         check=False,

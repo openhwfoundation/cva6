@@ -29,7 +29,7 @@ Each target configuration defines a complete CVA6 variant with specific:
 - RTL configuration package
 - Memory map and linker script
 - SPIKE reference model configuration
-- Testbench flavour (OBI or AXI)
+- Testbench flavour (OBI, AXI or OpenPiton L1.5)
 - Expected performance, area and lint baselines for CI validation
 - RTL file lists for simulation, synthesis and FPGA
 - Its category, description and profile, shown in the dashboard
@@ -55,11 +55,21 @@ of the dashboard (`official`, `fpga`, `profile`, `cross`):
 |---|---|
 | `cv32a60x` | Embedded core maintained by Thales: scalar, OBI, no PMP. Its configuration of the cv32a60x-v6.0.0 tag reached TRL5, verified within the TRISTAN project. |
 | `cv32a65x` | Superscalar embedded core maintained by Thales: OBI, PMP. Its configuration of the cv32a60x-v6.0.0 tag reached TRL5, verified within the TRISTAN project. |
+| `cv64a6_openpiton` | CVA6 tile of OpenPiton (`corev_apu/openpiton/`), maintained by OpenPiton: rv64gc, Sv39, S and U, PMP, write-through HPDcache on the native L1.5 interface (`MEM_HPDCACHE_L15`, big endian). |
 
 `cv32a60x` and `cv32a65x` keep the configuration of the `cv32a60x-v6.0.0`
 tag, with three changes: `DcacheByteSize` 2048 (2028 was a typo),
 `AxiIdWidth` 5 (required by the HPDcache) and Zifencei, which the tests use.
 The parameters added since the tag are set to the value that disables them.
+
+In `cv64a6_openpiton`, `AxiDataWidth` is the D$ line (128 bits, returned
+whole by the L1.5), `AxiIdWidth` 5 gives the HPDcache memory IDs of the 8
+write buffer entries and `IcacheLineWidth` is the OpenPiton I$ line (256
+bits). Its memory port is the OpenPiton L1.5 (`hier: l15`, top
+`cva6_example_l15`): `rtl-lint` runs on it, the TestHarness and UVM
+testbenches do not support it, so it has no `expected_values.yml` and the CI
+does not run it. OpenPiton builds it with its own flow, from
+`Flist.openpiton`.
 
 ### FPGA
 
@@ -182,7 +192,7 @@ config/target/<target_name>/
 ├── spike.yaml                # SPIKE reference model configuration
 ├── link.ld                   # Linker script for software compilation
 ├── rtl_cfg_pkg.sv            # RTL configuration package (SystemVerilog)
-├── testbench_cfg.yml         # Testbench flavour (OBI or AXI)
+├── testbench_cfg.yml         # Testbench flavour (obi, axi or l15)
 ├── Flist.cva6                # RTL file list for simulation and lint
 ├── Flist.cva6_gate           # RTL file list for gate-level simulation
 ├── Flist.cva6_synth          # RTL file list for synthesis (DC Shell, Yosys)
@@ -191,7 +201,8 @@ config/target/<target_name>/
 ├── expected_values.yml       # Baselines of the cycle counts and of the area
 ├── expected_lint.yml         # Baseline of the open-source lint (slang, Verilator)
 ├── expected_spyglass.rpt     # Baseline of the Spyglass lint (optional)
-└── verif/regression.yaml     # Test list of the former verif/sim flow (optional, not read by cook.py)
+├── verif/regression.yaml     # Test list of the former verif/sim flow (optional, not read by cook.py)
+└── verif/generated_test.yaml # riscv-dv generated tests of the target (optional)
 ```
 
 ## Configuration Files Reference
@@ -371,7 +382,7 @@ endpackage
 - `SuperscalarEn`, `ALUBypass`, `NrCommitPorts`: issue width; a superscalar core takes two commit ports
 - `MmuPresent`, `UseSharedTlb`, `SvnapotEn`: address translation
 - `NrPMPEntries`: PMP
-- `MemSubsystem` (`MEM_OBI` or `MEM_HPDCACHE_AXI`), `CacheWritePolicy`, cache sizes: memory subsystem; with `MEM_OBI` the core has no cache and the cache parameters are ignored
+- `MemSubsystem` (`MEM_OBI`, `MEM_HPDCACHE_AXI` or `MEM_HPDCACHE_L15`, the OpenPiton L1.5 cache), `CacheWritePolicy`, cache sizes: memory subsystem; with `MEM_OBI` the core has no cache and the cache parameters are ignored
 - `BPType`, `BHTEntries`, `BHTHist`: branch prediction
 - `NrLoadPipeRegs`, `NrStorePipeRegs`, `NrLoadBufEntries`: load and store pipeline
 - `FpgaEn`: FPGA RAMs; `FpgaAlteraEn` selects the Altera ones
@@ -381,11 +392,14 @@ endpackage
 Selects the testbench the core is wrapped in.
 
 ```yaml
-hier: obi   # or axi
+hier: obi   # or axi, l15
 ```
 
 It must agree with `MemSubsystem` in `rtl_cfg_pkg.sv` (`MEM_OBI` with
-`obi`, `MEM_HPDCACHE_AXI` with `axi`): the recipes refuse a mismatch.
+`obi`, `MEM_HPDCACHE_AXI` with `axi`, `MEM_HPDCACHE_L15` with `l15`): the
+recipes refuse a mismatch. It selects the example top elaborated by lint and
+synthesis (`cva6_example_<hier>`); `l15` targets have no TestHarness nor
+UVM testbench, those recipes refuse them.
 
 ### `Flist.cva6`
 

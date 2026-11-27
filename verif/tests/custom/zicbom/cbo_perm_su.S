@@ -21,8 +21,7 @@
 #
 #   Every case runs one cbo in the requested mode through run_cbo and checks
 #   the cause recorded by the M-mode handler, 0 meaning no trap. The cases
-#   come from verif/tb/decoder_unit/zicbom_permissions_test.sv, restricted
-#   to V=0.
+#   are restricted to V=0.
 #
 #   The cbo instructions are encoded with .insn, so the test builds with
 #   the march of the target, which does not list Zicbom.

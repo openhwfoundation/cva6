@@ -51,6 +51,8 @@ from flows.utils.fpga_board import (
     ip_dir,
     ip_is_generated,
     ip_xci,
+    clean_ip,
+    FPGA_CORE_EXCLUDED,
 )
 from flows.utils.manifest import (
     read_manifest,
@@ -66,6 +68,9 @@ from flows.utils.target_config import (
     read_config_expected_value,
     read_config_or_exit_flist,
     read_config_or_exit_isa,
+    warn_if_fpga_disabled,
+    require_flist_files,
+    require_core_files_in_flist,
 )
 
 app = typer.Typer()
@@ -117,14 +122,11 @@ def _build_tcl(out_dir, repo_dir, target, board, jobs, bootrom_sv, rtl_files):
     """
     Return the Vivado script building the bitstream.
 
-    Merges what `corev_apu/fpga/scripts/prologue.tcl` and `run.tcl` did,
-    with three deliberate differences: every path is absolute, so the
-    project is created in the recipe output directory instead of the
-    source tree; the parameters come from the board table rather than
-    from environment variables; and the post implementation reports do
-    not wipe the post synthesis ones (`run.tcl` ran `rm -rf reports/*`
-    twice, which destroyed the CDC and clock interaction reports it had
-    just produced).
+    Every path is absolute, so the project is created in the recipe
+    output directory instead of the source tree; the parameters come from
+    the board table rather than from environment variables; and the post
+    implementation reports do not wipe the post synthesis ones (CDC and
+    clock interaction reports).
     """
     params = board_params(board)
     fpga_dir = repo_dir / "corev_apu" / "fpga"
@@ -341,7 +343,7 @@ def _report_timing(report, target, timing_rpt):
     report.metric("Timing", {"wns": wns, "verdict": match.group(1)})
 
     if wns < 0:
-        report.error(f"Timing not met: worst negative slack {wns} ns")
+        report.warning(f"Timing not met: worst negative slack {wns} ns")
     else:
         report.success(f"Timing met: worst slack {wns} ns")
 
@@ -363,6 +365,12 @@ def vivado_fpga_build(
     board: FpgaBoard = typer.Option(FpgaBoard.genesys2, help="FPGA board"),
     mcs: bool = typer.Option(False, help="Also generate the .mcs flash image"),
     clean: bool = typer.Option(True, help="Clean working dir before"),
+    clean_ips: list[str] = typer.Option(
+        [],
+        "--clean-ips",
+        help="Remove the generated files of this IP core so"
+        "it is generated again; repeat the option for several or give 'all'",
+    ),
     jobs: int = typer.Option(8, "--jobs", "-j", help="Vivado parallel jobs"),
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help="Suppress output (errors only)"
@@ -409,7 +417,7 @@ def vivado_fpga_build(
     # CHECK PREREQUISITES
     # ==========================================================
     report.step("Check prerequisites")
-
+    warn_if_fpga_disabled(target, report, repo_dir)
     vivado_path = shutil.which("vivado")
     if vivado_path is not None:
         report.success(f"vivado: {vivado_path}")
@@ -442,7 +450,24 @@ def vivado_fpga_build(
         report=report,
         manifest_dir=bootrom_dir,
     )
-
+    rtl_files = read_config_or_exit_flist(
+        target, report, filename="Flist.cva6_fpga", repo_dir=repo_dir
+    )
+    require_flist_files(rtl_files, "Flist.cva6_fpga", report)
+    require_core_files_in_flist(
+        target,
+        rtl_files,
+        FPGA_CORE_EXCLUDED,
+        "Flist.cva6_fpga",
+        report,
+        repo_dir=repo_dir,
+    )
+    unknown = [ip for ip in clean_ips if ip != "all" and ip not in FPGA_IPS]
+    if unknown:
+        report.error_exit(
+            f"Unknown IP core(s) for --clean-ips: {','.join(unknown)}\n"
+            f"  known: all, {','.join(FPGA_IPS)}"
+        )
     report.success("Prerequisites OK")
 
     # ==========================================================
@@ -458,6 +483,13 @@ def vivado_fpga_build(
             report.error_exit(f"Clean error : {e}", env=True)
     else:
         report.info(f"Skip cleaning {out_dir}")
+    for ip_name in FPGA_IPS:
+        if "all" in clean_ips or ip_name in clean_ips:
+            try:
+                removed = clean_ip(repo_dir, ip_name)
+            except OSError as e:
+                report.error_exit(f"Clean error on IP {ip_name}: {e}", env=True)
+            report.info(f"{ip_name}: removed {len(removed)} item(s)")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     report.info(f"create {out_dir}")

@@ -1,4 +1,4 @@
-# CVA6 RISC-V CPU [![Build Status](https://github.com/openhwgroup/cva6/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/openhwgroup/cva6/actions/workflows/ci.yml) [![master_candidate](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/badge.svg)](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/) [![Documentation Status](https://readthedocs.com/projects/openhw-group-cva6-user-manual/badge/?version=latest)](https://docs.openhwgroup.org/projects/cva6-user-manual/?badge=latest) [![GitHub release](https://img.shields.io/github/release/openhwgroup/cva6?include_prereleases=&sort=semver&color=blue)](https://github.com/openhwgroup/cva6/releases/)
+# CVA6 RISC-V CPU [![Build Status](https://github.com/openhwgroup/cva6/actions/workflows/cook-testharness-smoke.yml/badge.svg?branch=master_candidate)](https://github.com/openhwgroup/cva6/actions/workflows/cook-testharness-smoke.yml) [![master_candidate](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/badge.svg)](https://riscv-ci.pages.thales-invia.fr/cva6-dashboard/latest/) [![Documentation Status](https://readthedocs.com/projects/openhw-group-cva6-user-manual/badge/?version=latest)](https://docs.openhwgroup.org/projects/cva6-user-manual/?badge=latest) [![GitHub release](https://img.shields.io/github/release/openhwgroup/cva6?include_prereleases=&sort=semver&color=blue)](https://github.com/openhwgroup/cva6/releases/)
 
 CVA6 is a 6-stage, single-issue, in-order CPU which implements the 64-bit RISC-V instruction set. It fully implements I, M, A and C extensions as specified in Volume I: User-Level ISA V 2.3 as well as the draft privilege extension 1.10. It implements three privilege levels M, S, U to fully support a Unix-like operating system. Furthermore, it is compliant to the draft external debug spec 0.13.
 
@@ -24,6 +24,7 @@ measured in simulation, with an ideal memory:
 | `cv32a65x` | Thales | 4.69 |
 | `fpga_linux_cv32a6` | PlanV | 3.03 |
 | `fpga_linux_cv64a6` | PlanV | 2.73 |
+| `cv64a6_openpiton` | OpenPiton | - |
 
 ### cv32a60x
 
@@ -46,6 +47,13 @@ FPGA board: RV32IMAC, Sv32 MMU, S and U modes, PMP.
 
 Reference 64-bit configuration maintained by PlanV to boot Linux on the Genesys 2
 FPGA board: RV64GC + B, Sv39 MMU, S and U modes, PMP.
+
+### cv64a6_openpiton
+
+64-bit core maintained by [OpenPiton](https://github.com/PrincetonUniversity/openpiton)
+for its tile: RV64GC, Sv39 MMU, S and U modes, PMP,
+write-through HPDcache on the OpenPiton L1.5 cache. Only the OpenPiton flow
+simulates it, so it has no CoreMark figure here and the CI does not run it.
 
 ## Profiles and reference points
 
@@ -74,7 +82,7 @@ whatever the others.
 
 #### cook.py
 
-`cook.py` is a Python-based command runner that provides a unified interface for CVA6 workflows including software compilation, RTL simulation with multiple simulators (VCS, Xcelium, Questa), synthesis, and analysis.
+`cook.py` is a Python-based command runner that provides a unified interface for CVA6 workflows including software compilation, RTL simulation with multiple simulators (VCS, Questa, Verilator, Xcelium), synthesis, FPGA and analysis.
 
 **Quick Start Example:**
 ```bash
@@ -97,7 +105,10 @@ git submodule update --init --recursive
 
 # Install Spike ISA simulator (requires: gcc, g++, device-tree-compiler, libboost-dev)
 # See verif/regress/install-spike.sh for details
-(cd verif/regress && source ./install-spike.sh)
+source verif/regress/install-spike.sh
+
+# Install Verilator for the TestHarness recipes (requires: autoconf, flex, bison, help2man)
+source verif/regress/install-verilator.sh
 
 # Configure your environment (adapt to your setup)
 # Edit flows/config/setenv.sh - Set paths to your CAD tools (VCS, Xcelium, Questa, etc.)
@@ -113,39 +124,49 @@ source flows/config/setenv.sh
 ./cook.py --help
 
 # Compile a test program
-./cook.py hello-world --target cv32a60x --compiler llvm-22
+./cook.py hello-world --target cv32a60x --toolchain llvm-22
 
 # Compile RTL and run simulation with VCS
-./cook.py vcs-uvm-comp --target cv32a60x          #
+./cook.py vcs-uvm-comp --target cv32a60x
 ./cook.py vcs-uvm-run --target cv32a60x --testname hello-world
-
-# Or with Xcelium
-./cook.py xcelium-uvm-comp --target cv32a60x
-./cook.py xcelium-uvm-run --target cv32a60x --testname hello-world
 
 # Or with Questa
 ./cook.py questa-uvm-comp --target cv32a60x
 ./cook.py questa-uvm-run --target cv32a60x --testname hello-world
 ```
 
+Step by step, with the configuration of `$CONFIG_DIR`: [tutorials/getting_started.md](tutorials/getting_started.md).
+
 **For complete documentation**, see [flows/README.md](flows/README.md)
 
 # Tutorials
 
-* **[Running Simulations](tutorials/running_sim.md)**
-* **[ASIC Implementation](tutorials/asic.md)**
-* **[FPGA Implementation and running an OS](tutorials/fpga.md)**
+Task-oriented guides, sorted by use ([index, with a "which tutorial for me" chart](tutorials/README.md)):
+
+* **[Getting started](tutorials/getting_started.md)**: install the repository, the tools and `cook.py` (everybody, first)
+* **[Integrating CVA6 in a SoC](tutorials/integration/integrator.md)**: RTL, file lists, configuration, AXI or OBI
+* **Simulation** ([choose a testbench](tutorials/simulation/README.md)):
+  [UVM testbench](tutorials/simulation/uvm_testbench.md) (VCS, Questa, Xcelium),
+  [TestHarness](tutorials/simulation/testharness.md) (Verilator, VCS, Questa, Xcelium),
+  [random tests with riscv-dv](tutorials/simulation/generated_tests.md),
+  [gate-level simulation](tutorials/simulation/gate_level.md)
+* **Software**: [bare metal](tutorials/software/bare_metal.md),
+  [proxy kernel](tutorials/software/proxy_kernel.md),
+  [Zephyr](tutorials/software/zephyr.md), [Linux](tutorials/software/linux.md)
+* **[Synthesis](tutorials/synthesis/README.md)**: [Yosys](tutorials/synthesis/yosys.md),
+  [Design Compiler](tutorials/synthesis/dc_shell.md)
+* **[FPGA and running an OS](tutorials/fpga/README.md)**
+* **[Checking a change like the CI](tutorials/developer/ci_checks.md)**
 * **[Instruction Tracing](corev_apu/instr_tracing/README.md)**
 
 # Directory Structure:
 
-The directory structure separates the [CVA6 RISC-V CPU](#cva6-risc-v-cpu) core from the [CORE-V-APU FPGA Emulation Platform](tutorials/fpga.md#corev-apu-fpga-emulation).
+The directory structure separates the CVA6 RISC-V CPU core from the [CORE-V APU FPGA Emulation Platform](tutorials/fpga/README.md#core-v-apu-on-fpga).
 Files, directories and submodules under `cva6` are for the core _only_ and should not have any dependencies on the APU.
 Files, directories and submodules under `corev_apu` are for the FPGA Emulation platform.
 The CVA6 core can be compiled stand-alone, and obviously the APU is dependent on the core.
 
 The top-level directories of this repo:
-* **ci**: Scriptware of the former CI (toolchain and test suite builds).
 * **common**: Source code used by both the CVA6 Core and the COREV APU, under `local`.
 * **config**: Configurations of the core: one directory per target in `config/target`, see [config/README.md](config/README.md).
 * **core**: Source code for the CVA6 Core only. There should be no sources in this directory used to build anything other than the CVA6 core.
@@ -154,7 +175,7 @@ The top-level directories of this repo:
 * **flows**: `cook.py` recipes, CI pipeline and dashboard, see [flows/README.md](flows/README.md).
 * **pd**: Example and CI scripts to synthesis CVA6.
 * **perf-model**: Performance model of the core.
-* **tutorials**: Simulation, ASIC and FPGA tutorials.
+* **tutorials**: Task-oriented tutorials by use, see [tutorials/README.md](tutorials/README.md).
 * **util**: General utility scriptware.
 * **vendor**: Third-party IP maintained outside the repository.
 * **verif**: Verification environment for the CVA6. The verification files shared with other cores are in the [core-v-verif](https://github.com/openhwgroup/core-v-verif) repository on GitHub. core-v-verif is defined as a cva6 submodule.
@@ -172,10 +193,11 @@ This BSP is used by both `core` testbench and `uvmt_cva6` UVM verification envir
 - **docs**:    verification plans and specifications.
 - **env**:     UVM environment (`uvme`) and riscv-dv extensions (`corev-dv`).
 - **patches**: patches applied to the submodules by `cook.py git-dependencies`.
-- **regress**: scripts of the former flow to install tools and run test suites.
-- **sim**:     riscv-dv simulation environment.
+- **regress**: Spike and Verilator installation scripts, patches of the external test suites.
+- **sim**:     riscv-dv submodule, verification plan, coverage exclusion list and trace conversion scripts.
+  The generated tests of a target are listed in `config/target/<target>/verif/generated_test.yaml`.
 - **tb**:      testbench module instancing the core
-- **tests**:   test lists (`*.yaml`, read by `cook.py`) and the sources of the custom, unit and UVM tests
+- **tests**:   test lists (`*.yaml`, read by `cook.py`) and the sources of the custom and UVM tests
 
 # Planned Improvements
 

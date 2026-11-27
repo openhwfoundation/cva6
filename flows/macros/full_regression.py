@@ -35,8 +35,13 @@ final `merge-reports` + `report-html` build the same dashboard as the CI
 does; they are always run, even when jobs failed.
 """
 
+import contextlib
 import os
 import random
+import socket
+import subprocess
+import tempfile
+import time
 from functools import partial
 from pathlib import Path
 import yaml
@@ -66,6 +71,8 @@ from flows.recipes.spyglass_design_read import spyglass_design_read
 from flows.recipes.spyglass_run import spyglass_run, RunType
 from flows.recipes.sw_compile_testlist import sw_compile_testlist
 from flows.recipes.uvm_run_testlist import uvm_run_testlist, Simulator
+from flows.recipes.vcs_generator_comp import vcs_generator_comp
+from flows.recipes.vcs_generator_run_testlist import vcs_generator_run_testlist
 from flows.recipes.vcs_uvm_comp import vcs_uvm_comp
 from flows.recipes.vcs_testharness_comp import vcs_testharness_comp
 from flows.recipes.vcs_testharness_run import vcs_testharness_run
@@ -80,6 +87,7 @@ from flows.utils.job_scheduler import JobFailure, Scheduler
 from flows.utils.fpga_board import is_altera_board
 from flows.utils.recipe_report import RecipeReport
 from flows.utils.rtl_config import parse_rtl_cfg
+from flows.utils.target_config import target_dir as config_dir
 from flows.utils.uart_boot import DEFAULT_EXPECT
 from flows.utils.autocompletion import (
     AlteraBoard,
@@ -723,17 +731,121 @@ SYNTH = "synth"
 VIVADO = "vivado"
 QUARTUS = "quartus"
 
+# Time given to the SSH tunnel to the bench to come up
+BENCH_TUNNEL_TIMEOUT = 30
 
-def board_pool(board):
+
+def bench(target, name):
     """
-    Pool of a physical board, one slot: programming it and booting Linux
-    on it take the board as a whole, and two jobs driving it at the same
-    time would boot one bitstream and read the console of the other.
+    Setting of the bench driving the board of 'target', from the environment
+    of the runner: '$<name>_<TARGET>' (target in upper case), else '$<name>'.
+    """
+    return os.environ.get(f"{name}_{target.upper()}") or os.environ.get(name)
+
+
+def board_pool(board, target):
+    """
+    Pool of a physical board, one slot. A board is told apart by its JTAG cable
+    when the bench gives one, so two boards of the same kind run side by side,
+    while two targets on one board still wait for each other.
 
     It serialises the jobs of one run only: two pipelines on the same
     board are kept apart by the resource_group of the CI job.
     """
-    return f"board:{board.value}"
+    cable = bench(target, "HW_TARGET")
+    return f"board:{board.value}:{cable}" if cable else f"board:{board.value}"
+
+
+@contextlib.contextmanager
+def bench_tunnel(target):
+    """
+    SSH tunnel to the bench PC holding the board of 'target', open for the
+    duration of the 'with' block only, and closed whatever happens in it.
+
+    Yields '(hw_server,uart)' for the recipes. Without '$BENCH_SSH' the board is
+    reached directly and nothing is opened: '(None, $UART_SERIAL of the target),
+    None letting vivado-fpga-program read 'HW_SERVER_URL'.
+
+    With '$BENCH_SSH' (user@bench-pc), the hw_server (port
+    '$BENCH_HW_SERVER_PORT_<TARGET>', default 3121) and the serial bridge of the
+    board ('$BENCH_UART_PORT_<TARGET>') of the bench PC are forwarded to the local
+    ports '$BENCH_LOCAL_JTAG_PORT_<TARGET>' and '$BENCH_LOCAL_UART_PORT_<TARGET>',
+    different for each target: the tunnels of two boards booting at the same time are
+    open together. The SSH key is the one of the account running the flows.
+    """
+    bench_ssh = os.environ.get("BENCH_SSH")
+    if not bench_ssh:
+        yield None, bench(target, "UART_SERIAL")
+        return
+    remote_jtag = os.environ.get("BENCH_HW_SERVER_PORT", "3121")
+    ports = {
+        name: bench(target, name)
+        for name in (
+            "BENCH_UART_PORT",
+            "BENCH_LOCAL_JTAG_PORT",
+            "BENCH_LOCAL_UART_PORT",
+        )
+    }
+    missing = [f"${name}_{target.upper()}" for name, port in ports.items() if not port]
+    if missing:
+        raise JobFailure(
+            f"$BENCH_SSH is set but not the ports of the board of {target}:"
+            f"set {','.join(missing)}"
+        )
+    remote_uart = ports["BENCH_UART_PORT"]
+    jtag = ports["BENCH_LOCAL_JTAG_PORT"]
+    uart = ports["BENCH_LOCAL_UART_PORT"]
+    # ssh errors go to a file rather than a pipe: a pipe nobody reads while
+    # the tunnel is up could fill and block ssh
+    with tempfile.TemporaryFile(mode="w+") as errors:
+        proc = subprocess.Popen(
+            [
+                "ssh",
+                "-N",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "-o",
+                "ServerAliveInterval=30",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-L",
+                f"{jtag}:localhost:{remote_jtag}",
+                "-L",
+                f"{uart}:localhost:{remote_uart}",
+                bench_ssh,
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=errors,
+        )
+        try:
+            deadline = time.monotonic() + BENCH_TUNNEL_TIMEOUT
+            pending = [int(jtag), int(uart)]
+            while pending:
+                if proc.poll() is not None:
+                    errors.seek(0)
+                    raise JobFailure(
+                        f"SSH tunnel to {bench_ssh} failed {errors.read().strip()}"
+                    )
+                if time.monotonic() > deadline:
+                    raise JobFailure(
+                        f"SSH tunnel to {bench_ssh} not up after "
+                        f"{BENCH_TUNNEL_TIMEOUT}s"
+                    )
+                with socket.socket() as sock:
+                    if sock.connect_ex(("127.0.0.1", pending[0])) == 0:
+                        pending.pop(0)
+                        continue
+                time.sleep(0.5)
+            yield f"localhost:{jtag}", f"socket://localhost:{uart}"
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 # Where merge-reports and report-html write the final dashboard
@@ -921,6 +1033,7 @@ def _job_fpga_build(target, board, quiet):
             board=board,
             mcs=False,
             clean=True,
+            clean_ips=[],
             jobs=VIVADO_JOBS,
             quiet=quiet,
         )
@@ -932,43 +1045,52 @@ def _job_fpga_boot(target, board, quiet):
 
     One job holding the board for both steps: between the two, another
     job could program it with a different bitstream. The connection to
-    the board comes from the environment of the runner, $HW_SERVER_URL
-    and $UART_SERIAL for Xilinx, $JTAG_CABLE for Altera.
+    the board comes from the environment of the runner (see bench() and
+    bench_tunnel()): for Xilinx, and SSH tunnel to the bench PC opened
+    for this job only when $BENCH_SSH is set, else $HW_SERVER_URL and the
+    $UART_SERIAL of the target; $JTAG_CABLE for Altera.
     """
-    if is_altera_board(board):
-        _recipe(
-            quartus_fpga_program,
-            target=target,
-            board=board,
-            cable=None,
-            device_index=1,
-            bitstream=None,
-            quiet=quiet,
-        )
-    else:
-        _recipe(
-            vivado_fpga_program,
-            target=target,
-            board=board,
-            hw_server=None,
-            bitstream=None,
-            # vivado_lab is enough to program a board, on a runner carrying
-            # the lab edition only
-            vivado_cmd=os.environ.get("VIVADO_CMD", "vivado"),
-            quiet=quiet,
-        )
-    _recipe(
-        fpga_linux_boot,
-        target=target,
-        board=AnyBoard(board.value),
-        uart=None,
-        cable=None,
-        juart_instance=None,
-        baudrate=None,
-        boot_timeout=BOOT_TIMEOUT,
-        expect=DEFAULT_EXPECT,
-        quiet=quiet,
+    altera = is_altera_board(board)
+    tunnel = (
+        contextlib.nullcontext((None, bench(target, "UART_SERIAL")))
+        if altera
+        else bench_tunnel(target)
     )
+    with tunnel as (hw_server, uart):
+        if altera:
+            _recipe(
+                quartus_fpga_program,
+                target=target,
+                board=board,
+                cable=None,
+                device_index=1,
+                bitstream=None,
+                quiet=quiet,
+            )
+        else:
+            _recipe(
+                vivado_fpga_program,
+                target=target,
+                board=board,
+                hw_server=hw_server,
+                hw_target=bench(target, "HW_TARGET"),
+                bitstream=None,
+                # the first of vivado_lab, vivado found in PATH
+                vivado_cmd=None,
+                quiet=quiet,
+            )
+        _recipe(
+            fpga_linux_boot,
+            target=target,
+            board=AnyBoard(board.value),
+            uart=uart,
+            cable=None,
+            juart_instance=None,
+            baudrate=None,
+            boot_timeout=BOOT_TIMEOUT,
+            expect=DEFAULT_EXPECT,
+            quiet=quiet,
+        )
 
 
 def _job_vcs_testharness_comp(target, quiet):
@@ -1100,48 +1222,71 @@ def _job_run(
     )
 
 
-def _job_testlist_compile(target, quiet):
+def _testlist_paths(target):
+    "Repository-relative paths of the hand-written testlists of a target"
+    return [f"verif/tests/{testlist}.yaml" for testlist in TESTLISTS.get(target, [])]
+
+
+def _generated_testlist(target):
     """
-    Compile every testlist of the target.
+    Repository-relative path of the riscv-dv testlist of a target, or None.
+
+    A target declares random generated tests by shipping
+    `verif/generated_test.yaml` in its configuration directory.
+    """
+    path = config_dir(target, Path(".")) / "verif" / "generated_test.yaml"
+    return str(path) if path.is_file() else None
+
+
+def _job_testlist_compile(target, testlists, quiet):
+    """
+    Compile the given testlists (repository-relative paths) of the target.
 
     A failing testlist does not stop the others: all of them are compiled
     and the job fails at the end.
     """
     failed = []
-    for testlist in TESTLISTS.get(target, []):
+    for testlist in testlists:
+        name = Path(testlist).stem
         try:
-            march = _march_with_f(target, quiet) if testlist.endswith("_v") else None
+            march = _march_with_f(target, quiet) if name.endswith("_v") else None
             _recipe(
                 sw_compile_testlist,
                 target=target,
                 toolchain=_target_toolchain(target),
-                testlist=f"verif/tests/{testlist}.yaml",
+                testlist=testlist,
                 test_name=None,
                 march=march,
                 mabi=None,
                 quiet=quiet,
             )
         except JobFailure:
-            failed.append(testlist)
+            failed.append(name)
     if failed:
         raise JobFailure(f"failed testlist(s): {', '.join(failed)}")
 
 
-def _job_testlist_run(target, quiet):
-    "Run every testlist of the target, one testlist after the other"
+def _job_testlist_run(target, testlists, tandem, quiet):
+    """
+    Run the given testlists of the target, one testlist after the other.
+
+    `tandem` compares every test with Spike: needed by the tests that do
+    not check their own result (the generated ones).
+    """
     failed = []
-    for testlist in TESTLISTS.get(target, []):
+    for testlist in testlists:
+        name = Path(testlist).stem
         try:
             _recipe(
                 uvm_run_testlist,
                 simulator=Simulator.vcs,
                 target=target,
-                testlist=f"verif/tests/{testlist}.yaml",
+                testlist=testlist,
                 test_name=None,
                 comp_mode=CompMode.rtl,
                 trace_mode=TraceMode.notrace,
                 uvm_verbosity=UvmVerbosity.none,
-                tandem_enabled=False,
+                tandem_enabled=tandem,
                 tb_performance_mode=False,
                 stats=False,
                 sim_profile=False,
@@ -1150,16 +1295,37 @@ def _job_testlist_run(target, quiet):
                 uvm_seed=str(random.getrandbits(31)),
                 sim_timeout=SIM_TIMEOUT,
                 cycle_timeout=(
-                    SIM_CYCLE_TIMEOUT_V
-                    if testlist.endswith("_v")
-                    else SIM_CYCLE_TIMEOUT
+                    SIM_CYCLE_TIMEOUT_V if name.endswith("_v") else SIM_CYCLE_TIMEOUT
                 ),
                 quiet=quiet,
             )
         except JobFailure:
-            failed.append(testlist)
+            failed.append(name)
     if failed:
         raise JobFailure(f"failed testlist(s): {', '.join(failed)}")
+
+
+def _job_generator_comp(target, quiet):
+    "VCS elaboration of the riscv-dv instruction generator"
+    _recipe(vcs_generator_comp, target=target, core_setting=None, quiet=quiet)
+
+
+def _job_testlist_generate(target, testlist, quiet):
+    """
+    Generate the tests of a riscv-dv testlist.
+
+    The seed is left to the recipe, which draws it and records it in its
+    report, so a failing generated test can be generated again.
+    """
+    _recipe(
+        vcs_generator_run_testlist,
+        target=target,
+        testlist=testlist,
+        test_name=None,
+        seed=None,
+        batch_size=1,
+        quiet=quiet,
+    )
 
 
 def _job_gtech_synth(target, quiet):
@@ -1226,7 +1392,7 @@ def _add_fpga_jobs(scheduler, target, board, elab_job, deps_job, quiet):
         partial(_job_fpga_boot, target=target, board=board, quiet=quiet),
         build / target / "fpga_boot" / board.value,
         deps=[image],
-        resource=board_pool(board),
+        resource=board_pool(board, target),
     )
 
 
@@ -1255,12 +1421,145 @@ def _select_targets(value, default, targets):
     return selected, ignored
 
 
-def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, selection):
+def _add_uvm_regression(scheduler, target, elab_job, deps_job, fpga, altera, quiet):
+    """
+    VCS jobs of a target that follow its hello-world runs: benchmarks,
+    testlists, the generated testlist, then the FPGA images, which wait for
+    the UVM elaboration `elab_job`. None of them runs in open-source mode.
+    """
+    target_dir = Path.cwd() / "build" / target
+
+    # --- Benchmarks -----------------------------------------------
+    # A benchmark regression must not fail the pipeline: the score is
+    # reported, the verdict stays a warning
+    for benchmark in BENCHMARKS:
+        bench_compile = scheduler.add(
+            f"benchmark-compile:{target}:{benchmark}",
+            partial(
+                _job_benchmark_compile,
+                target=target,
+                benchmark=benchmark,
+                quiet=quiet,
+            ),
+            target_dir / "compile" / benchmark,
+            deps=[deps_job],
+        )
+        scheduler.add(
+            f"benchmark-run:{target}:{benchmark}",
+            partial(
+                _job_run,
+                target=target,
+                test_name=benchmark,
+                comp_mode=CompMode.rtl,
+                tandem=False,
+                performance=True,
+                timeout=BENCHMARK_SIM_TIMEOUT,
+                quiet=quiet,
+            ),
+            target_dir / "simulation" / "sim_rtl" / benchmark,
+            deps=[elab_job, bench_compile],
+            resource=VCS,
+            allow_failure=True,
+        )
+
+    # --- Testlist regression --------------------------------------
+    if TESTLISTS.get(target):
+        testlist_compile = scheduler.add(
+            f"testlist-compile:{target}",
+            partial(
+                _job_testlist_compile,
+                target=target,
+                testlists=_testlist_paths(target),
+                quiet=quiet,
+            ),
+            target_dir / "compile",
+            deps=[deps_job],
+        )
+        scheduler.add(
+            f"testlist-run:{target}",
+            partial(
+                _job_testlist_run,
+                target=target,
+                testlists=_testlist_paths(target),
+                tandem=False,
+                quiet=quiet,
+            ),
+            target_dir / "simulation" / "sim_rtl",
+            deps=[elab_job, testlist_compile],
+            resource=VCS,
+        )
+
+    # --- Generated testlist (riscv-dv) ----------------------------
+    # The generated tests are then compiled and run as a testlist, in
+    # jobs of their own so the generation does not delay the
+    # hand-written testlists. They do not check their own result:
+    # they run with Spike in tandem, which the RTL elaboration has.
+    generated = _generated_testlist(target)
+    if generated:
+        gen_elab = scheduler.add(
+            f"dv-elab:{target}",
+            partial(_job_generator_comp, target=target, quiet=quiet),
+            target_dir / "dv_generator",
+            deps=[deps_job],  # the generator is patched by git-dependencies
+            resource=VCS,
+        )
+        gen_job = scheduler.add(
+            f"testlist-generate:{target}",
+            partial(
+                _job_testlist_generate,
+                target=target,
+                testlist=generated,
+                quiet=quiet,
+            ),
+            target_dir / "dv_generated" / Path(generated).stem,
+            deps=[gen_elab],
+            resource=VCS,
+        )
+        gen_compile = scheduler.add(
+            f"generated-compile:{target}",
+            partial(
+                _job_testlist_compile,
+                target=target,
+                testlists=[generated],
+                quiet=quiet,
+            ),
+            target_dir / "compile" / Path(generated).stem,
+            deps=[gen_job],
+        )
+        scheduler.add(
+            f"generated-run:{target}",
+            partial(
+                _job_testlist_run,
+                target=target,
+                testlists=[generated],
+                tandem=True,
+                quiet=quiet,
+            ),
+            target_dir / "simulation" / "sim_rtl" / Path(generated).stem,
+            deps=[elab_job, gen_compile],
+            resource=VCS,
+        )
+
+    # --- FPGA image, board programming and Linux boot -------------
+    images = (FPGA_TARGETS if fpga else []) + (ALTERA_TARGETS if altera else [])
+    for fpga_target, board in images:
+        if fpga_target != target:
+            continue
+        _add_fpga_jobs(scheduler, target, board, elab_job, deps_job, quiet)
+
+
+def _build_graph(
+    scheduler, targets, techno, period, fpga, altera, quiet, selection, open_source
+):
     """
     Add every pipeline job to the scheduler.
 
     `selection` maps a job category (docs, spyglass, gtech, synth) to the
     targets it runs on, see _select_targets().
+
+    `open_source` leaves out every job of a commercial tool: the VCS ones
+    are not declared, and the macro has already emptied the Spyglass, GTECH
+    and synthesis selections and turned the FPGA images off.
 
     `scheduler.add()` takes the job name, the deferred call, the
     directory holding the cook_report.yml of the recipe, and returns the
@@ -1357,37 +1656,45 @@ def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, select
             )
 
         # --- Software and RTL elaboration -----------------------------
-        compile_job = scheduler.add(
-            f"sw-compile:{target}",
-            partial(_job_sw_compile, target=target, quiet=quiet),
-            target_dir / "compile" / "hello-world",
-        )
-        elab_job = scheduler.add(
-            f"elab:{target}",
-            partial(_job_elab, target=target, comp_mode=CompMode.rtl, quiet=quiet),
-            target_dir / "elab" / "sim_rtl",
-            deps=[deps_job],  # the submodule patches must be applied before elaborating
-            resource=VCS,
-        )
-        scheduler.add(
-            f"run-sim:{target}",
-            partial(
-                _job_run,
-                target=target,
-                test_name="hello-world",
-                comp_mode=CompMode.rtl,
-                tandem=True,
-                # The memory answers in the cycle it is asked, so the count
-                # measures the pipeline alone. The run the matrix reports.
-                performance=True,
-                timeout=SIM_TIMEOUT,
-                cycle_timeout=SIM_CYCLE_TIMEOUT,
-                quiet=quiet,
-            ),
-            target_dir / "simulation" / "sim_rtl" / "hello-world",
-            deps=[elab_job, compile_job],
-            resource=VCS,
-        )
+        # In open-source mode hello-world only runs on the Verilator
+        # TestHarness, which is AXI only: an OBI target has no use for it
+        compile_job = None
+        if not open_source or _hier(target) == "axi":
+            compile_job = scheduler.add(
+                f"sw-compile:{target}",
+                partial(_job_sw_compile, target=target, quiet=quiet),
+                target_dir / "compile" / "hello-world",
+            )
+        elab_job = None
+        if not open_source:
+            elab_job = scheduler.add(
+                f"elab:{target}",
+                partial(_job_elab, target=target, comp_mode=CompMode.rtl, quiet=quiet),
+                target_dir / "elab" / "sim_rtl",
+                deps=[
+                    deps_job
+                ],  # the submodule patches must be applied before elaborating
+                resource=VCS,
+            )
+            scheduler.add(
+                f"run-sim:{target}",
+                partial(
+                    _job_run,
+                    target=target,
+                    test_name="hello-world",
+                    comp_mode=CompMode.rtl,
+                    tandem=True,
+                    # The memory answers in the cycle it is asked, so the count
+                    # measures the pipeline alone. The run the matrix reports.
+                    performance=True,
+                    timeout=SIM_TIMEOUT,
+                    cycle_timeout=SIM_CYCLE_TIMEOUT,
+                    quiet=quiet,
+                ),
+                target_dir / "simulation" / "sim_rtl" / "hello-world",
+                deps=[elab_job, compile_job],
+                resource=VCS,
+            )
 
         # The same binary through the other testbench or another memory:
         # - AXI: the TestHarness, on VCS and on Verilator, so the target
@@ -1398,25 +1705,30 @@ def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, select
         #   randomises and the run above turns off. The TestHarness is
         #   AXI only.
         if _hier(target) == "axi":
-            vcs_th_comp = scheduler.add(
-                f"vcs-testharness-comp:{target}",
-                partial(_job_vcs_testharness_comp, target=target, quiet=quiet),
-                target_dir / "elab" / "sim_rtl_vcs_testharness",
-                deps=[deps_job],
-                resource=VCS,
-            )
-            scheduler.add(
-                f"vcs-testharness-run:{target}",
-                partial(
-                    _job_vcs_testharness_run,
-                    target=target,
-                    test_name="hello-world",
-                    quiet=quiet,
-                ),
-                target_dir / "simulation" / "sim_rtl_vcs_testharness" / "hello-world",
-                deps=[vcs_th_comp, compile_job],
-                resource=VCS,
-            )
+            vcs_th_comp = None
+            if not open_source:
+                vcs_th_comp = scheduler.add(
+                    f"vcs-testharness-comp:{target}",
+                    partial(_job_vcs_testharness_comp, target=target, quiet=quiet),
+                    target_dir / "elab" / "sim_rtl_vcs_testharness",
+                    deps=[deps_job],
+                    resource=VCS,
+                )
+                scheduler.add(
+                    f"vcs-testharness-run:{target}",
+                    partial(
+                        _job_vcs_testharness_run,
+                        target=target,
+                        test_name="hello-world",
+                        quiet=quiet,
+                    ),
+                    target_dir
+                    / "simulation"
+                    / "sim_rtl_vcs_testharness"
+                    / "hello-world",
+                    deps=[vcs_th_comp, compile_job],
+                    resource=VCS,
+                )
             verilator_comp = scheduler.add(
                 f"verilator-testharness-comp:{target}",
                 partial(_job_verilator_comp, target=target, quiet=quiet),
@@ -1437,62 +1749,63 @@ def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, select
                 / "hello-world",
                 deps=[verilator_comp, compile_job],
             )
-            if target in PK_TARGETS:
-                pk_compile = scheduler.add(
-                    f"pk-hello-world:{target}",
-                    partial(_job_pk_compile, target=target, quiet=quiet),
-                    target_dir / "compile" / PK_TEST,
-                    deps=[deps_job],
-                )
-                simulator = PK_TARGETS[target]
-                run_job, comp_job, resource = {
-                    "verilator": (_job_verilator_run, verilator_comp, None),
-                    "vcs": (_job_vcs_testharness_run, vcs_th_comp, VCS),
-                }[simulator]
-                scheduler.add(
-                    f"{simulator}-testharness-run:{target}:{PK_TEST}",
-                    partial(
-                        run_job,
-                        target=target,
-                        test_name=PK_TEST,
-                        timeout=PK_SIM_TIMEOUT,
-                        quiet=quiet,
-                    ),
-                    target_dir
-                    / "simulation"
-                    / f"sim_rtl_{simulator}_testharness"
-                    / PK_TEST,
-                    deps=[comp_job, pk_compile],
-                    resource=resource,
-                )
-            if target in ZEPHYR_TARGETS:
-                zephyr_compile = scheduler.add(
-                    f"zephyr-hello-world:{target}",
-                    partial(_job_zephyr_compile, target=target, quiet=quiet),
-                    target_dir / "compile" / ZEPHYR_TEST,
-                    deps=[deps_job],
-                )
-                simulator = ZEPHYR_TARGETS[target]
-                run_job, comp_job, resource = {
-                    "verilator": (_job_verilator_run, verilator_comp, None),
-                    "vcs": (_job_vcs_testharness_run, vcs_th_comp, VCS),
-                }[simulator]
-                scheduler.add(
-                    f"{simulator}-testharness-run:{target}:{ZEPHYR_TEST}",
-                    partial(
-                        run_job,
-                        target=target,
-                        test_name=ZEPHYR_TEST,
-                        quiet=quiet,
-                    ),
-                    target_dir
-                    / "simulation"
-                    / f"sim_rtl_{simulator}_testharness"
-                    / ZEPHYR_TEST,
-                    deps=[comp_job, zephyr_compile],
-                    resource=resource,
-                )
-        elif _hier(target) == "obi":
+            if not open_source:
+                if target in PK_TARGETS:
+                    pk_compile = scheduler.add(
+                        f"pk-hello-world:{target}",
+                        partial(_job_pk_compile, target=target, quiet=quiet),
+                        target_dir / "compile" / PK_TEST,
+                        deps=[deps_job],
+                    )
+                    simulator = PK_TARGETS[target]
+                    run_job, comp_job, resource = {
+                        "verilator": (_job_verilator_run, verilator_comp, None),
+                        "vcs": (_job_vcs_testharness_run, vcs_th_comp, VCS),
+                    }[simulator]
+                    scheduler.add(
+                        f"{simulator}-testharness-run:{target}:{PK_TEST}",
+                        partial(
+                            run_job,
+                            target=target,
+                            test_name=PK_TEST,
+                            timeout=PK_SIM_TIMEOUT,
+                            quiet=quiet,
+                        ),
+                        target_dir
+                        / "simulation"
+                        / f"sim_rtl_{simulator}_testharness"
+                        / PK_TEST,
+                        deps=[comp_job, pk_compile],
+                        resource=resource,
+                    )
+                if target in ZEPHYR_TARGETS:
+                    zephyr_compile = scheduler.add(
+                        f"zephyr-hello-world:{target}",
+                        partial(_job_zephyr_compile, target=target, quiet=quiet),
+                        target_dir / "compile" / ZEPHYR_TEST,
+                        deps=[deps_job],
+                    )
+                    simulator = ZEPHYR_TARGETS[target]
+                    run_job, comp_job, resource = {
+                        "verilator": (_job_verilator_run, verilator_comp, None),
+                        "vcs": (_job_vcs_testharness_run, vcs_th_comp, VCS),
+                    }[simulator]
+                    scheduler.add(
+                        f"{simulator}-testharness-run:{target}:{ZEPHYR_TEST}",
+                        partial(
+                            run_job,
+                            target=target,
+                            test_name=ZEPHYR_TEST,
+                            quiet=quiet,
+                        ),
+                        target_dir
+                        / "simulation"
+                        / f"sim_rtl_{simulator}_testharness"
+                        / ZEPHYR_TEST,
+                        deps=[comp_job, zephyr_compile],
+                        resource=resource,
+                    )
+        elif _hier(target) == "obi" and not open_source:
             scheduler.add(
                 f"run-sim-stall:{target}",
                 partial(
@@ -1512,65 +1825,17 @@ def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, select
                 resource=VCS,
             )
 
-        # --- Benchmarks -----------------------------------------------
-        # A benchmark regression must not fail the pipeline: the score is
-        # reported, the verdict stays a warning
-        for benchmark in BENCHMARKS:
-            bench_compile = scheduler.add(
-                f"benchmark-compile:{target}:{benchmark}",
-                partial(
-                    _job_benchmark_compile,
-                    target=target,
-                    benchmark=benchmark,
-                    quiet=quiet,
-                ),
-                target_dir / "compile" / benchmark,
-                deps=[deps_job],
+        if not open_source:
+            _add_uvm_regression(
+                scheduler, target, elab_job, deps_job, fpga, altera, quiet
             )
-            scheduler.add(
-                f"benchmark-run:{target}:{benchmark}",
-                partial(
-                    _job_run,
-                    target=target,
-                    test_name=benchmark,
-                    comp_mode=CompMode.rtl,
-                    tandem=False,
-                    performance=True,
-                    timeout=BENCHMARK_SIM_TIMEOUT,
-                    quiet=quiet,
-                ),
-                target_dir / "simulation" / "sim_rtl" / benchmark,
-                deps=[elab_job, bench_compile],
-                resource=VCS,
-                allow_failure=True,
-            )
-
-        # --- Testlist regression --------------------------------------
-        if TESTLISTS.get(target):
-            testlist_compile = scheduler.add(
-                f"testlist-compile:{target}",
-                partial(_job_testlist_compile, target=target, quiet=quiet),
-                target_dir / "compile",
-                deps=[deps_job],
-            )
-            scheduler.add(
-                f"testlist-run:{target}",
-                partial(_job_testlist_run, target=target, quiet=quiet),
-                target_dir / "simulation" / "sim_rtl",
-                deps=[elab_job, testlist_compile],
-                resource=VCS,
-            )
-
-        # --- FPGA image, board programming and Linux boot -------------
-        images = (FPGA_TARGETS if fpga else []) + (ALTERA_TARGETS if altera else [])
-        for fpga_target, board in images:
-            if fpga_target != target:
-                continue
-            _add_fpga_jobs(scheduler, target, board, elab_job, deps_job, quiet)
 
         # --- Open-source synthesis -------------------------------------
         # Every target, no licence: after the RTL elaboration, like the
         # GTECH synthesis, so a design that does not elaborate fails once.
+        # In open-source mode there is no elaboration to wait for: it reads
+        # the core RTL only, which git-dependencies does not patch, so it
+        # needs nothing, like rtl-lint.
         # Not the FPGA targets: their memories are the dual-port RAMs of the
         # FPGA vendors, written from two processes, which only an FPGA
         # synthesis infers
@@ -1579,7 +1844,7 @@ def _build_graph(scheduler, targets, techno, period, fpga, altera, quiet, select
                 f"yosys-synth:{target}",
                 partial(_recipe, yosys_synth, target=target, quiet=quiet),
                 target_dir / "synthesis_yosys",
-                deps=[elab_job],
+                deps=[elab_job] if elab_job else [],
             )
 
         # --- GTECH synthesis ------------------------------------------
@@ -1698,6 +1963,13 @@ def full_regression(
     ),
     vivado_licenses: int = typer.Option(1, help="Concurrent Vivado builds"),
     quartus_licenses: int = typer.Option(1, help="Concurrent Quartus builds"),
+    open_source: bool = typer.Option(
+        False,
+        help="Only the jobs of open-source tools, the checks to run before a "
+        "pull request: no VCS, Spyglass, DC Shell, Vivado nor Quartus job "
+        "(--techno, --fpga, --altera and the Spyglass, GTECH and synthesis "
+        "targets are ignored)",
+    ),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="List the jobs and their dependencies, run nothing"
     ),
@@ -1710,6 +1982,27 @@ def full_regression(
     """
     repo_dir = Path.cwd()
     targets = list(target) or TARGETS
+
+    # The open-source mode drops the stages of commercial tools whatever
+    # their options say. The options are not refused, so a command line can
+    # be switched to the open-source mode by adding the flag alone: the ones
+    # set by the user are listed as ignored once the report exists.
+    overridden = []
+    if open_source:
+        for name, value, disabled in (
+            ("--techno", techno, None),
+            ("--fpga", fpga, False),
+            ("--altera", altera, False),
+            ("--spyglass-targets", spyglass_targets, NO_TARGET),
+            ("--gtech-targets", gtech_targets, NO_TARGET),
+            ("--synth-targets", synth_targets, NO_TARGET),
+        ):
+            # --fpga is on by default: not worth a message
+            if value not in (disabled, "") and name != "--fpga":
+                overridden.append(name)
+        techno = None
+        fpga = altera = False
+        spyglass_targets = gtech_targets = synth_targets = NO_TARGET
 
     # Targets of each job category, within the targets of the run
     selection = {}
@@ -1747,6 +2040,7 @@ def full_regression(
             "altera": altera,
             "vivado_licenses": vivado_licenses,
             "quartus_licenses": quartus_licenses,
+            "open_source": open_source,
             "dry_run": dry_run,
         },
         quiet=quiet,
@@ -1755,6 +2049,11 @@ def full_regression(
     unknown = [t for t in targets if not (repo_dir / "config" / "target" / t).is_dir()]
     if unknown:
         report.error_exit(f"Unknown target(s): {', '.join(unknown)}", env=True)
+
+    if overridden:
+        report.warning(
+            f"--open-source: ignored {', '.join(overridden)} (commercial tool stages)"
+        )
 
     # A target of a category that is not a target at all is a typo, which
     # would silently drop the job: fail. One that exists but is not run
@@ -1812,12 +2111,25 @@ def full_regression(
             VIVADO: vivado_licenses,
             QUARTUS: quartus_licenses,
             # One slot per board: see board_pool()
-            **{board_pool(board): 1 for _, board in FPGA_TARGETS + ALTERA_TARGETS},
+            **{
+                board_pool(board, target): 1
+                for target, board in FPGA_TARGETS + ALTERA_TARGETS
+            },
         },
         max_workers=jobs,
         on_event=on_event,
     )
-    _build_graph(scheduler, targets, techno, period, fpga, altera, sub_quiet, selection)
+    _build_graph(
+        scheduler,
+        targets,
+        techno,
+        period,
+        fpga,
+        altera,
+        sub_quiet,
+        selection,
+        open_source,
+    )
     total[0] = len(scheduler.jobs)
 
     missing = scheduler.unknown_deps()

@@ -214,9 +214,8 @@ def xcelium_testharness_run(
     # BUILD XRUN COMMAND
     # ==========================================================
     # -R reopens the snapshot of the elaboration: xrun runs in its
-    # directory. The plusargs of `COMMON_RUN_ARGS` in verif/sim/Makefile,
-    # bracketed by `+permissive`, the HTIF of Spike rejecting the
-    # arguments it does not know. The Spike libraries are the whole DPI of
+    # directory. The plusargs are bracketed by `+permissive`, the HTIF of
+    # Spike rejecting the arguments it does not know. The Spike libraries are the whole DPI of
     # the harness, loaded in dependency order.
     xrun_cmd = [
         "xrun",

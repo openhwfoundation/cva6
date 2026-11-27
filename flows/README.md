@@ -69,7 +69,7 @@ run a test of the other.
 | Top level | `uvmt_cva6_tb` | `ariane_tb` (event-driven simulators), `ariane_testharness` (Verilator) |
 | Sources | `verif/tb/uvmt/`, core-v-verif agents | `corev_apu/tb/`, `verif/tb/core/Flist.testharness*` |
 | Core interface | AXI or OBI, driven by the UVM agents of core-v-verif | AXI, through the SoC of `corev_apu` |
-| Targets | all | targets declaring `hier: axi` only, checked by the recipes |
+| Targets | `hier: obi` or `axi` (not `l15`), checked by the recipes | targets declaring `hier: axi` only, checked by the recipes |
 | Verdict | UVM scoreboard, optional tandem against SPIKE | `tohost` written by the program |
 | Recipes | `<simulator>-uvm-comp`, `<simulator>-uvm-run`, `uvm-run-testlist` | `<simulator>-testharness-comp`, `<simulator>-testharness-run`, `testharness-run-testlist` |
 | Outputs | `build/<target>/{elab,simulation}/sim_<comp_mode>/` | `build/<target>/{elab,simulation}/sim_<comp_mode>_<simulator>_testharness/` |
@@ -87,10 +87,9 @@ one to reach for when an open-source simulator is required.
 | Xcelium (Cadence) | **not verified** | **not verified** |
 | Verilator | — | supported |
 
-*Not verified* means the recipes exist, follow the reference flow of the
-Makefile and of the verified recipes, but have not been run to the end
-of a test. Expect to have to fix them on first use, and report what you
-find.
+*Not verified* means the recipes exist, follow the verified recipes,
+but have not been run to the end of a test. Expect to have to fix them on
+first use, and report what you find.
 
 Synthesis runs on DC shell, RTL lint on SpyGlass, and the FPGA flows
 drive both Vivado (Xilinx) and Quartus (Intel/Altera). The documentation
@@ -120,7 +119,7 @@ The following Synopsys tools must be installed with binaries accessible in `$PAT
 The FPGA recipes use AMD/Xilinx tools instead:
 
 - **Vivado** - FPGA synthesis, implementation and bitstream generation
-- **Vivado Lab** - board programming only (`--vivado-cmd vivado_lab`)
+- **Vivado Lab** - board programming only, used when found in `PATH`
 
 The Intel/Altera recipes use Quartus instead:
 
@@ -379,9 +378,15 @@ export NUM_JOBS=24                         # parallelism of the tool builds
 export SYN_VCS_BASHRC=/path/to/vcs/setup/bashrc
 export SYN_SG_BASHRC=/path/to/spyglass/setup/bashrc
 export VERIBLE_PATH=/path/to/verible/bin
-export PATH=$PATH:$VERIBLE_PATH
+export PATH=$VERIBLE_PATH:$PATH            # tools first in PATH
 #source $SYN_VCS_BASHRC                    # uncomment the tools you use
 ```
+
+The tools are put **first** in `PATH`, so the versions you chose win over
+the ones of the system. Each `export PATH=X:$PATH` goes in front of the
+previous ones: the last one comes first. The example `setenv.sh` adds
+Verilator last, after `YOSYS_PATH`, because the OSS CAD Suite of Yosys
+ships another Verilator.
 
 Only what you actually run has to be defined: a missing simulator makes the
 recipes that need it fail, not the others.
@@ -394,8 +399,8 @@ recipes that need it fail, not the others.
 
 It reports which tools are in `PATH`, the Spike install, the submodules, the
 external test suites and the configuration files, and fails only when none of
-`vcs`, `xrun` or `vsim` is found: the flows offer three simulators and several
-optional steps, so a missing one is not an error by itself.
+`vcs`, `xrun`, `vsim` or `verilator` is found: the flows offer four simulators
+and several optional steps, so a missing one is not an error by itself.
 
 Two of these variables are read by the recipes rather than by the shell:
 `CONFIG_DIR` to locate the configuration files, and `SPIKE_PATH` to find the
@@ -918,6 +923,13 @@ Run all tests (or a single test) from a testlist with any simulator.
 - `--run_opts TEXT` - Additional simulation run options
 - `--uvm-seed TEXT` - UVM randomization seed
 
+**Testlist keys read:** `test`, `iterations` (default 1, `0` disables the
+test) and the optional `run_opts`: a string of plusargs added, after the
+global `--run_opts`, to the simulation of that test only, e.g.
+`run_opts: +enable_interrupt` (the interrupt agent drives nothing without
+it). A testlist whose path contains `cvxif` also gets `+enabled_cvxif` on
+every test.
+
 **Example:**
 ```bash
 # Run entire testlist with VCS
@@ -1031,7 +1043,8 @@ Hello world takes about 2.5M cycles: 2 minutes on Verilator, 4 on VCS.
 Common to all of them:
 
 - **AXI targets only**: those whose configuration declares `hier: axi`.
-  The recipes refuse the others before building anything.
+  The recipes refuse the others (`obi`, `l15`) before building anything,
+  with an environment error.
 - **`rtl` only**: `--comp-mode` accepts the other values for symmetry
   with the UVM recipes, and rejects them.
 - The program is compiled by `sw-compile` beforehand: the run reads the
@@ -1157,8 +1170,7 @@ keeps the one Questa ships off the loader path.
 
 **Not verified.** Same options as the VCS recipes.
 
-Written after `xrun_comp` and `xrun_sim` of the Makefile and after
-`xcelium-uvm-comp`, but never run: Xcelium was not available. The
+Written after `xcelium-uvm-comp`, but never run: Xcelium was not available. The
 compilation is `xrun -elaborate`; the run reopens the snapshot with
 `xrun -R` and loads the SPIKE libraries with `+sv_lib`, as on the other
 simulators.
@@ -1212,17 +1224,35 @@ RISC-V DV random instruction generator integration.
 
 #### `vcs-generator-comp`
 
-Compile the RISC-V DV generator project.
+Elaborate the riscv-dv generator (`verif/sim/dv`) with the corev-dv
+extensions (`verif/env/corev-dv/cva6-files.f`) for a target.
 
 ```bash
-./cook.py vcs-generator-comp
+./cook.py vcs-generator-comp -t <target> [OPTIONS]
 ```
 
-No options required. This elaborates the test generation environment.
+**Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration
+
+**Optional:**
+- `--core-setting TEXT` - corev-dv core setting, a directory of
+  `verif/env/corev-dv/target/` (`rv32imcb`, `rv32imac`, `rv64gc`). Derived
+  from the `march` of `config/target/<target>/isa.yml` when omitted:
+  `rv64*` -> `rv64gc`, `rv32` with Zba/Zbb/Zbc/Zbs -> `rv32imcb`, `rv32` with
+  A -> `rv32imac`; any other march needs the option.
+- `-q, --quiet` - Suppress output (errors only)
+
+**Outputs:** `build/<target>/dv_generator/` (`simv`, `compilation.log`,
+`cook_manifest.yml` with the core setting).
+
+The recipe copies `verif/env/corev-dv/custom/riscv_custom_instr_enum.sv`
+into `verif/sim/dv/src/isa/custom/` (the riscv-dv submodule then shows
+as modified): riscv-dv includes it as `isa/custom/riscv_custom_instr_enum.sv`,
+which corev-dv has no include directory to override.
 
 **Example:**
 ```bash
-./cook.py vcs-generator-comp
+./cook.py vcs-generator-comp -t cv32a60x
 ```
 
 #### `vcs-generator-run`
@@ -1230,10 +1260,13 @@ No options required. This elaborates the test generation environment.
 Run RISC-V DV to generate random instruction tests.
 
 ```bash
-./cook.py vcs-generator-run [OPTIONS]
+./cook.py vcs-generator-run -t <target> -n <test> [OPTIONS]
 ```
 
+**Prerequisite:** `vcs-generator-comp -t <target>`.
+
 **Required Options:**
+- `-t, --target TEXT` - CVA6 user configuration (the generator elaborated for it)
 - `-n, --testname TEXT` - Test name to generate
 
 **Optional:**
@@ -1247,18 +1280,24 @@ Run RISC-V DV to generate random instruction tests.
 - `--illegal-instr-ratio INTEGER` - Illegal instruction ratio (default: 0)
 - `--unsupported-instr-ratio INTEGER` - Unsupported instruction ratio (default: 0)
 - `--num-of-sub-program INTEGER` - Number of sub-programs (default: 0)
-- `--seed INTEGER` - Random seed (randomized if not provided)
+- `--seed INTEGER` - Seed of the first iteration, incremented per iteration (randomized if not provided)
 - `--tvec-alignment INTEGER` - Trap vector alignment value (default: 8)
 - `-v, --verbose` - Enable UVM_HIGH verbosity
-- `--options TEXT` - Additional options
+- `--options TEXT` - Generator plusargs (repeatable) replacing all the options above (the `gen_opts` of a testlist)
+
+**Outputs:** `build/<target>/dv_generated/<test>/asm_tests/<test>_<i>.S`
+(the `TESTS_GEN_PATH` of the riscv-dv testlists, see `sw-compile-testlist`),
+the generator logs and `seed.yaml`; the seeds are also appended to
+`build/<target>/dv_generated/seedlist.yaml`. The recipe fails when a
+program is missing or the generator logs a `UVM_ERROR`/`UVM_FATAL`.
 
 **Example:**
 ```bash
 # Generate simple random test
-./cook.py vcs-generator-run -n my_random_test
+./cook.py vcs-generator-run -t cv32a60x -n my_random_test
 
 # Generate with extensions and iterations
-./cook.py vcs-generator-run \
+./cook.py vcs-generator-run -t cv32a60x \
   -n stress_test \
   --gen-test cva6_instr_base_test_c \
   --instr-cnt 1000 \
@@ -1267,7 +1306,7 @@ Run RISC-V DV to generate random instruction tests.
   --directed-instr "cva6_load_store_rand_instr_stream_c,20"
 
 # Generate with specific seed
-./cook.py vcs-generator-run \
+./cook.py vcs-generator-run -t cv32a60x \
   -n reproducible_test \
   --seed 12345 \
   --instr-cnt 500 \
@@ -1276,30 +1315,33 @@ Run RISC-V DV to generate random instruction tests.
 
 #### `vcs-generator-run-testlist`
 
-Generate and run tests from a testlist.
+Generate the programs of a riscv-dv testlist (`gen_test`, `gen_opts`,
+`iterations` of each entry), one `vcs-generator-run` per test.
 
 ```bash
-./cook.py vcs-generator-run-testlist [OPTIONS]
+./cook.py vcs-generator-run-testlist -t <target> -l <testlist> [OPTIONS]
 ```
 
 **Required Options:**
-- `-l, --testlist TEXT` - Testlist YAML file in `verif/tests`
+- `-t, --target TEXT` - CVA6 user configuration (the generator elaborated for it)
+- `-l, --testlist TEXT` - riscv-dv testlist, e.g. `config/target/cv32a60x/verif/generated_test.yaml`
 
 **Optional:**
-- `-n, --testname TEXT` - Single test of the testlist
-- `--seed INTEGER` - Random seed (randomized if not provided)
+- `-n, --testname TEXT` - Test of the testlist (repeatable)
+- `--seed INTEGER` - Seed of the first iteration of each test, incremented per iteration (randomized if not provided)
 - `--batch-size INTEGER` - Tests to generate per batch (default: 1)
 - `-q, --quiet` - Suppress output (errors only)
 
 **Example:**
 ```bash
 # Generate all tests in testlist
-./cook.py vcs-generator-run-testlist -l verif/tests/<generator-testlist>.yaml
+./cook.py vcs-generator-run-testlist -t cv32a60x \
+  -l config/target/cv32a60x/verif/generated_test.yaml
 
 # Generate specific test with seed
-./cook.py vcs-generator-run-testlist \
-  -l verif/tests/<generator-testlist>.yaml \
-  -n arithmetic_test \
+./cook.py vcs-generator-run-testlist -t cv32a60x \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
+  -n riscv_arithmetic_basic_test_comp \
   --seed 98765 \
   --batch-size 4
 ```
@@ -1326,7 +1368,7 @@ Run DC Shell synthesis flow.
 **Optional:**
 - `--gtech` - Technology independent synthesis with `pd/synth/gtech_dc.tcl`:
   the design is mapped on the GTECH cells of dc_shell, hierarchy kept, and
-  needs no PDK nor `RM_FLOW`. The files come from
+  needs no PDK nor site script. The files come from
   `config/target/<target>/Flist.cva6_synth`, which reads the HPDcache SRAMs
   as blackboxes. The GTECH cells have no area, so the recipe reports cell
   and register counts instead, checked against the `gtech_cells` and
@@ -1528,8 +1570,7 @@ sources after the include to overload the common list.
 ./cook.py vivado-fpga-build \
   -t fpga_linux_cv32a6 \
   --board nexys_video \
-  --mcs \
-  --no-bootrom
+  --mcs
 ```
 
 **Output:** `build/<target>/fpga/<board>/ariane_xilinx.bit` (+ `.mcs`,
@@ -1559,7 +1600,7 @@ Load a bitstream onto a physical board (volatile configuration).
 - `--board [...]` - FPGA board (default: `genesys2`)
 - `--hw-server TEXT` - URL of the `hw_server` driving the board (default: `$HW_SERVER_URL`)
 - `--bitstream PATH` - Bitstream to load (default: the `vivado-fpga-build` output)
-- `--vivado-cmd TEXT` - Vivado executable (default: `vivado`; `vivado_lab` is enough to program)
+- `--vivado-cmd TEXT` - Vivado executable (default: the first of `vivado_lab`, `vivado` found in `PATH`)
 
 The `hw_server` is expected to be already running next to the board; the
 recipe only connects to it. The bitstream is checked to have been built
@@ -1573,11 +1614,11 @@ rather than pushed.
   -t fpga_linux_cv32a6 \
   --hw-server localhost:3121
 
-# Program an artifact built elsewhere, with the lab edition
+# Program an artifact built elsewhere, with the full edition
 ./cook.py vivado-fpga-program \
   -t fpga_linux_cv32a6 \
   --bitstream artifacts/FPGA/bitstream/ariane_xilinx.bit \
-  --vivado-cmd vivado_lab
+  --vivado-cmd vivado
 ```
 
 **Output:** `build/<target>/fpga_program/<board>/`
@@ -1599,7 +1640,7 @@ Boot Linux on the programmed board and check it on the serial console.
 - `--cable TEXT` - JTAG cable, on a board whose console is a JTAG UART (default: `$JTAG_CABLE`)
 - `--juart-instance INTEGER` - Instance of the JTAG UART on the cable
 - `--baudrate INTEGER` - Console baudrate (default: the baudrate of the board)
-- `--boot-timeout INTEGER` - Boot timeout in seconds (default: 300)
+- `--boot-timeout INTEGER` - Boot timeout in seconds (default: 700)
 - `--expect TEXT` - Console line identifying a booted kernel (default: `Linux buildroot`)
 
 The recipe follows the console, answers the shell prompt with `uname -a`
@@ -1610,8 +1651,8 @@ port** on the Xilinx boards (`--uart`), the **JTAG UART** read through the
 Quartus terminal on the Altera ones (`--cable`). The detection logic is the
 same on both. The Linux image itself is **not** built here: it
 comes from the CVA6 SDK and must already be on the SD card of the board
-(see the FPGA section of the repository README for the SD card
-preparation).
+(see [tutorials/fpga/README.md](../tutorials/fpga/README.md#booting-linux) for the SD
+card preparation).
 
 The boot has a wall clock deadline, so a board that never boots fails on
 its own instead of hanging until the CI job times out. A board that says
@@ -1721,8 +1762,8 @@ does not name the actual controller: a discrepancy of the Agilex port,
 not of these flows, and the reason the transport cannot be inferred from
 the device tree.
 
-The `altera-boot` CI job runs the check, but stays `when: manual` until a
-runner carries the board.
+In the CI, the Altera images and their boot run only with
+`full-regression --altera`.
 
 #### Driving a board attached to another machine
 
@@ -1862,7 +1903,10 @@ it are listed in `build/<target>/verible/verible-check.log`.
 
 #### `black-python-formating`
 
-Format Python files with Black formatter.
+Check the formatting of the Python files with Black (`black --check
+--diff`): the diff is printed and the recipe fails, nothing is rewritten.
+The files are those of `cook.py`, `flows/`, `pd/`, `perf-model/` and
+`.gitlab-ci/` known to git at `HEAD`.
 
 ```bash
 ./cook.py black-python-formating
@@ -2124,7 +2168,20 @@ CAD licence pool.
 ```bash
 ./cook.py full-regression --dry-run   # what would run here
 ./cook.py full-regression -j 32 --vcs-licenses 10
+./cook.py full-regression --open-source -j 16   # before a pull request
 ```
+
+`--open-source` keeps only the jobs of open-source tools, on every target:
+the formatting checks, `rtl-lint`, `yosys-synth` (not on the FPGA
+targets), hello-world on the Verilator TestHarness (AXI targets) and the
+documentation. No VCS, Spyglass, DC Shell, Vivado or Quartus job:
+`--techno`, `--fpga`, `--altera`, `--spyglass-targets`, `--gtech-targets`
+and `--synth-targets` are ignored, with a warning. The report records
+`open_source: true` in its context.
+
+A target with a riscv-dv testlist (`config/target/<target>/verif/generated_test.yaml`)
+also runs `dv-elab`, `testlist-generate`, `generated-compile` and
+`generated-run` (tandem): its random tests, as one more testlist.
 
 Scheduling, licence pools, reports, options, and how to add a job:
 [CONTINUOUS_INTEGRATION.md](CONTINUOUS_INTEGRATION.md#the-full-regression-macro).
@@ -2139,13 +2196,16 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 ./cook.py macro-vcs-generator-testlist [OPTIONS]
 ```
 
+**Prerequisites:** `vcs-generator-comp -t <target>` and
+`vcs-uvm-comp -t <target>` (with `--tandem-enabled` for a tandem run).
+
 **Required Options:**
-- `-t, --target TEXT` - CVA6 user configuration
-- `-l, --testlist TEXT` - Testlist YAML file in `verif/tests`
+- `-t, --target TEXT` - CVA6 user configuration (passed to every step)
+- `-l, --testlist TEXT` - riscv-dv testlist, e.g. `config/target/cv32a60x/verif/generated_test.yaml`
+- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
 
 **Optional:**
-- `-n, --testname TEXT` - Single test of the testlist
-- `-c, --toolchain [llvm-22|...]` - Toolchain defined in `$CONFIG_DIR/compiler.yml`
+- `-n, --testname TEXT` - Test of the testlist (repeatable)
 - `--march TEXT` - Custom march
 - `--mabi TEXT` - Custom mabi
 - `--comp-mode [rtl|gate_wc_power|gate_wc_timing|coverage]` - Hardware compilation mode (default: `rtl`)
@@ -2157,7 +2217,7 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 - `--sim-profile / --no-sim-profile` - Enable simulation profiling (default: disabled)
 - `--run_opts TEXT` - Simulation run options
 - `--batch-size INTEGER` - Tests to generate per batch (default: 1)
-- `--seed INTEGER` - Random seed (randomized if not provided)
+- `--seed INTEGER` - Generator seed of the first iteration of each test, incremented per iteration (randomized if not provided)
 - `--uvm-seed TEXT` - UVM randomization seed
 
 **Example:**
@@ -2165,16 +2225,17 @@ Complete flow: VCS Generator → SW Compile → UVM Run from testlist.
 # Run complete random test generation flow
 ./cook.py macro-vcs-generator-testlist \
   -t cv32a60x \
-  -l verif/tests/<generator-testlist>.yaml \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
   -c llvm-22 \
   --trace-mode fast \
   --batch-size 4
 
 # Single test with tandem verification
 ./cook.py macro-vcs-generator-testlist \
-  -t cv32a65x \
-  -l verif/tests/<generator-testlist>.yaml \
-  -n arithmetic_stress \
+  -t cv32a60x \
+  -l config/target/cv32a60x/verif/generated_test.yaml \
+  -n riscv_arithmetic_basic_test_comp -n riscv_load_store_test \
+  --seed 1 \
   -c gcc-15 \
   --tandem-enabled \
   --stats
@@ -2349,6 +2410,14 @@ simulators and several optional steps (synthesis, STA, lint), so a missing
 tool is a warning. The recipe only fails when no simulator at all (`vcs`,
 `xrun`, `vsim`, `verilator`) is in the path, or when a mandatory
 dependency is missing (Spike, submodules, riscv-tests).
+
+Each tool found is listed with its path and, for most of them, its
+version (`--version` or equivalent; the version of Verdi is read from its
+installation path, Verdi opening its GUI on any option). The
+Verilator of the path is compared with the version installed by
+`verif/regress/install-verilator.sh`: the lint baselines and the
+TestHarness are built with it, and another one (the OSS CAD Suite of
+Yosys ships one) is reported as a warning.
 
 **Example:**
 ```bash

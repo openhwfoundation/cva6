@@ -14,9 +14,7 @@ A board is a property of the hardware the bitstream runs on, not of the
 design under test: it selects the FPGA part, the pin constraints, the
 board specific defines and, for the boards wired for it, the JTAG device
 to program. They are gathered here so a recipe asks for "the part of
-this board" rather than repeating the table. The `BOARD` switch of the
-root Makefile, `corev_apu/fpga/sourceme.sh` and the `$::env(BOARD)`
-branches of the Vivado scripts carry the same values for `make fpga`.
+this board" rather than repeating the table.
 
 The two vendors keep separate enums (`FpgaBoard`, `AlteraBoard`) because
 their flows share nothing: Vivado against Quartus, `ariane_xilinx`
@@ -41,6 +39,7 @@ but not programmed, and the recipes say so rather than guessing a device
 name that would fail inside Vivado.
 """
 
+import shutil
 from flows.utils.autocompletion import AlteraBoard, FpgaBoard
 
 
@@ -303,8 +302,7 @@ def board_params(board):
     return _BOARD_PARAMS[FpgaBoard(board)]
 
 
-# Vivado IP cores instantiated by the FPGA top level, in the order the
-# `corev_apu/fpga/Makefile` generates them. Each name is both the IP
+# Vivado IP cores instantiated by the FPGA top level. Each name is both the IP
 # directory under `corev_apu/fpga/xilinx/` and the `.xci` basename.
 FPGA_IPS = [
     "xlnx_axi_clock_converter",
@@ -365,16 +363,44 @@ def ip_is_generated(repo_dir, ip_name):
     return ip_dcp(repo_dir, ip_name).exists()
 
 
+def clean_ip(repo_dir, ip_name):
+    """
+    Remove the generated files of an IP core, so it is generated again.
+    same files as the 'make clean' of corev_apu/fpga/xilinx/common.mk:
+    ip/*, <ip_name>.* (project, .srcs, .runs, .cache...), componenet.xml,
+    vivado*.jou and vivado*.log.
+    Returns the names of what was removed.
+    """
+    d = ip_dir(repo_dir, ip_name)
+    targets = (
+        list(d.glob("ip/*"))
+        + list(d.glob(f"{ip_name}.*"))
+        + list(d.glob("vivado*.jou"))
+        + list(d.glob("vivado*.log"))
+    )
+    removed = []
+    for p in targets:
+        if p.is_dir() and not p.is_symlink():
+            shutil.rmtree(p)
+        elif p.exists() or p.is_symlink():
+            p.unlink()
+        else:
+            continue
+        removed.append(p.name)
+    (d / "ip").mkdir(exist_ok=True)
+    return removed
+
+
 # Include directories of the FPGA elaboration, relative to the repository
-# root. Same list as the `set_property include_dirs` of
-# `corev_apu/fpga/scripts/run.tcl`, made repository relative so the
-# generated script does not depend on the Vivado working directory.
+# root, so the generated script does not depend on the Vivado working
+# directory.
 FPGA_INCDIRS = [
     "corev_apu/fpga/src/axi_sd_bridge/include",
     "vendor/pulp-platform/common_cells/include",
     "vendor/pulp-platform/axi/include",
     "vendor/pulp-platform/obi/include",
     "core/cache_subsystem/hpdcache/rtl/include",
+    "core/cache_subsystem/hpdcache/rtl/src/utils/ecc",
     "corev_apu/register_interface/include",
     "corev_apu/instr_tracing/ITI/include",
     "core/include",
@@ -410,8 +436,7 @@ ALTERA_QSYS = {
     "system": "hps_cva6_altera.tcl",
 }
 
-# IP cores of the Altera design, in the order corev_apu/altera/Makefile
-# generates them. Each is a `qsys-script` producing a `.ip` file, which
+# IP cores of the Altera design, in generation order. Each is a `qsys-script` producing a `.ip` file, which
 # `quartus_ipgenerate` then turns into RTL.
 ALTERA_IPS = [
     "test_mm_ccb_0.tcl",
@@ -431,3 +456,16 @@ ALTERA_IPS = [
 # would silently keep whichever came last - so the board a recipe was
 # asked for could differ from the one it builds.
 ALTERA_QSF_OVERRIDDEN = ("TOP_LEVEL_ENTITY", "DEVICE", "FAMILY")
+
+# Sources of core/Flist.cva6 the FPGA build (Xilinx and Altera) leave out on
+# purpose: replaced by an FPGA wrapper declaring the same module, or simulation
+# only.
+FPGA_CORE_EXCLUDED = [
+    "common/local/util/tc_sram_wrapper.sv",
+    "core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv",
+    "core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv",
+    "core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_1rw.sv",
+    "vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv",
+    "core/include/instr_tracer_pkg.sv",
+    "common/local/util/instr_tracer.sv",
+]

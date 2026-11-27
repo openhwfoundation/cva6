@@ -16,9 +16,9 @@ slang:
     seq-no-match: 3
 verilator:
   warning:
+    ASCRANGE: 92
     CASEINCOMPLETE: 2
     CMPCONST: 1
-    LITENDIAN: 64
     WIDTHCONCAT: 2
-    WIDTHEXPAND: 103
-    WIDTHTRUNC: 82
+    WIDTHEXPAND: 111
+    WIDTHTRUNC: 93

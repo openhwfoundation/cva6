@@ -15,23 +15,15 @@ package config_pkg;
   localparam int unsigned ILEN = 32;
   localparam int unsigned NRET = 1;
 
-  /// The NoC type is a top-level parameter, hence we need a bit more
-  /// information on what protocol those type parameters are supporting.
-  /// Currently two values are supported"
-  typedef enum {
-    /// The "classic" AXI4 protocol.
-    NOC_TYPE_AXI4_ATOP,
-    /// In the OpenPiton setting the WT cache is connected to the L15.
-    NOC_TYPE_L15_BIG_ENDIAN,
-    NOC_TYPE_L15_LITTLE_ENDIAN
-  } noc_type_e;
-
   /// Memory subsystem between the pipeline and the system bus
   typedef enum logic [1:0] {
     /// No cache: each memory port of the pipeline is an OBI bus
     MEM_OBI = 0,
     /// HPDcache data cache and HPICache instruction cache on an AXI bus
-    MEM_HPDCACHE_AXI = 1
+    MEM_HPDCACHE_AXI = 1,
+    /// HPDcache data cache and HPICache instruction cache on the L1.5 cache
+    /// of OpenPiton (big endian)
+    MEM_HPDCACHE_L15 = 2
   } mem_subsystem_e;
 
   /// Write policy of the data cache
@@ -191,8 +183,6 @@ package config_pkg;
     bit                          CvxifEn;
     // Coprocessor type
     copro_type_t                 CoproType;
-    // NOC bus type
-    noc_type_e                   NOCType;
     // AXI address width
     int unsigned                 AxiAddrWidth;
     // AXI data width
@@ -409,7 +399,6 @@ package config_pkg;
     logic [63:0][63:0] PMPAddrRstVal;
     bit [63:0] PMPEntryReadOnly;
     bit PMPNapotEn;
-    noc_type_e NOCType;
     int unsigned NrNonIdempotentRules;
     logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
     logic [NrMaxRules-1:0][63:0] NonIdempotentLength;

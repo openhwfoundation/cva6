@@ -91,7 +91,6 @@ package cva6_config_pkg;
       PMPAddrRstVal: {64{64'h0}},
       PMPEntryReadOnly: 64'd0,
       PMPNapotEn: bit'(0),
-      NOCType: config_pkg::NOC_TYPE_AXI4_ATOP,
       NrNonIdempotentRules: unsigned'(1),
       NonIdempotentAddrBase: 1024'({64'b0}),
       NonIdempotentLength: 1024'({64'h8000_0000}),

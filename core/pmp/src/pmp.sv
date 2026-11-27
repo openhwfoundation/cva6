@@ -52,14 +52,14 @@ module pmp
 
       allow_o = 1'b0;
       for (i = 0; i < CVA6Cfg.NrPMPEntries; i++) begin
-        // either we are in S or U mode or the config is locked in which
-        // case it also applies in M mode
-        if (priv_lvl_i != riscv::PRIV_LVL_M || conf_i[i].locked) begin
-          if (match[i]) begin
-            if ((access_type_i & conf_i[i].access_type) != access_type_i) allow_o = 1'b0;
-            else allow_o = 1'b1;
-            break;
-          end
+        // the lowest-numbered matching entry decides, whether it is locked or not
+        if (match[i]) begin
+          // an unlocked entry does not restrict M mode
+          if (priv_lvl_i == riscv::PRIV_LVL_M && !conf_i[i].locked) allow_o = 1'b1;
+          // in S or U mode, or for a locked entry, the R/W/X bits apply
+          else if ((access_type_i & conf_i[i].access_type) != access_type_i) allow_o = 1'b0;
+          else allow_o = 1'b1;
+          break;
         end
       end
       if (i == CVA6Cfg.NrPMPEntries) begin  // no PMP entry matched the address

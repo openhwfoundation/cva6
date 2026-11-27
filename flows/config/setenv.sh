@@ -23,8 +23,20 @@ export XILINX_VIVADO_BASHRC=/xilinx_path/Vivado/2018.2/settings64.sh
 #export XILINXD_LICENSE_FILE=port@your_xilinx_license_server
 # Board reached over the network, the USB cables staying on the machine it is
 # wired to (see the FPGA section of flows/README.md):
+# Bench PC reached over SSH: fpga-boot opens a tunnel to it for each board,
+# the port of its serial bridge on the bench PC, and the local ports of its
+# tunnel (different for boards booting at the same time)
+#export BENCH_SSH=user@bench-pc
+#export BENCH_UART_PORT_FPGA_LINUX_CV32A6=4001
+#export BENCH_LOCAL_JTAG_PORT_FPGA_LINUX_CV32A6=<local_jtag_port>
+#export BENCH_LOCAL_UART_PORT_FPGA_LINUX_CV32A6=<local_uart_port>      
 #   hw_server <host>:3121 for the JTAG, a serial to TCP bridge for the console
 #export HW_SERVER_URL=bench-pc:3121
+#   Several boards on one hw_server: the JTAG serial of the board of each 
+#   target, as get_hw_targets shows it (one board: $HW_TARGET, or nothing)
+#export HW_TARGET_FPGA_LINUX_CV32A6=<FPGA_JTAG serial>
+#   Its console, when each board has its own (one board: $UART_SERIAL)
+#export UART_SERIAL_FPGA_LINUX_CV32A6=socket://bench-pc:4001
 #export UART_SERIAL=rfc2217://bench-pc:4001
 #Intel/Altera (FPGA recipes)
 # Quartus Prime Pro, with qsys-script and qsys-generate of its
@@ -36,7 +48,7 @@ export QUARTUS_SETUP=/altera_path/quartus/version/setup/bashrc.example
 #Generic tool
 export VERIBLE_PATH=/verible_path/verible-v0.0-3922-g26d4b0e0/bin
 # Verilator of the TestHarness recipes, also put in PATH below
-export VERILATOR_INSTALL_DIR=/verilator_path/verilator-v5.008
+export VERILATOR_INSTALL_DIR=/verilator_path/verilator-v5.050
 # Yosys with its slang plugin (yosys-synth), e.g. the OSS CAD Suite
 export YOSYS_PATH=/yosys_path/oss-cad-suite/bin
 #Python
@@ -68,10 +80,15 @@ export DASHBOARD_USER_EMAIL=gituser@example.com
 export DASHBOARD_USER_NAME="gituser"
 export DASHBOARD_URL="git@exemple.com:group/dashboard.git"
 #Update Path
-export PATH=$PATH:$VERIBLE_PATH
-export PATH=$PATH:$VERILATOR_INSTALL_DIR/bin
-export PATH=$PATH:$YOSYS_PATH
-export PATH=$PATH:$PYTHON_PATH
+# The tools go first in PATH, so the versions above win over the ones of
+# the system. Each line goes in front of the previous ones: the last one
+# comes first. Verilator is added after YOSYS_PATH so that it comes before
+# it: the OSS CAD Suite of YOSYS_PATH ships another Verilator, and the lint
+# baselines and the TestHarness need this version.
+export PATH=$PYTHON_PATH:$PATH
+export PATH=$YOSYS_PATH:$PATH
+export PATH=$VERIBLE_PATH:$PATH
+export PATH=$VERILATOR_INSTALL_DIR/bin:$PATH
 # Activating the virtual environment last puts its interpreter first, so
 # `./cook.py` runs with it whatever the shell had before.
 if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
