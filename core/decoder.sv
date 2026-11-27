@@ -1619,6 +1619,7 @@ module decoder
               5'h1: instruction_o.op = ariane_pkg::AMO_SWAPW;
               5'h2: begin
                 instruction_o.op = ariane_pkg::AMO_LRW;
+                instruction_o.fu = LOAD;
                 if (instr.atype.rs2 != 0) illegal_instr = 1'b1;
               end
               5'h3: instruction_o.op = ariane_pkg::AMO_SCW;
@@ -1638,6 +1639,7 @@ module decoder
               5'h1: instruction_o.op = ariane_pkg::AMO_SWAPD;
               5'h2: begin
                 instruction_o.op = ariane_pkg::AMO_LRD;
+                instruction_o.fu = LOAD;
                 if (instr.atype.rs2 != 0) illegal_instr = 1'b1;
               end
               5'h3: instruction_o.op = ariane_pkg::AMO_SCD;
