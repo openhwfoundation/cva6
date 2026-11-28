@@ -7,7 +7,7 @@ tqdm
 rich
 typer
 pyyaml
-pyslang
+pyslang>=11
 jinja2
 pyserial
 black
