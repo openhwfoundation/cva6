@@ -56,12 +56,12 @@ BASELINE_FILE = "expected_lint.yml"
 # driver of pyslang takes the very same command line as the binary
 PYSLANG_DRIVER = """
 import sys
-import pyslang
+from pyslang.driver import CommandLineOptions, Driver
 
-driver = pyslang.Driver()
+driver = Driver()
 driver.addStandardArgs()
 args = " ".join(["slang"] + ['"' + a + '"' for a in sys.argv[1:]])
-if not driver.parseCommandLine(args, pyslang.CommandLineOptions()):
+if not driver.parseCommandLine(args, CommandLineOptions()):
     sys.exit(2)
 if not driver.processOptions():
     sys.exit(2)
