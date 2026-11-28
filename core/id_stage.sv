@@ -156,6 +156,7 @@ module id_stage #(
   logic                                               stall_macro_deco_zcmp;
   logic                                               is_last_macro_instr;
   logic                                               is_double_rd_macro_instr;
+  logic                                               is_macro_instr_atomic;
 
   // ZCMT decoder signals
   logic                                               is_illegal_zcmt;
@@ -208,7 +209,8 @@ module id_stage #(
           .is_compressed_o           (is_compressed_zcmp),
           .fetch_stall_o             (stall_macro_deco_zcmp),
           .is_last_macro_instr_o     (is_last_macro_instr),
-          .is_double_rd_macro_instr_o(is_double_rd_macro_instr)
+          .is_double_rd_macro_instr_o(is_double_rd_macro_instr),
+          .is_macro_instr_atomic_o   (is_macro_instr_atomic)
       );
     end else begin
       assign instruction_zcmp         = instruction_rvc;
@@ -217,6 +219,7 @@ module id_stage #(
       assign stall_macro_deco_zcmp    = '0;
       assign is_last_macro_instr      = '0;
       assign is_double_rd_macro_instr = '0;
+      assign is_macro_instr_atomic    = '0;
     end
 
     if (CVA6Cfg.RVZCMT) begin
@@ -308,6 +311,7 @@ module id_stage #(
     assign stall_macro_deco_zcmp = 1'b0;
     assign is_last_macro_instr = 1'b0;
     assign is_double_rd_macro_instr = 1'b0;
+    assign is_macro_instr_atomic = 1'b0;
     assign instruction_zcmt = instruction_rvc[0];
     assign is_illegal_zcmt = is_illegal_rvc[0];
     assign is_compressed_zcmt = is_compressed_rvc[0];
@@ -370,6 +374,7 @@ module id_stage #(
         .is_zcmt_i                 (is_zcmt_instr[i]),
         .is_last_macro_instr_i     (is_last_macro_instr),
         .is_double_rd_macro_instr_i(is_double_rd_macro_instr),
+        .is_macro_instr_atomic_i   (is_macro_instr_atomic),
         .jump_address_i            (jump_address),
         .is_illegal_i              (is_illegal_deco[i]),
         .instruction_i             (instruction_deco[i]),
