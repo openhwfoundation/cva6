@@ -30,7 +30,8 @@ module macro_decoder #(
     output logic        is_compressed_o,
     output logic        fetch_stall_o,              // Wait while push/pop/move instructions expand
     output logic        is_last_macro_instr_o,
-    output logic        is_double_rd_macro_instr_o
+    output logic        is_double_rd_macro_instr_o,
+    output logic        is_macro_instr_atomic_o
 );
 
   // FSM States
@@ -64,6 +65,11 @@ module macro_decoder #(
 
   riscv::itype_t itype_inst;
   assign instr_o = instr_o_reg;
+  // Defer interrupts while completing a double-move or a popret[z] atomic tail.
+  // An intervening interrupt could otherwise expose a partial register update or adjust the stack
+  // pointer twice when the macro instruction is replayed.
+  assign is_macro_instr_atomic_o = (state_q == MOVE) || (state_q == POPRETZ_1) ||
+                                   ((state_q == PUSH_ADDI) && (popretz_inst_q != 2'b00));
 
   // Size of a saved register: the stack slots are 4 bytes apart on RV32 and
   // 8 bytes on RV64, accessed with sw/lw or sd/ld.
@@ -622,10 +628,16 @@ module macro_decoder #(
       popretz_inst_q <= '0;
       reg_numbers_q <= '0;
       store_reg_q <= '0;
-    end else begin
+    end else if (flush_i) begin
       // A flushed macro instruction leaves its expansion: the next one starts
       // from IDLE, not from the micro-op the flushed one stopped at
-      state_q <= flush_i ? IDLE : state_d;
+      state_q <= IDLE;
+      offset_q <= '0;
+      popretz_inst_q <= '0;
+      reg_numbers_q <= '0;
+      store_reg_q <= '0;
+    end else begin
+      state_q <= state_d;
       offset_q <= offset_d;
       reg_numbers_q <= reg_numbers_d;
       store_reg_q <= store_reg_d;
